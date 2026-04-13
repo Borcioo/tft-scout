@@ -234,23 +234,106 @@ function pushHighBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightI
   }
 }
 
-// ── Concern rules (stubs — filled in Task 3) ────
+// ── Concern rules ───────────────────────────────
 
 function pushWeakChampion(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
-  // Task 3.
+  const activeTraitSet = new Set(team.activeTraits.map(t => t.apiName));
+  const activeTraitNames = new Map(team.activeTraits.map(t => [t.apiName, t.name]));
+  const seen = new Set<string>();
+
+  for (const champ of team.champions) {
+    const api = lookupApi(champ);
+    if (seen.has(api)) continue;
+    seen.add(api);
+    if (champ.cost < CFG.weakChampion.minCost) continue;
+    const rating = ctx.unitRatings?.[api];
+    if (!rating) continue;
+    if (rating.games < CFG.weakChampion.minGames) continue;
+    if (rating.avgPlace < CFG.weakChampion.minAvgPlace) continue;
+
+    const reasonTraitApi = champ.traits.find(t => activeTraitSet.has(t)) ?? champ.traits[0] ?? '';
+    const reasonTraitName = activeTraitNames.get(reasonTraitApi) ?? reasonTraitApi;
+
+    out.push({
+      kind: 'weakChampion',
+      championApiName: api,
+      championName: champ.name,
+      avgPlace: rating.avgPlace,
+      reasonTraitName,
+    });
+  }
 }
+
 function pushLowBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
-  // Task 3.
+  for (const trait of team.activeTraits) {
+    const bps = (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
+    const idx = activeBreakpointIdx(trait.count, bps);
+    if (idx !== 0) continue; // only fires when the trait sits on its lowest active breakpoint
+    const rating = ctx.traitRatings?.[trait.apiName]?.[1];
+    if (!rating) continue;
+    if (rating.avgPlace < CFG.lowBreakpoint.minAvgPlace) continue;
+    out.push({
+      kind: 'lowBreakpoint',
+      traitApiName: trait.apiName,
+      displayName: trait.name,
+      count: trait.count,
+      avgPlace: rating.avgPlace,
+    });
+  }
 }
+
 function pushUnprovenTrait(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
-  // Task 3.
+  for (const trait of team.activeTraits) {
+    if (trait.breakpoint == null) continue;
+    const rating = ctx.traitRatings?.[trait.apiName]?.[trait.breakpoint];
+    if (!rating) continue;
+    if (rating.games >= CFG.unprovenTrait.maxGames) continue;
+    out.push({
+      kind: 'unprovenTrait',
+      traitApiName: trait.apiName,
+      displayName: trait.name,
+      games: rating.games,
+    });
+  }
 }
+
 function pushSingleCore(team: ScoredTeam, out: InsightItem[]): void {
-  // Task 3.
+  const highBp = team.activeTraits.filter(t => {
+    const bps = (t as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
+    const idx = activeBreakpointIdx(t.count, bps);
+    return idx >= 1;
+  });
+  if (highBp.length === 1) {
+    const only = highBp[0];
+    out.push({
+      kind: 'singleCore',
+      traitApiName: only.apiName,
+      displayName: only.name,
+    });
+  }
 }
-function pushNoMetaMatch(team: ScoredTeam, ctx: ScoringContext, median: number, out: InsightItem[]): void {
-  // Task 3.
+
+function pushNoMetaMatch(
+  team: ScoredTeam,
+  ctx: ScoringContext,
+  median: number,
+  out: InsightItem[],
+): void {
+  if (team.score >= median) return; // only experimental-looking, below-median teams
+
+  const teamApis = new Set(team.champions.map(c => lookupApi(c)));
+  for (const meta of ctx.metaComps ?? []) {
+    const units = meta.units;
+    if (units.length === 0) continue;
+    const overlap = units.filter(u => teamApis.has(u)).length / units.length;
+    if (overlap >= CFG.noMetaMatch.minOverlapPctIgnore) return; // has some meta match, bail
+  }
+
+  out.push({ kind: 'noMetaMatch' });
 }
+
 function pushStaleData(ctx: ScoringContext, out: InsightItem[]): void {
-  // Task 3.
+  if ((ctx as unknown as { stale?: boolean }).stale === true) {
+    out.push({ kind: 'staleData' });
+  }
 }
