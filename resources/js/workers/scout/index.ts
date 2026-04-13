@@ -14,7 +14,13 @@ let cachedContext: ScoutContext | null = null;
 
 async function fetchContext(): Promise<ScoutContext> {
     if (cachedContext) return cachedContext;
-    const res = await fetch('/api/scout/context', {
+    // In dev the worker runs under a `blob:` origin injected by
+    // use-scout-worker.ts, which can't resolve root-relative URLs.
+    // The hook sets `self.__API_BASE__` so we can build absolutes.
+    // Empty string falls through to normal same-origin behavior in
+    // prod where the worker inherits the page origin directly.
+    const base = (self as unknown as { __API_BASE__?: string }).__API_BASE__ ?? '';
+    const res = await fetch(`${base}/api/scout/context`, {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
     });

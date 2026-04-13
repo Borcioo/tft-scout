@@ -6,21 +6,21 @@ import type { ScoutParams, ScoredTeam, WorkerOutMsg } from '@/workers/scout/type
 // Legacy pattern — one worker instance for the entire /scout session,
 // terminated when every consumer unmounts.
 //
-// The `?worker&inline` import tells Vite to embed the worker script as
-// a base64 blob inside the main bundle. Two reasons it matters:
+// Cross-origin worker problem (dev only):
 //
-// 1. In dev with Laravel Herd, the page is served from
-//    https://tft-scout.test (port 443) while Vite serves assets from
-//    :5173. `new Worker(new URL('./worker.ts', import.meta.url))`
-//    resolves to :5173, which the browser rejects with SecurityError
-//    because `new Worker` requires a same-origin script URL.
-// 2. `&inline` sidesteps the whole origin check by handing the worker
-//    a `blob:` URL generated client-side from the embedded base64
-//    script. Same origin as the page, always.
+// Herd serves the page on https://tft-scout.test (:443). Vite's dev
+// server runs on :5173. `new Worker(crossOriginUrl, {type:'module'})`
+// throws SecurityError regardless of CORS headers — the HTML spec
+// requires module worker script URLs to be same-origin with the page.
 //
-// Bundle size cost: the worker + all its imports (scout algorithm,
-// ~30 KB gzipped) are inlined into the main chunk. Acceptable for a
-// single-page app where users hit /scout deliberately.
+// `?worker&inline` is a BUILD-time transform — in dev, Vite still
+// serves the worker from :5173, so the inline import alone doesn't
+// help. Workaround: in dev, build a tiny same-origin blob stub that
+// does `import "<vite-url>"`. The blob inherits the page origin so
+// `new Worker` accepts it, and the dynamic ES import inside the worker
+// goes through CORS (server.cors: true in vite.config.ts). In prod,
+// `?worker&inline` produces a real inlined blob at build time, so we
+// use it directly — same file, two code paths.
 
 let sharedWorker: Worker | null = null;
 let refCount = 0;
@@ -33,9 +33,37 @@ type Pending = {
 
 const pending = new Map<number, Pending>();
 
+function createWorker(): Worker {
+    if (import.meta.env.DEV) {
+        // Vite rewrites `new URL(..., import.meta.url)` at transform
+        // time to the dev server URL for the entry file. We don't
+        // pass it to `new Worker` directly (that's the cross-origin
+        // error) — instead we wrap it in a same-origin blob that
+        // dynamically imports it. Vite's CORS headers allow the
+        // import; the blob's origin satisfies the Worker SOP check.
+        const workerUrl = new URL(
+            '../workers/scout/index.ts',
+            import.meta.url,
+        ).href;
+        // Blob workers run under a `blob:` origin with no host, so
+        // `fetch('/api/...')` inside the worker throws "Failed to parse
+        // URL". Inject the page origin as a global so the worker can
+        // build absolute URLs. In prod (`?worker&inline`) the page
+        // origin is inherited automatically, so this only matters here.
+        const stub =
+            `self.__API_BASE__=${JSON.stringify(location.origin)};` +
+            `import ${JSON.stringify(workerUrl)};`;
+        const blobUrl = URL.createObjectURL(
+            new Blob([stub], { type: 'application/javascript' }),
+        );
+        return new Worker(blobUrl, { type: 'module' });
+    }
+    return new ScoutWorker();
+}
+
 function getWorker(): Worker {
     if (!sharedWorker) {
-        sharedWorker = new ScoutWorker();
+        sharedWorker = createWorker();
         sharedWorker.onmessage = (e: MessageEvent<WorkerOutMsg>) => {
             const msg = e.data;
             const handler = pending.get(msg.id);

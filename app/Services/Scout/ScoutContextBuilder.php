@@ -274,7 +274,10 @@ class ScoutContextBuilder
             ->map(fn (MetaComp $comp) => [
                 'id' => $comp->external_id,
                 'name' => $comp->name,
-                'champs' => $comp->champions->pluck('api_name')->all(),
+                // Worker (`engine.ts`) reads this as `meta.units` —
+                // legacy port expected the `units` key. Keep the
+                // shape matching the worker to avoid another crash.
+                'units' => $comp->champions->pluck('api_name')->all(),
                 'avgPlace' => (float) $comp->avg_place,
                 'games' => (int) $comp->games,
                 'level' => (int) $comp->level,

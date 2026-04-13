@@ -41,12 +41,24 @@ class MetaTftSync
         $championsByApiName = Champion::query()
             ->where('set_id', $set->id)
             ->get()
-            ->keyBy('api_name');
+            ->keyBy('api_name')
+            // ->all() flattens to a plain PHP array so the `[$key] ?? null`
+            // lookups below don't trigger Collection::offsetGet, which in
+            // PHP 8 emits "Undefined array key" before the null-coalesce
+            // can swallow it. Seen on meta unit `TFT17_Summon` (a PvE row
+            // from MetaTFT that has no matching champion in our DB).
+            ->all();
 
         $traitsByApiName = TftTrait::query()
             ->where('set_id', $set->id)
             ->get()
-            ->keyBy('api_name');
+            ->keyBy('api_name')
+            // ->all() flattens to a plain PHP array so the `[$key] ?? null`
+            // lookups below don't trigger Collection::offsetGet, which in
+            // PHP 8 emits "Undefined array key" before the null-coalesce
+            // can swallow it. Seen on meta unit `TFT17_Summon` (a PvE row
+            // from MetaTFT that has no matching champion in our DB).
+            ->all();
 
         $status = 'ok';
         $notes = null;
@@ -87,6 +99,7 @@ class MetaTftSync
             Log::error('MetaTftSync failed', [
                 'set' => $setNumber,
                 'error' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
             ]);
         }
 
@@ -180,6 +193,10 @@ class MetaTftSync
         foreach ($dtos as $dto) {
             $comp = MetaComp::create([
                 'set_id' => $set->id,
+                // `cluster_id` is the primary DB identifier for a
+                // cluster (unique, not-null); `external_id` mirrors it
+                // and was added later for cross-reference — set both.
+                'cluster_id' => $dto->id,
                 'external_id' => $dto->id,
                 'name' => $dto->name,
                 'avg_place' => $dto->avgPlace,
@@ -189,7 +206,7 @@ class MetaTftSync
 
             // Attach champions via pivot (meta_comp_champions).
             $champIds = collect($dto->championApiNames)
-                ->map(fn ($api) => $championsByApiName[$api]?->id)
+                ->map(fn ($api) => ($championsByApiName[$api] ?? null)?->id)
                 ->filter()
                 ->values()
                 ->all();
