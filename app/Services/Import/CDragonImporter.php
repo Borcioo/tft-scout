@@ -12,6 +12,7 @@ use App\Services\Import\Contracts\PostImportHook;
 use App\Services\Import\SetHooks\Set17\MechaEnhancedHook;
 use App\Services\Import\SetHooks\Set17\RemoveNonPlayableHook;
 use App\Services\Import\SetHooks\Shared\CharacterAbilityEnrichHook;
+use App\Services\Import\SetHooks\Shared\HeroAbilityVariantHook;
 use App\Services\Import\SetHooks\Shared\VariantChoiceHook;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,7 @@ class CDragonImporter
             RemoveNonPlayableHook::class,
             CharacterAbilityEnrichHook::class,
             VariantChoiceHook::class,
+            HeroAbilityVariantHook::class,
             MechaEnhancedHook::class,
         ],
     ];

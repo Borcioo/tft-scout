@@ -49,7 +49,6 @@ class Champion extends Model
         'crit_multiplier',
         'ability_desc',
         'ability_stats',
-        'hero_ability',
         'base_champion_id',
         'variant_label',
         'planner_code',
@@ -71,7 +70,6 @@ class Champion extends Model
         'crit_chance' => 'float',
         'crit_multiplier' => 'float',
         'ability_stats' => 'array', // JSONB → [{name, value: [...]}]
-        'hero_ability' => 'array',  // JSONB → {name, desc, stats: [...]}
         'planner_code' => 'integer',
     ];
 

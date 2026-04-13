@@ -53,14 +53,6 @@ type Champion = {
     };
     ability_desc: string | null;
     ability_stats: AbilityStat[];
-    // Hero Augment form — second spell shipped in the same character
-    // bin as `{primary}Hero` (Aatrox "Stellar Combo" etc). Only
-    // present for champions with the DRX Hero mechanic.
-    hero_ability: {
-        name: string | null;
-        desc: string;
-        stats: AbilityStat[];
-    } | null;
     traits: ChampionTrait[];
 };
 
@@ -694,21 +686,6 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
         [champion.ability_desc, champion.ability_stats, starLevel, statOffset],
     );
 
-    // Hero ability (Hero Augment alternative spell) — only present for
-    // the handful of champions with a Set 17 Hero mechanic (Aatrox
-    // "Stellar Combo", etc.). Parsed independently so star level
-    // toggling affects both sections simultaneously.
-    const parsedHeroAbility = useMemo(() => {
-        if (!champion.hero_ability) return null;
-
-        return parseAbilityDescription(
-            champion.hero_ability.desc,
-            champion.hero_ability.stats,
-            starLevel,
-            statOffset,
-        );
-    }, [champion.hero_ability, starLevel, statOffset]);
-
     // TFT only has 1-3★ in normal play. CDragon arrays often contain 5-7
     // positions with debug/chibi/placeholder data at positions 3-6 that
     // looks "real" (non-zero) but isn't actual in-game values. Keep display
@@ -1009,102 +986,6 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                         )}
                     </CardContent>
                 </Card>
-
-                {/* ── Hero Ability (DRX Hero Augment form) ───── */}
-                {champion.hero_ability && (
-                    <Card className="border-amber-500/40 bg-amber-500/[0.03]">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <span className="text-amber-500">Hero Ability:</span>{' '}
-                                {champion.hero_ability.name ?? 'Unnamed'}
-                                <Badge
-                                    variant="outline"
-                                    className="border-amber-500/60 px-2 py-0 text-[10px] text-amber-500"
-                                >
-                                    DRX
-                                </Badge>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {parsedHeroAbility ? (
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                                    {parsedHeroAbility}
-                                </p>
-                            ) : (
-                                <p className="text-sm text-muted-foreground">
-                                    Hero ability template could not be rendered.
-                                </p>
-                            )}
-
-                            {champion.hero_ability.stats.length > 0 && (
-                                <details className="mt-4">
-                                    <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                                        Hero values per star level ({champion.hero_ability.stats.length})
-                                    </summary>
-                                    <div className="mt-2 overflow-x-auto">
-                                        <table className="w-full text-xs">
-                                            <thead>
-                                                <tr className="border-b text-left text-muted-foreground">
-                                                    <th className="py-1 pr-4">Variable</th>
-                                                    {visibleStarLevels.map((s) => (
-                                                        <th
-                                                            key={s}
-                                                            className={cn(
-                                                                'py-1 pr-4 text-right',
-                                                                s === starLevel && 'text-amber-500',
-                                                            )}
-                                                        >
-                                                            ★{s}
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {champion.hero_ability.stats.map((stat) => (
-                                                    <tr
-                                                        key={stat.name}
-                                                        className={cn(
-                                                            'border-b border-border/40',
-                                                            stat.kind === 'calculated' && 'bg-amber-500/5',
-                                                        )}
-                                                    >
-                                                        <td className="py-1 pr-4 font-mono">
-                                                            {stat.name}
-                                                            {stat.kind === 'calculated' && (
-                                                                <span
-                                                                    className="ml-1 text-[9px] text-amber-500/70"
-                                                                    title="Computed from raw data values"
-                                                                >
-                                                                    fx
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        {visibleStarLevels.map((s) => {
-                                                            const value = getStarValue(stat, s, statOffset);
-                                                            return (
-                                                                <td
-                                                                    key={s}
-                                                                    className={cn(
-                                                                        'py-1 pr-4 text-right font-mono',
-                                                                        s === starLevel && 'text-amber-500',
-                                                                    )}
-                                                                >
-                                                                    {value !== undefined
-                                                                        ? formatStatValue(value, { stat })
-                                                                        : '—'}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </details>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* ── MetaTFT Performance (placeholder) ───── */}
                 <Card>
