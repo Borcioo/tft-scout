@@ -67,7 +67,7 @@ export type CompanionEntry = {
 export type MetaCompEntry = {
     id: string;
     name: string;
-    champs: string[];
+    units: string[];
     avgPlace: number;
     games: number;
     level: number;

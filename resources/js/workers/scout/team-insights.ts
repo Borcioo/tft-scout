@@ -89,9 +89,7 @@ function pushMetaMatch(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]
 
   for (const meta of ctx.metaComps ?? []) {
     if (meta.avgPlace > CFG.metaMatch.maxAvgPlace) continue;
-    const units: string[] = (meta as unknown as { units?: string[]; champs?: string[] }).units
-      ?? (meta as unknown as { units?: string[]; champs?: string[] }).champs
-      ?? [];
+    const units = meta.units;
     if (units.length === 0) continue;
     const overlapCount = units.filter(u => teamApis.has(u)).length;
     const overlapPct = overlapCount / units.length;
