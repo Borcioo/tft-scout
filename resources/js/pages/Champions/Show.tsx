@@ -365,6 +365,18 @@ function parseAbilityDescription(
     // Convert <br> to newlines before other tag stripping
     text = text.replace(/<br\s*\/?>/gi, '\n');
 
+    // Fix malformed scale icon markers in Riot's templates. Some stringtable
+    // entries (observed: MF Set 17 Challenger Mode) close the final marker
+    // early, producing `(%i:scaleAD%%i:scaleAP)` — the second `%i:scaleAP`
+    // has no trailing `%`. Insert the missing `%` so the consecutive-marker
+    // regex below can match the full sequence and join with "+".
+    //
+    // Heuristic: `%i:word` not followed by `%` needs its closer. The
+    // lookahead also rejects word chars to prevent the greedy `\w+`
+    // from backtracking into the middle of a correctly-closed marker
+    // (e.g. `%i:scaleAD%` would otherwise match `%i:scaleA` + `D`).
+    text = text.replace(/(%i:\w+)(?![%\w])/g, '$1%');
+
     // Convert scaling icon markers like %i:scaleAD% into short text labels.
     // In-game these render as small icons indicating which champion stats
     // the damage/heal scales with. We replace them with abbreviated labels
