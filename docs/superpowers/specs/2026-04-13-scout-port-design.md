@@ -21,7 +21,10 @@ works end-to-end":
 - Lazy-loaded transitions ("what's on the path to this comp")
 - Road-to ("step-by-step buy order for target comp")
 - Rich insights (emblem opportunities, vertical potential breakdown)
-- Meta-comp match enrichment beyond a plain "this matches X" badge
+- Meta-comp match enrichment beyond a plain "this matches X" badge.
+  Note: the bundle *does* still ship `meta_comps` data to the worker —
+  phase 6 of the algorithm seeds teams from them — it's only the UI
+  enrichment panel that's deferred.
 
 The algorithm still produces the data these features would consume,
 so adding them later is additive — no refactoring of core engine.
