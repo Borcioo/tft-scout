@@ -150,28 +150,54 @@ function scaleStat(base: number, starLevel: number): number {
  * Detect CDragon's star-position offset convention for a champion.
  *
  * CDragon is INCONSISTENT about which array position represents 1-star:
- *   - Some champions use position 0 as the real 1-star value (typical 1-cost
- *     units like Aatrox, Caitlyn — ability is usable from 1-star).
- *   - Others use position 0 as a zero "template" placeholder and start real
- *     values at position 1 (typical for high-cost units like Galio where
- *     position 0 encodes "no ability / pre-1-star state").
+ *   - Legacy en_us.json format: position 0 is a zero placeholder, real
+ *     values start at position 1. [0, 100, 200, 300, 0, 0, 0] → offset=1
+ *   - Legacy alternate: position 0 IS the 1-star value (low-cost units).
+ *     [50, 100, 200, 0, 0, 0, 0] → offset=0
+ *   - New BIN format (e.g. MF Set 17 stance spells): position 0 is a
+ *     non-zero SENTINEL value that repeats at trailing unused positions.
+ *     [2.5, 65, 100, 155, 265, 2.5, 2.5] → offset=1
  *
- * Heuristic: if MAJORITY of stats have position 0 = 0, use offset 1.
- * Constant stats (HexRange = [2,2,2,...]) are excluded because their
- * position 0 is always meaningful regardless of convention.
+ * Heuristic: for each non-constant stat, classify its slot-0 convention:
+ *   1. Sentinel pattern — slot 0 matches the last slot and differs from
+ *      slot 1, meaning slot 0 is unused placeholder → vote offset=1
+ *   2. Zero pattern — slot 0 is literal 0 (legacy empty marker)
+ *      → vote offset=1
+ *   3. Otherwise — slot 0 carries real data → vote offset=0
+ *
+ * Majority vote wins. Constant stats (HexRange = [2,2,2,...]) are
+ * excluded because their position 0 is always meaningful.
  */
 function detectStatOffset(stats: AbilityStat[]): number {
-    let zeroAtZero = 0;
-    let nonZeroAtZero = 0;
+    let offsetOneVotes = 0;
+    let offsetZeroVotes = 0;
+
     for (const stat of stats) {
+        const values = stat.value;
+        const last = values.length - 1;
+        if (last < 1) continue;
+
         // Skip constant stats — all positions identical, offset doesn't matter
-        const allSame = stat.value.every((v) => v === stat.value[0]);
+        const allSame = values.every((v) => v === values[0]);
         if (allSame) continue;
 
-        if (stat.value[0] === 0) zeroAtZero++;
-        else nonZeroAtZero++;
+        const slot0 = values[0];
+        const slot1 = values[1];
+        const slotLast = values[last];
+
+        // New BIN sentinel pattern: slot 0 repeats at trailing slot(s) and
+        // slot 1 is different. This is how MF Set 17 stance spells encode
+        // "no active star level" in unused array positions.
+        const hasSentinelPattern = slot0 === slotLast && slot0 !== slot1;
+
+        if (hasSentinelPattern || slot0 === 0) {
+            offsetOneVotes++;
+        } else {
+            offsetZeroVotes++;
+        }
     }
-    return zeroAtZero > nonZeroAtZero ? 1 : 0;
+
+    return offsetOneVotes > offsetZeroVotes ? 1 : 0;
 }
 
 function getStarValue(
