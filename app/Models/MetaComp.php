@@ -21,6 +21,7 @@ class MetaComp extends Model
     public const CREATED_AT = null;
 
     protected $fillable = [
+        'external_id',
         'cluster_id',
         'set_id',
         'name',
@@ -29,6 +30,7 @@ class MetaComp extends Model
         'top_builds',
         'avg_place',
         'games',
+        'level',
     ];
 
     protected $casts = [
