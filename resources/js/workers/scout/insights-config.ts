@@ -1,8 +1,12 @@
-// Single source of truth for every threshold used by team-insights.ts.
-// Keeping it one file makes tuning cheap — change a number, reload,
-// re-run scout. See docs/superpowers/specs/2026-04-14-scout-why-this-comp-design.md
-// for the reasoning behind each value and the ones marked for
-// empirical tuning.
+/**
+ * Insights configuration — thresholds for team-insights.ts triggers.
+ *
+ * Single source of truth for every number a rule in team-insights.ts
+ * checks. Change a value, reload, re-run scout. See
+ * docs/superpowers/specs/2026-04-14-scout-why-this-comp-design.md
+ * for the reasoning behind each value and the ones marked for
+ * empirical tuning.
+ */
 
 export const INSIGHTS_CONFIG = {
     metaMatch: {
