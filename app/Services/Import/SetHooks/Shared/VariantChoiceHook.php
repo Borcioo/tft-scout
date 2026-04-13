@@ -229,16 +229,17 @@ class VariantChoiceHook implements PostImportHook
             return $fallback;
         }
 
-        // Resolve the template from stringtable. We store the TEMPLATE
-        // (not rendered), so the frontend can plug in different star
-        // levels at display time.
+        // Resolve the template from stringtable and merge data values
+        // with evaluated spell calculations. We store the TEMPLATE (not
+        // rendered), so the frontend can render per star level at
+        // display time. The merged stats list includes both raw
+        // DataValues and calculated values (@TotalDamage@ etc.) so the
+        // frontend has everything it needs for placeholder substitution.
         $resolved = $this->abilityResolver->resolve(
             $match['loc_keys'] ?? ['key_name' => null, 'key_tooltip' => null],
             $match['data_values'] ?? [],
-            // Star level is irrelevant when we're storing the template —
-            // renderTemplate won't touch placeholders without DataValues.
-            // Pass 0 defensively.
             starLevel: 0,
+            calculations: $match['calculations'] ?? [],
         );
 
         $template = $resolved['template'] ?? null;
@@ -248,16 +249,7 @@ class VariantChoiceHook implements PostImportHook
 
         return [
             'desc' => $template,
-            // Normalise inspector's `values` to `value` (singular) so the
-            // format matches what CDragonImporter already writes from
-            // en_us.json: [{name: "X", value: [n1, n2, ...]}].
-            'stats' => array_map(
-                fn (array $dv) => [
-                    'name' => $dv['name'],
-                    'value' => $dv['values'],
-                ],
-                $match['data_values'] ?? [],
-            ),
+            'stats' => $resolved['merged_stats'] ?? [],
         ];
     }
 

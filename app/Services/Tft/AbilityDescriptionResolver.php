@@ -28,7 +28,41 @@ class AbilityDescriptionResolver
 {
     public function __construct(
         private readonly StringtableCache $stringtable,
+        private readonly SpellCalculationEvaluator $calculationEvaluator,
     ) {}
+
+    /**
+     * Merge DataValues with evaluated SpellCalculations into one flat list
+     * that template rendering can look variables up in.
+     *
+     * Calculated entries are appended after raw data values. A `@TotalDamage@`
+     * placeholder in the template resolves against an evaluated calc first
+     * (precomputed per star level), while simple `@Duration@` placeholders
+     * still find their raw DataValue. Calc entries get `kind: calculated`
+     * so downstream consumers (DB, frontend) can tell them apart.
+     *
+     * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
+     * @param  array<string, mixed>  $calculations
+     * @return list<array{name: string, value: array<int, int|float>, kind?: string}>
+     */
+    public function mergeDataValuesWithCalculations(array $dataValues, array $calculations): array
+    {
+        $merged = array_map(
+            fn (array $dv) => [
+                'name' => $dv['name'],
+                // Normalise to `value` (singular) to match the existing
+                // en_us.json-sourced ability_stats column format.
+                'value' => $dv['values'] ?? $dv['value'] ?? [],
+            ],
+            $dataValues,
+        );
+
+        foreach ($this->calculationEvaluator->evaluate($calculations, $dataValues) as $calc) {
+            $merged[] = $calc;
+        }
+
+        return $merged;
+    }
 
     /**
      * Resolve a spell's name and description into text, rendering for a
@@ -36,7 +70,8 @@ class AbilityDescriptionResolver
      *
      * @param  array{key_name: string|null, key_tooltip: string|null}  $locKeys
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
-     * @return array{name: string|null, template: string|null, rendered: string|null}
+     * @param  array<string, mixed>  $calculations  raw mSpellCalculations dict
+     * @return array{name: string|null, template: string|null, rendered: string|null, merged_stats: array}
      */
     public function resolve(
         array $locKeys,
@@ -44,20 +79,24 @@ class AbilityDescriptionResolver
         int $starLevel = 2,
         string $channel = 'pbe',
         string $locale = 'en_us',
+        array $calculations = [],
     ): array {
         $entries = $this->stringtable->entries($channel, $locale);
 
         $name = $this->lookup($entries, $locKeys['key_name'] ?? null);
         $template = $this->lookup($entries, $locKeys['key_tooltip'] ?? null);
 
+        $mergedStats = $this->mergeDataValuesWithCalculations($dataValues, $calculations);
+
         $rendered = $template !== null
-            ? $this->renderTemplate($template, $dataValues, $starLevel)
+            ? $this->renderTemplate($template, $mergedStats, $starLevel)
             : null;
 
         return [
             'name' => $name,
             'template' => $template,
             'rendered' => $rendered,
+            'merged_stats' => $mergedStats,
         ];
     }
 
@@ -78,15 +117,19 @@ class AbilityDescriptionResolver
 
     /**
      * Replace @VarName@ and @VarName*N@ placeholders in a description
-     * template with values drawn from DataValues at the given star level.
+     * template with values drawn from merged data values / calculations
+     * at the given star level.
+     *
+     * Accepts both `values` (plural, inspector format) and `value` (singular,
+     * normalised format) since merged_stats uses `value` after normalisation.
      */
-    private function renderTemplate(string $template, array $dataValues, int $starLevel): string
+    private function renderTemplate(string $template, array $stats, int $starLevel): string
     {
         // Build a name => value map for quick lookup
         $values = [];
-        foreach ($dataValues as $dv) {
-            $arr = $dv['values'] ?? [];
-            $values[$dv['name']] = $arr[$starLevel] ?? ($arr[0] ?? null);
+        foreach ($stats as $entry) {
+            $arr = $entry['value'] ?? $entry['values'] ?? [];
+            $values[$entry['name']] = $arr[$starLevel] ?? ($arr[0] ?? null);
         }
 
         // Match @VarName@ and @VarName*N@ (N can be int or float)

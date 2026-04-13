@@ -156,6 +156,7 @@ class InspectCharacterBin extends Command
                     $spell['data_values'] ?? [],
                     $starLevel,
                     $channel,
+                    calculations: $spell['calculations'] ?? [],
                 );
             }
             unset($spell);

@@ -21,6 +21,11 @@ type ChampionTrait = {
 type AbilityStat = {
     name: string;
     value: number[];
+    // Calculated entries are computed by SpellCalculationEvaluator from
+    // mSpellCalculations (e.g. TotalDamage = sum of ADDamage + APDamage
+    // scaled by ratios). Raw data values have no `kind` and come straight
+    // from DataValues in the spell bin.
+    kind?: 'calculated';
 };
 
 type Champion = {
@@ -860,10 +865,22 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                                                 (stat) => (
                                                     <tr
                                                         key={stat.name}
-                                                        className="border-b border-border/40"
+                                                        className={cn(
+                                                            'border-b border-border/40',
+                                                            stat.kind === 'calculated' &&
+                                                                'bg-amber-500/5',
+                                                        )}
                                                     >
                                                         <td className="py-1 pr-4 font-mono">
                                                             {stat.name}
+                                                            {stat.kind === 'calculated' && (
+                                                                <span
+                                                                    className="ml-1 text-[9px] text-amber-500/70"
+                                                                    title="Computed from raw data values via spell formula"
+                                                                >
+                                                                    fx
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         {visibleStarLevels.map(
                                                             (s) => {

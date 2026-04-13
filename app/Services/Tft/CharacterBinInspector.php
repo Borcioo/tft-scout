@@ -174,6 +174,9 @@ class CharacterBinInspector
                 'cast_cone_distance' => $mSpell['castConeDistance'] ?? null,
                 'missile_speed' => $mSpell['missileSpeed'] ?? null,
                 'data_values' => $this->extractDataValues($mSpell),
+                'calculations' => is_array($mSpell['mSpellCalculations'] ?? null)
+                    ? $mSpell['mSpellCalculations']
+                    : [],
                 'loc_keys' => $this->extractLocKeys($mSpell),
             ];
         }
