@@ -303,6 +303,27 @@ class SpellCalculationEvaluator
 
                 return $coefficient * $statValue;
 
+            case 'BuffCounterByNamedDataValueCalculationPart':
+                // Runtime semantics: `buff_stack_count × dataValue`. At
+                // tooltip render time there's no active game state, so
+                // we substitute "1 stack" and return the per-stack value
+                // directly. This renders useful numbers in both usage
+                // shapes observed so far:
+                //
+                //   - Standalone calc (Poppy `{cb7b0bb4}` = ModifiedMeepBonus):
+                //     returns dataValue → frontend formats < 1 as percent
+                //     → "15%" for Poppy's DamagePerMeep=0.15.
+                //   - Nested inside `(1 + buff_counter)` (Meepsie
+                //     TotalBonusDamage): gives `(1 + 0.6) × 45 = 72`,
+                //     i.e. "damage with one meep stack". Not strictly the
+                //     zero-stack baseline, but readable in the tooltip and
+                //     avoids a `[Stub]` fallback.
+                //
+                // If we ever need the strict baseline we can thread parent
+                // calc metadata (mDisplayAsPercent etc.) through context —
+                // left for when an actual spell breaks because of it.
+                return $this->resolveDataValue($part, $context, $star);
+
             // By-reference sub-calc: resolves via mSpellCalculationKey
             // pointing at another entry in mSpellCalculations. The type
             // name itself is usually a hash (`{f3cbe7b2}`) so we detect
