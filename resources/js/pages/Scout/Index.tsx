@@ -5,6 +5,7 @@ import { EmblemPicker } from '@/components/scout/EmblemPicker';
 import { LockedChampionsPicker } from '@/components/scout/LockedChampionsPicker';
 import { LockedTraitsPicker } from '@/components/scout/LockedTraitsPicker';
 import { ScoutControls } from '@/components/scout/ScoutControls';
+import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
 import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/types';
@@ -25,7 +26,15 @@ function useDebounced<T>(value: T, delayMs: number): T {
     return debounced;
 }
 
-export default function ScoutIndex({ setNumber }: Props) {
+export default function ScoutIndex(props: Props) {
+    return (
+        <ScoutErrorBoundary>
+            <ScoutIndexInner {...props} />
+        </ScoutErrorBoundary>
+    );
+}
+
+function ScoutIndexInner({ setNumber }: Props) {
     const { generate } = useScoutWorker();
 
     // Context fetched once from the same /api/scout/context the worker
