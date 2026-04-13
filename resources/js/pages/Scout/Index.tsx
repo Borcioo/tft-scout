@@ -16,6 +16,15 @@ type Props = {
 type EmblemEntry = { apiName: string; count: number };
 type LockedTrait = { apiName: string; minUnits: number };
 
+function useDebounced<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [value, delayMs]);
+    return debounced;
+}
+
 export default function ScoutIndex({ setNumber }: Props) {
     const { generate } = useScoutWorker();
 
@@ -23,6 +32,7 @@ export default function ScoutIndex({ setNumber }: Props) {
     // hits — lets the UI render pickers before the first generate call.
     const [champions, setChampions] = useState<Champion[]>([]);
     const [traits, setTraits] = useState<Trait[]>([]);
+    const [contextStale, setContextStale] = useState(false);
 
     useEffect(() => {
         fetch('/api/scout/context')
@@ -30,6 +40,7 @@ export default function ScoutIndex({ setNumber }: Props) {
             .then((ctx) => {
                 setChampions(ctx.champions);
                 setTraits(ctx.traits);
+                setContextStale(ctx.stale);
             });
     }, []);
 
@@ -67,13 +78,16 @@ export default function ScoutIndex({ setNumber }: Props) {
             });
     }, [generate, level, topN, max5Cost, roleBalance, lockedChampions, lockedTraits, emblems]);
 
-    // Auto-run on first context load.
+    const debouncedParams = useDebounced(
+        { level, topN, max5Cost, roleBalance, lockedChampions, lockedTraits, emblems },
+        300,
+    );
+
     useEffect(() => {
-        if (champions.length > 0 && results.length === 0) {
-            run();
-        }
+        if (champions.length === 0) return;
+        run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [champions.length]);
+    }, [debouncedParams, champions.length]);
 
     return (
         <>
@@ -103,6 +117,12 @@ export default function ScoutIndex({ setNumber }: Props) {
                             {results.length} comps
                         </span>
                     </div>
+                    {contextStale && (
+                        <div className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-300">
+                            MetaTFT data is older than 24h — a background refresh has been
+                            scheduled. Reload the page in a minute to see fresh numbers.
+                        </div>
+                    )}
                     <ScoutResultsList
                         teams={results}
                         isRunning={isRunning}
