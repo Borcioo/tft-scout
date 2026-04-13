@@ -33,7 +33,7 @@ export function ScoutResultsList({ teams, isRunning, error }: Props) {
     }
 
     return (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-4">
             {teams.map((team, i) => (
                 <ScoutCompCard key={i} team={team} />
             ))}
