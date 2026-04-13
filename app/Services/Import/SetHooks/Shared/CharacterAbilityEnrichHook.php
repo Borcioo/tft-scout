@@ -99,12 +99,14 @@ class CharacterAbilityEnrichHook implements PostImportHook
             return;
         }
 
+        $championStats = $this->buildChampionStatsForEvaluator($champion);
+
         $resolved = $this->abilityResolver->resolve(
             $locKeys,
             $primarySpell['data_values'] ?? [],
             starLevel: 0,
             calculations: $primarySpell['calculations'] ?? [],
-            championStats: $this->buildChampionStatsForEvaluator($champion),
+            championStats: $championStats,
         );
 
         $template = $resolved['template'] ?? null;
@@ -114,10 +116,76 @@ class CharacterAbilityEnrichHook implements PostImportHook
             return;
         }
 
-        $champion->update([
+        $update = [
             'ability_desc' => $template,
             'ability_stats' => $resolved['merged_stats'] ?? [],
-        ]);
+        ];
+
+        // Hero Augment form: several TFT17 champions ship a second
+        // SpellObject named `{primaryScriptName}Hero` (Aatrox's
+        // "Stellar Combo" → TFT17_AatroxSpellHero). If present, resolve
+        // it the same way as the primary and store on the dedicated
+        // `hero_ability` JSONB column so the frontend can render it as
+        // a second section on the champion detail page.
+        $heroAbility = $this->resolveHeroAbility(
+            $spells,
+            $primarySpell['script_name'] ?? '',
+            $championStats,
+        );
+        if ($heroAbility !== null) {
+            $update['hero_ability'] = $heroAbility;
+        }
+
+        $champion->update($update);
+    }
+
+    /**
+     * Find `{primaryScriptName}Hero` in the same character bin and
+     * resolve its description. Returns null when there's no hero spell
+     * or its loc keys don't resolve.
+     *
+     * @param  list<array<string, mixed>>  $spells
+     * @param  array<int, float>  $championStats
+     * @return array{name: string|null, desc: string, stats: array}|null
+     */
+    private function resolveHeroAbility(
+        array $spells,
+        string $primaryScriptName,
+        array $championStats,
+    ): ?array {
+        if ($primaryScriptName === '') {
+            return null;
+        }
+
+        $heroTarget = strtolower($primaryScriptName).'hero';
+        $heroSpell = $this->matchByScriptName($spells, $heroTarget);
+        if ($heroSpell === null) {
+            return null;
+        }
+
+        $heroLocKeys = $heroSpell['loc_keys'] ?? ['key_name' => null, 'key_tooltip' => null];
+        if (($heroLocKeys['key_tooltip'] ?? null) === null) {
+            return null;
+        }
+
+        $heroResolved = $this->abilityResolver->resolve(
+            $heroLocKeys,
+            $heroSpell['data_values'] ?? [],
+            starLevel: 0,
+            calculations: $heroSpell['calculations'] ?? [],
+            championStats: $championStats,
+        );
+
+        $heroTemplate = $heroResolved['template'] ?? null;
+        if ($heroTemplate === null) {
+            return null;
+        }
+
+        return [
+            'name' => $heroResolved['name'],
+            'desc' => $heroTemplate,
+            'stats' => $heroResolved['merged_stats'] ?? [],
+        ];
     }
 
     /**

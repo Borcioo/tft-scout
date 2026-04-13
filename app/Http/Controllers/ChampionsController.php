@@ -143,6 +143,11 @@ class ChampionsController extends Controller
             'ability_desc' => $champion->ability_desc,
             'ability_stats' => $champion->ability_stats ?? [],
 
+            // Hero Augment alternative spell (Aatrox "Stellar Combo" etc.)
+            // — populated by CharacterAbilityEnrichHook when the champion
+            // has a {primary}Hero SpellObject in its bin file.
+            'hero_ability' => $champion->hero_ability,
+
             'traits' => $champion->traits->map(fn ($trait) => [
                 'api_name' => $trait->api_name,
                 'name' => $trait->name,
