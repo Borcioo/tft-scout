@@ -141,9 +141,16 @@ class CharacterAbilityEnrichHook implements PostImportHook
     /**
      * Match the primary spell by trimming the spellNames reference down
      * to its bare name and comparing against each SpellObject's script
-     * name. spellNames entries are binpath-like
-     * (`Characters/TFT17_Jinx/Spells/TFT17_JinxSpell`) so we take the
-     * last path segment and compare case-insensitively.
+     * name. spellNames entries come in two shapes:
+     *
+     *   - Full binpath: `Characters/TFT17_Jinx/Spells/TFT17_JinxSpell`
+     *     — basename gives `TFT17_JinxSpell`, which matches a script
+     *     name exactly.
+     *   - Bare champion prefix: `TFT17_Aatrox` — no binpath wrapper and
+     *     no `Spell` suffix. We have to append `Spell` to land on the
+     *     intended `TFT17_AatroxSpell` SpellObject.
+     *
+     * Fallback ladder: exact match → `target + Spell` match → null.
      *
      * @param  list<array<string, mixed>>  $spells
      */
@@ -151,6 +158,28 @@ class CharacterAbilityEnrichHook implements PostImportHook
     {
         $target = strtolower(basename(str_replace('\\', '/', $primarySpellRef)));
 
+        $match = $this->matchByScriptName($spells, $target);
+        if ($match !== null) {
+            return $match;
+        }
+
+        // Aatrox and friends whose spellNames[0] omits the `Spell` suffix —
+        // try once more with it appended.
+        if (! str_ends_with($target, 'spell')) {
+            $match = $this->matchByScriptName($spells, $target.'spell');
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $spells
+     */
+    private function matchByScriptName(array $spells, string $target): ?array
+    {
         foreach ($spells as $spell) {
             $name = $spell['script_name'] ?? null;
             if (is_string($name) && strtolower($name) === $target) {
