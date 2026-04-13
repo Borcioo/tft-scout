@@ -649,7 +649,7 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
 }
 
 export default function ChampionShow({ champion, variants, rating }: Props) {
-    const [starLevel, setStarLevel] = useState(2);
+    const [starLevel, setStarLevel] = useState(1);
 
     const style = COST_STYLES[Math.min(Math.max(champion.cost, 1), 5)];
 
