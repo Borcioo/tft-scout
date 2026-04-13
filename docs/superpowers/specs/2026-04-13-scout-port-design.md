@@ -447,3 +447,87 @@ Anything in `docs/schema-plan.md` that wasn't required by the scout is
 left alone. The scout port must not reshuffle existing tables — it adds
 new tables (`meta_syncs`) and populates existing empty ones
 (`champion_ratings`, etc.).
+
+## Known deltas vs legacy (post-port, 2026-04-13)
+
+The following differences between the ported Scout and the legacy Node.js
+version are documented as implementation limits or deliberate deferments:
+
+### 1. MetaTFT data currently empty
+
+The `metatft:sync` Artisan command attempted to sync with MetaTFT's v1 API
+endpoints extracted from legacy code. These endpoints returned HTTP 404 on
+2026-04-12. The `champion_ratings` and `trait_ratings` tables remain empty.
+
+**Impact:** Scout falls back to `style_scores` from CDragon trait data for
+scoring weights. Rankings will be noticeably weaker than legacy until someone
+verifies the correct MetaTFT API endpoints and updates the client.
+
+**Resolution:** See `app/Services/MetaTftClient.php` and check official MetaTFT
+API documentation if available. The sync infrastructure is ready — only the
+endpoint URLs need fixing.
+
+### 2. No unit tests for algorithm port
+
+Per Decision #6 in the spec, the port has zero unit tests. The algorithm is
+1:1 JavaScript→TypeScript; legacy had no tests. Verification strategy is
+manual comparison with legacy in a real browser.
+
+**Impact:** Future changes to algorithm constants (e.g., cost penalties,
+synergy bonuses) lack automated regression detection.
+
+**Resolution:** Add tests incrementally when tuning weights. Start with
+`scorer.ts` and `engine.ts` entry points; expand inward as time permits.
+
+### 3. `@ts-nocheck` on 3 algorithm files
+
+Files `synergy-graph.ts`, `engine.ts`, and `insights.ts` have `@ts-nocheck`
+directives. Legacy used loose `any` types and implicit-`any` patterns
+throughout. Fixing every type individually would require rewriting ~600 lines
+with unverifiable correctness gain.
+
+**Impact:** TypeScript checking is effectively disabled inside those files.
+External callers see typed interfaces (`ScoutInsights`, `SynergyGraph` etc.),
+so the boundary is safe — only internal logic is untyped.
+
+**Resolution:** Future refactors that touch those files should incrementally
+tighten types. Start from exported function signatures and work inward.
+Avoid wholesale rewrites — target specific type errors as they arise.
+
+### 4. Worker not smoke-tested in a real browser
+
+During implementation, the worker was tested only via:
+- Vite build success
+- TypeScript compilation
+- Headless `curl` to `/api/scout/context` endpoint
+
+The worker entry point (`resources/js/workers/scout/index.ts`) is functional,
+but **real-browser execution is untested**. First user to open the Scout
+page will be the first real test.
+
+**Impact:** Unforeseen browser compatibility issues (e.g., Worker API
+polyfill needs, SharedArrayBuffer size) may surface on first use.
+
+**Resolution:** Test in Firefox, Chrome, and Safari on first deploy. Monitor
+browser console for errors during initial Scout operations. Worker fallback
+behavior (if any) is defined in `useScoutWorker.ts`.
+
+### 5. Legacy `roadTo` not ported
+
+The worker message handler explicitly throws for `"roadTo"` message type:
+
+```typescript
+case 'roadTo':
+  throw new Error('Unknown or deferred message type: roadTo');
+```
+
+Road-to (step-by-step buy order for target comp) was explicitly deferred as
+post-MVP in the spec (Decision #5). The UI does not attempt to send this
+message; if it does, the worker will error.
+
+**Impact:** Road-to feature is unavailable in MVP. Trying to use it will
+surface as a console error + failed worker promise.
+
+**Resolution:** Implement in follow-up iteration once core Scout is stable.
+Algorithm has all needed state to compute road-to (transition paths are in
+`synergy-graph`); only UI + worker plumbing required.

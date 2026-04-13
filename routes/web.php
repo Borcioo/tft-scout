@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ChampionsController;
 use App\Http\Controllers\ItemsController;
+use App\Http\Controllers\ScoutController;
 use App\Http\Controllers\TraitsController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -20,7 +21,8 @@ Route::inertia('/', 'welcome', [
 ])->name('home');
 
 // Scout workflow (public — algorithm runs client-side in a Web Worker)
-Route::inertia('/scout', 'Scout/Index')->name('scout.index');
+Route::get('/scout', [ScoutController::class, 'index'])->name('scout.index');
+Route::get('/api/scout/context', [ScoutController::class, 'context'])->name('scout.context');
 
 // Browse data (public read-only)
 Route::get('/champions', [ChampionsController::class, 'index'])
