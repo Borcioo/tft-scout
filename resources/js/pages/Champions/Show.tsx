@@ -152,21 +152,24 @@ function scaleStat(base: number, starLevel: number): number {
  * CDragon is INCONSISTENT about which array position represents 1-star:
  *   - Legacy en_us.json format: position 0 is a zero placeholder, real
  *     values start at position 1. [0, 100, 200, 300, 0, 0, 0] → offset=1
- *   - Legacy alternate: position 0 IS the 1-star value (low-cost units).
- *     [50, 100, 200, 0, 0, 0, 0] → offset=0
- *   - New BIN format (e.g. MF Set 17 stance spells): position 0 is a
- *     non-zero SENTINEL value that repeats at trailing unused positions.
- *     [2.5, 65, 100, 155, 265, 2.5, 2.5] → offset=1
+ *   - New BIN format, sentinel variant (MF, Jinx): position 0 is a
+ *     non-zero SENTINEL value that repeats at the trailing unused
+ *     positions. [2.5, 65, 100, 155, 265, 2.5, 2.5] → offset=1
+ *   - New BIN format, misc placeholder (Caitlyn): position 0 is a
+ *     non-zero value that does NOT repeat at trailing slots, but the
+ *     real star values still start at position 1. [145, 170, 255, 510,
+ *     875, 455, 455] → offset=1
  *
- * Heuristic: for each non-constant stat, classify its slot-0 convention:
- *   1. Sentinel pattern — slot 0 matches the last slot and differs from
- *      slot 1, meaning slot 0 is unused placeholder → vote offset=1
- *   2. Zero pattern — slot 0 is literal 0 (legacy empty marker)
+ * Voting heuristics, in order — first match wins:
+ *   1. Sentinel: slot 0 == slot last AND != slot 1 → vote offset=1
+ *   2. Zero pattern: slot 0 == 0 (legacy empty marker) → vote offset=1
+ *   3. Monotonic rise across slots 1..3: star scaling lives there even
+ *      when slot 0 is an unrelated non-sentinel placeholder (Caitlyn)
  *      → vote offset=1
- *   3. Otherwise — slot 0 carries real data → vote offset=0
+ *   4. Otherwise slot 0 carries the 1-star value → vote offset=0
  *
- * Majority vote wins. Constant stats (HexRange = [2,2,2,...]) are
- * excluded because their position 0 is always meaningful.
+ * Constant stats are excluded from the vote — their position 0 is
+ * always meaningful.
  */
 function detectStatOffset(stats: AbilityStat[]): number {
     let offsetOneVotes = 0;
@@ -183,6 +186,8 @@ function detectStatOffset(stats: AbilityStat[]): number {
 
         const slot0 = values[0];
         const slot1 = values[1];
+        const slot2 = values[2] ?? slot1;
+        const slot3 = values[3] ?? slot2;
         const slotLast = values[last];
 
         // New BIN sentinel pattern: slot 0 repeats at trailing slot(s) and
@@ -190,7 +195,15 @@ function detectStatOffset(stats: AbilityStat[]): number {
         // "no active star level" in unused array positions.
         const hasSentinelPattern = slot0 === slotLast && slot0 !== slot1;
 
-        if (hasSentinelPattern || slot0 === 0) {
+        // Monotonic-rise pattern: slots 1..3 form a strictly increasing
+        // star progression (TFT damage stats are always a growing curve).
+        // This catches champions like Caitlyn whose slot 0 is a
+        // non-sentinel placeholder value (145) that doesn't match trailing
+        // slots — the star scaling still lives at 1..3.
+        const hasRisingStarProgression =
+            slot1 > 0 && slot2 > slot1 && slot3 > slot2;
+
+        if (hasSentinelPattern || slot0 === 0 || hasRisingStarProgression) {
             offsetOneVotes++;
         } else {
             offsetZeroVotes++;
@@ -542,34 +555,26 @@ type FormatOpts = {
 };
 
 /**
- * Detect whether a stat represents a percentage / ratio based on its variable
- * name. Used for the raw values table so that e.g. ARMARScaling = [0.8, 1.2, 30]
- * renders consistently as "80% / 120% / 3000%" instead of mixing formats.
+ * Detect whether a stat represents a ratio that needs ×100 scaling for
+ * percentage display. The only reliable signal turns out to be the actual
+ * numeric range of the values — suffix-based detection caused bugs like
+ * `ProcChance = [15, 15, 15]` being scaled to 1500% because the name ends
+ * in "Chance" even though the values are already in flat percent form.
+ *
+ * Rule: if every non-zero value is strictly below 1, treat as a ratio
+ * (e.g. DamageFalloff = [0.3, 0.3, ...] → "30%"). Otherwise the data is
+ * already in display units (ProcChance, AttackSpeedPercent, most
+ * TFT-era stats) and the suffix meaning is preserved by the template's
+ * literal "%" character.
  */
 function isPercentStat(stat: AbilityStat): boolean {
     // Duration variables are handled separately by isDurationStat — never %
     if (isDurationStat(stat)) return false;
 
-    // Suffix-based detection: common "% multiplier" variable naming conventions
-    const percentSuffix =
-        /(?:Scaling|Percent|Rate|Chance|Modifier|Ratio|Multiplier|Amp|Reduction)$/i;
-    if (percentSuffix.test(stat.name)) return true;
-
-    // Exact-name matches for specific ratio variables that don't fit the suffix pattern
-    if (/^(?:Durability|OmnivampPercent)$/i.test(stat.name)) return true;
-
-    // Fallback heuristic: if every non-zero value is strictly below 1, it's
-    // almost certainly a ratio intended as %. Safe for things like HealHP
-    // [0.1, 0.1, 0.1, ...] which isn't caught by suffix rules.
     const nonZeroValues = stat.value.filter((v) => v !== 0);
-    if (
-        nonZeroValues.length > 0 &&
-        nonZeroValues.every((v) => Math.abs(v) < 1)
-    ) {
-        return true;
-    }
+    if (nonZeroValues.length === 0) return false;
 
-    return false;
+    return nonZeroValues.every((v) => Math.abs(v) < 1);
 }
 
 /**
@@ -613,7 +618,13 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
             return suppressUnitSuffix ? rounded : rounded + ' hex';
         }
         if (isPercentStat(stat)) {
-            return Math.round(val * 100) + '%';
+            // Surrounding description prose carries the literal "%"
+            // character, so in-parser calls that pass suppressUnitSuffix
+            // should get the bare scaled number to avoid double "%%"
+            // output. Raw-values-table callers leave the unit in.
+            const scaled = Math.round(val * 100);
+
+            return suppressUnitSuffix ? String(scaled) : `${scaled}%`;
         }
     }
 
