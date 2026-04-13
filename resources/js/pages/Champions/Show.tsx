@@ -147,70 +147,32 @@ function scaleStat(base: number, starLevel: number): number {
 }
 
 /**
- * Detect CDragon's star-position offset convention for a champion.
+ * Star-position offset for ability_stats arrays.
  *
- * CDragon is INCONSISTENT about which array position represents 1-star:
- *   - Legacy en_us.json format: position 0 is a zero placeholder, real
- *     values start at position 1. [0, 100, 200, 300, 0, 0, 0] → offset=1
- *   - New BIN format, sentinel variant (MF, Jinx): position 0 is a
- *     non-zero SENTINEL value that repeats at the trailing unused
- *     positions. [2.5, 65, 100, 155, 265, 2.5, 2.5] → offset=1
- *   - New BIN format, misc placeholder (Caitlyn): position 0 is a
- *     non-zero value that does NOT repeat at trailing slots, but the
- *     real star values still start at position 1. [145, 170, 255, 510,
- *     875, 455, 455] → offset=1
+ * All CDragon data we've seen — legacy en_us.json output, modern BIN
+ * dumps from CharacterAbilityEnrichHook, MF/Jinx/Caitlyn variants —
+ * follows the same convention:
  *
- * Voting heuristics, in order — first match wins:
- *   1. Sentinel: slot 0 == slot last AND != slot 1 → vote offset=1
- *   2. Zero pattern: slot 0 == 0 (legacy empty marker) → vote offset=1
- *   3. Monotonic rise across slots 1..3: star scaling lives there even
- *      when slot 0 is an unrelated non-sentinel placeholder (Caitlyn)
- *      → vote offset=1
- *   4. Otherwise slot 0 carries the 1-star value → vote offset=0
+ *   values[0]   placeholder  (0, sentinel, or random default — ignore)
+ *   values[1]   1-star
+ *   values[2]   2-star
+ *   values[3]   3-star
+ *   values[4]   4-star / Hero Augment tier
+ *   values[5+]  unused trail
  *
- * Constant stats are excluded from the vote — their position 0 is
- * always meaningful.
+ * Earlier versions tried to auto-detect the convention via heuristics
+ * (sentinel match, zero slot 0, rising progression). All three only
+ * ever voted offset=1, because every real champion follows the layout
+ * above. The function is kept for API compatibility but now returns a
+ * constant — if a future champion ever breaks the pattern we'll add
+ * per-stat handling inside getStarValue rather than resurrect the
+ * whole-champion heuristic.
+ *
+ * Stats parameter is unused but kept so callers don't need to change.
  */
-function detectStatOffset(stats: AbilityStat[]): number {
-    let offsetOneVotes = 0;
-    let offsetZeroVotes = 0;
-
-    for (const stat of stats) {
-        const values = stat.value;
-        const last = values.length - 1;
-        if (last < 1) continue;
-
-        // Skip constant stats — all positions identical, offset doesn't matter
-        const allSame = values.every((v) => v === values[0]);
-        if (allSame) continue;
-
-        const slot0 = values[0];
-        const slot1 = values[1];
-        const slot2 = values[2] ?? slot1;
-        const slot3 = values[3] ?? slot2;
-        const slotLast = values[last];
-
-        // New BIN sentinel pattern: slot 0 repeats at trailing slot(s) and
-        // slot 1 is different. This is how MF Set 17 stance spells encode
-        // "no active star level" in unused array positions.
-        const hasSentinelPattern = slot0 === slotLast && slot0 !== slot1;
-
-        // Monotonic-rise pattern: slots 1..3 form a strictly increasing
-        // star progression (TFT damage stats are always a growing curve).
-        // This catches champions like Caitlyn whose slot 0 is a
-        // non-sentinel placeholder value (145) that doesn't match trailing
-        // slots — the star scaling still lives at 1..3.
-        const hasRisingStarProgression =
-            slot1 > 0 && slot2 > slot1 && slot3 > slot2;
-
-        if (hasSentinelPattern || slot0 === 0 || hasRisingStarProgression) {
-            offsetOneVotes++;
-        } else {
-            offsetZeroVotes++;
-        }
-    }
-
-    return offsetOneVotes > offsetZeroVotes ? 1 : 0;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function detectStatOffset(_stats: AbilityStat[]): number {
+    return 1;
 }
 
 function getStarValue(
