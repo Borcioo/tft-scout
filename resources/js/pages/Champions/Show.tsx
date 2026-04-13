@@ -147,6 +147,28 @@ function scaleStat(base: number, starLevel: number): number {
 }
 
 /**
+ * Translate a Riot `ShowIf.TFT{N}_{Trait}_{Suffix}` condition string into
+ * something humans can read. The relevant context is the TRAIT name — the
+ * suffix (CapstoneActive, LuckyAbility, isSelected) just describes at what
+ * point of the trait progression the condition fires.
+ *
+ * Examples:
+ *   TFT17_DRX_CapstoneActive   → "DRX active"
+ *   TFT17_Fateweaver_LuckyAbility → "Fateweaver active"
+ *   TFT17_DRX_isSelected       → "DRX active"
+ *
+ * Unknown shapes fall back to the raw string so nothing disappears.
+ */
+function humanizeShowIfCondition(condition: string): string {
+    const stripped = condition.replace(/^TFT\d+_/, '');
+    const parts = stripped.split('_');
+    const traitName = parts[0];
+    if (!traitName) return `${condition} active`;
+
+    return `${traitName} active`;
+}
+
+/**
  * Star-position offset for ability_stats arrays.
  *
  * All CDragon data we've seen — legacy en_us.json output, modern BIN
@@ -333,9 +355,11 @@ function parseAbilityDescription(
 
     let text = desc;
 
-    // Strip conditional <ShowIf.X>...</ShowIf.X> blocks — game-state dependent
-    // markup (e.g., capstone augment active) we can't evaluate statically.
-    text = text.replace(/<ShowIf\.[^>]+>[\s\S]*?<\/ShowIf\.[^>]+>/g, '');
+    // NB: <ShowIf.X>...</ShowIf.X> blocks used to be stripped here because
+    // the tokenizer couldn't handle tag names with dots. They're now
+    // rendered as inline conditional sections (italic + muted styling)
+    // so N.O.V.A. Strike, Fateweaver Lucky, etc. stay visible in the
+    // description — see the ShowIf handling in renderAbilityTokens below.
 
     // Convert <br> to newlines before other tag stripping
     text = text.replace(/<br\s*\/?>/gi, '\n');
@@ -413,8 +437,11 @@ function renderAbilityTokens(
     const nodes: React.ReactNode[] = [];
     // Combined regex: tag OR placeholder. Alternation means one of the
     // capture groups will be set per match.
+    // Tag names allow `.` so <ShowIf.TFT17_DRX_CapstoneActive> matches —
+    // those dotted tags are conditional blocks rendered with a muted
+    // style + condition badge below.
     const tokenRegex =
-        /<(\w+)(?:\s[^>]*)?>([\s\S]*?)<\/\1>|@([A-Za-z][A-Za-z0-9_]*)(?:\*(\d+(?:\.\d+)?))?@/g;
+        /<([\w.]+)(?:\s[^>]*)?>([\s\S]*?)<\/\1>|@([A-Za-z][A-Za-z0-9_]*)(?:\*(\d+(?:\.\d+)?))?@/g;
     const matches = Array.from(text.matchAll(tokenRegex));
     let lastIndex = 0;
     let key = 0;
@@ -429,6 +456,31 @@ function renderAbilityTokens(
             // Tag branch: <tag>content</tag>
             const tagName = match[1];
             const innerText = match[2];
+
+            // Conditional block: `<ShowIf.Trait_Suffix>...</ShowIf.Trait_Suffix>`
+            // is a game-state gated section (N.O.V.A. Strike when DRX
+            // capstone active, Fateweaver Lucky keyword, etc.). We still
+            // want to show the content — values are already resolved in
+            // ability_stats — but marked up so the player sees it's
+            // conditional on a trait synergy.
+            if (tagName.startsWith('ShowIf.')) {
+                const condition = tagName.substring('ShowIf.'.length);
+                const label = humanizeShowIfCondition(condition);
+                const innerNodes = renderAbilityTokens(innerText, ctx);
+
+                nodes.push(
+                    <span
+                        key={`cond-${key++}`}
+                        className="italic text-muted-foreground/90"
+                        title={`Only active when ${label}`}
+                    >
+                        {innerNodes}
+                    </span>,
+                );
+                lastIndex = match.index + match[0].length;
+                continue;
+            }
+
             const className = TAG_CLASS_MAP[tagName];
 
             const childCtx: RenderContext = {
