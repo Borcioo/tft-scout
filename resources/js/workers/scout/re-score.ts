@@ -11,7 +11,6 @@
  * can render a warning instead of a broken score.
  */
 
-// @ts-expect-error -- scorer.ts not yet ported, C3
 import { teamScore } from './scorer';
 import { buildActiveTraits } from './active-traits';
 
