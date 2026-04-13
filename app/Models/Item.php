@@ -30,10 +30,12 @@ class Item extends Model
         'set_id',
         'api_name',
         'name',
+        'description',
         'type',
         'tier',
         'component_1_id',
         'component_2_id',
+        'radiant_parent_id',
         'effects',
         'tags',
         'icon_path',
@@ -59,6 +61,22 @@ class Item extends Model
     public function component2(): BelongsTo
     {
         return $this->belongsTo(self::class, 'component_2_id');
+    }
+
+    /**
+     * The base completed item that this radiant upgrades. Non-radiant
+     * items have `radiant_parent_id = null` and their `radiantVariant`
+     * reverse relation points to the radiant that upgrades them.
+     */
+    public function radiantParent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'radiant_parent_id');
+    }
+
+    /** The radiant variant of this base item (if one exists). */
+    public function radiantVariant()
+    {
+        return $this->hasOne(self::class, 'radiant_parent_id');
     }
 
     /** Items that use this item as component 1 in their recipe */

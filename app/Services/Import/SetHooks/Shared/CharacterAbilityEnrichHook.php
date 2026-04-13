@@ -84,11 +84,17 @@ class CharacterAbilityEnrichHook implements PostImportHook
         $spellNames = $main['spell_names'] ?? [];
         $spells = $main['spells'] ?? [];
 
-        if (empty($spellNames) || empty($spells)) {
+        if (empty($spells)) {
             return;
         }
 
-        $primarySpell = $this->findPrimarySpell($spells, $spellNames[0]);
+        // Many Set 17 character bins have an empty `spellNames` array (Riot
+        // isn't consistent about populating it). Fall back to the conventional
+        // `{apiName}Spell` script name in that case — every champion we've
+        // inspected has a SpellObject with that exact name.
+        $primaryRef = $spellNames[0] ?? ($champion->api_name.'Spell');
+
+        $primarySpell = $this->findPrimarySpell($spells, $primaryRef);
         if ($primarySpell === null) {
             return;
         }
@@ -116,10 +122,19 @@ class CharacterAbilityEnrichHook implements PostImportHook
             return;
         }
 
-        $champion->update([
+        $updates = [
             'ability_desc' => $template,
             'ability_stats' => $resolved['merged_stats'] ?? [],
-        ]);
+        ];
+
+        // The stringtable name is the authoritative display name — prefer
+        // it over whatever en_us.json wrote (CDragon's derived value is
+        // usually identical, but resolver-sourced keeps variants consistent).
+        if (! empty($resolved['name'])) {
+            $updates['ability_name'] = $resolved['name'];
+        }
+
+        $champion->update($updates);
     }
 
     /**
@@ -135,8 +150,24 @@ class CharacterAbilityEnrichHook implements PostImportHook
      */
     private function buildChampionStatsForEvaluator(Champion $champion): array
     {
+        // mStat enum (empirical, TFT17; loosely follows the LoL CalculationPart
+        // enum but Riot maps the values differently per patch so we confirm
+        // each one against a real spell before adding it):
+        //
+        //   1  → armor         (Rammus passive damage)
+        //   2  → attack_damage (Graves passive bonus-AD scaling)
+        //   4  → attack_speed  (Jinx NumRockets formula)
+        //   11 → magic_resist  (defensive-scaling spells)
+        //   12 → max_health    (Nasus, Shen shield, Cho'Gath damage)
+        //   31 → attack_range  (Urgot shotgun range, value in internal hex units)
         return [
+            1 => (float) $champion->armor,
+            2 => (float) $champion->attack_damage,
             4 => (float) $champion->attack_speed,
+            6 => (float) $champion->magic_resist,
+            11 => (float) $champion->magic_resist,
+            12 => (float) $champion->hp,
+            31 => (float) $champion->range,
         ];
     }
 

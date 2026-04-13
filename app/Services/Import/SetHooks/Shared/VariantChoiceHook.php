@@ -170,6 +170,10 @@ class VariantChoiceHook implements PostImportHook
             'crit_multiplier' => $base->crit_multiplier,
 
             'ability_desc' => $ability['desc'],
+            'ability_name' => $ability['name'],
+            // MF stance spells share the base's ability icon — Riot doesn't
+            // ship per-variant artwork in the public asset tree.
+            'ability_icon_path' => $base->ability_icon_path,
             'ability_stats' => $ability['stats'],
 
             'base_champion_id' => $base->id,
@@ -208,7 +212,7 @@ class VariantChoiceHook implements PostImportHook
      * per-variant text still land with the meta description from en_us.json.
      *
      * @param  list<array<string, mixed>>  $mainSpells  from inspector report
-     * @return array{desc: string|null, stats: array}
+     * @return array{desc: string|null, name: string|null, stats: array}
      */
     private function resolveVariantAbility(
         array $mainSpells,
@@ -217,6 +221,7 @@ class VariantChoiceHook implements PostImportHook
     ): array {
         $fallback = [
             'desc' => $base->ability_desc,
+            'name' => $base->ability_name,
             'stats' => $base->ability_stats ?? [],
         ];
 
@@ -241,9 +246,14 @@ class VariantChoiceHook implements PostImportHook
             starLevel: 0,
             calculations: $match['calculations'] ?? [],
             championStats: [
-                // mStat 4 = attack_speed (see CharacterAbilityEnrichHook
-                // for the enum convention)
+                // mStat enum convention documented in CharacterAbilityEnrichHook.
+                1 => (float) $base->armor,
+                2 => (float) $base->attack_damage,
                 4 => (float) $base->attack_speed,
+                6 => (float) $base->magic_resist,
+                11 => (float) $base->magic_resist,
+                12 => (float) $base->hp,
+                31 => (float) $base->range,
             ],
         );
 
@@ -254,6 +264,7 @@ class VariantChoiceHook implements PostImportHook
 
         return [
             'desc' => $template,
+            'name' => $resolved['name'] ?? $base->ability_name,
             'stats' => $resolved['merged_stats'] ?? [],
         ];
     }

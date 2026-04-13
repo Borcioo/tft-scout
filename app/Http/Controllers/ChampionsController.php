@@ -141,6 +141,8 @@ class ChampionsController extends Controller
             ],
 
             'ability_desc' => $champion->ability_desc,
+            'ability_name' => $champion->ability_name,
+            'ability_icon_path' => $champion->ability_icon_path,
             'ability_stats' => $champion->ability_stats ?? [],
 
             'traits' => $champion->traits->map(fn ($trait) => [

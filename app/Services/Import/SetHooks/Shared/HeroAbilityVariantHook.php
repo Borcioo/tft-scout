@@ -79,11 +79,13 @@ class HeroAbilityVariantHook implements PostImportHook
 
         $spells = $report['main']['spells'] ?? [];
         $spellNames = $report['main']['spell_names'] ?? [];
-        if (empty($spellNames) || empty($spells)) {
+        if (empty($spells)) {
             return;
         }
 
-        $primarySpell = $this->findPrimarySpell($spells, $spellNames[0]);
+        $primaryRef = $spellNames[0] ?? ($base->api_name.'Spell');
+
+        $primarySpell = $this->findPrimarySpell($spells, $primaryRef);
         if ($primarySpell === null) {
             return;
         }
@@ -104,7 +106,13 @@ class HeroAbilityVariantHook implements PostImportHook
             starLevel: 0,
             calculations: $heroSpell['calculations'] ?? [],
             championStats: [
+                1 => (float) $base->armor,
+                2 => (float) $base->attack_damage,
                 4 => (float) $base->attack_speed,
+                6 => (float) $base->magic_resist,
+                11 => (float) $base->magic_resist,
+                12 => (float) $base->hp,
+                31 => (float) $base->range,
             ],
         );
 
@@ -163,6 +171,11 @@ class HeroAbilityVariantHook implements PostImportHook
             'crit_multiplier' => $base->crit_multiplier,
 
             'ability_desc' => $heroTemplate,
+            'ability_name' => $heroName,
+            // Hero spell icons are not exposed by CDragon's en_us.json, so
+            // we reuse the base champion's ability icon for now — the hero
+            // form is still visually distinguishable via its variant badge.
+            'ability_icon_path' => $base->ability_icon_path,
             'ability_stats' => $heroStats,
 
             'base_champion_id' => $base->id,

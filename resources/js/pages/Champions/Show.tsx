@@ -52,6 +52,8 @@ type Champion = {
         crit_multiplier: number;
     };
     ability_desc: string | null;
+    ability_name: string | null;
+    ability_icon_path: string | null;
     ability_stats: AbilityStat[];
     traits: ChampionTrait[];
 };
@@ -877,13 +879,31 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                 {/* ── Ability ─────────────────────────────── */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">
-                            Ability (values shown for{' '}
-                            <span className="text-amber-500">
-                                {'★'.repeat(starLevel)}
-                            </span>
-                            )
-                        </CardTitle>
+                        <div className="flex items-start gap-3">
+                            {champion.ability_icon_path && (
+                                <img
+                                    src={`/icons/abilities/${champion.api_name}.png`}
+                                    alt={champion.ability_name ?? 'Ability icon'}
+                                    className="h-12 w-12 shrink-0 rounded border border-border/60 object-cover"
+                                    onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            )}
+                            <div className="min-w-0 flex-1">
+                                {champion.ability_name && (
+                                    <CardTitle className="truncate text-lg">
+                                        {champion.ability_name}
+                                    </CardTitle>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    Ability values shown for{' '}
+                                    <span className="text-amber-500">
+                                        {'★'.repeat(starLevel)}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         {parsedAbility ? (

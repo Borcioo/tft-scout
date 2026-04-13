@@ -96,6 +96,9 @@ class CDragonImporter
     /** Components pending resolution in second pass: itemId → [c1ApiName, c2ApiName] */
     private array $pendingComponents = [];
 
+    /** @var array<int, array{string, string}>  emblem_id → [c1_apiName, c2_apiName] */
+    private array $pendingEmblemComponents = [];
+
     public function __construct(private readonly ConsoleKernel $console) {}
 
     /**
@@ -134,7 +137,9 @@ class CDragonImporter
         // and failed downloads should never roll back imported data. Existing icons
         // are skipped, so re-runs are fast (HEAD-check on filesystem only).
         $this->downloadChampionIcons($set);
+        $this->downloadAbilityIcons($set);
         $this->downloadTraitIcons($set);
+        $this->downloadItemIcons();
 
         return $this->getCounts($set);
     }
@@ -200,6 +205,30 @@ class CDragonImporter
         Augment::where('set_id', $set->id)->delete();
         Emblem::where('set_id', $set->id)->delete();
         Item::where('set_id', $set->id)->delete(); // set-scoped only; cross-set items upserted
+
+        // Stale evergreen rows from previous imports that are now skipped.
+        // updateOrCreate doesn't delete rows we no longer want, so we
+        // explicitly drop the patterns shouldSkipItem() filters out:
+        //   - `TFT_Item_Corrupted*` byte-identical duplicates
+        //   - `TFT5_Item_*SpatulaItem_Radiant` Set 5 spatula radiants
+        //     that don't link to any current-set base item
+        Item::where('api_name', 'like', 'TFT_Item_Corrupted%')->delete();
+        Item::where('api_name', 'like', 'TFT5_Item_%SpatulaItem_Radiant')->delete();
+        Item::where('name', 'like', 'tft_item_name_%')->delete();
+
+        // Older imports populated the items table with cross-set junk
+        // (TFT13_Crime_*, TFT13_ChampionItem_*, TFT16_Item_*) before
+        // shouldSkipItem was tightened. Those rows never get re-imported
+        // but also never get cleared by `where(set_id)`, so wipe every
+        // legacy `TFT{N}_*` row that doesn't belong to the current set
+        // or to the cross-set radiant whitelist.
+        $current = "TFT{$set->number}_";
+        Item::query()
+            ->where('api_name', 'like', 'TFT%')
+            ->where('api_name', 'not like', 'TFT_Item_%')
+            ->where('api_name', 'not like', $current.'%')
+            ->where('api_name', 'not like', 'TFT5_Item_%Radiant')
+            ->delete();
     }
 
     // ── Traits import ───────────────────────────────────────
@@ -240,14 +269,26 @@ class CDragonImporter
                 'is_unique' => $category === 'unique' || $isUnique,
             ]);
 
-            // Breakpoints + effects JSONB
+            // Effects come from CDragon with hashed variable keys
+            // ({c02c4568}) for many traits — Riot ships the BIN hashes
+            // instead of plaintext names. We reverse-lookup the placeholder
+            // names referenced in the description template (e.g.
+            // `@InnateManaGain@`) via FNV-1a, same trick we use for
+            // champion spell calculations. Keys that still don't match
+            // any placeholder get dropped (pure noise), but resolved
+            // keys survive with their human-readable names.
+            $hashToName = $this->buildPlaceholderHashMap($traitData['desc'] ?? '');
+
             foreach ($breakpoints as $i => $bp) {
                 $trait->breakpoints()->create([
                     'position' => $i + 1,
                     'min_units' => $bp['minUnits'],
                     'max_units' => $bp['maxUnits'] ?? 25000,
                     'style_id' => $bp['style'] ?? 1,
-                    'effects' => $this->filterHashKeys($bp['variables'] ?? []),
+                    'effects' => $this->resolveTraitEffectKeys(
+                        $bp['variables'] ?? [],
+                        $hashToName,
+                    ),
                 ]);
             }
 
@@ -329,6 +370,8 @@ class CDragonImporter
                 'crit_multiplier' => $stats['critMultiplier'] ?? 1.4,
 
                 'ability_desc' => $champData['ability']['desc'] ?? null,
+                'ability_name' => $champData['ability']['name'] ?? null,
+                'ability_icon_path' => $champData['ability']['icon'] ?? null,
                 'ability_stats' => $champData['ability']['variables'] ?? [],
 
                 'planner_code' => $plannerCodes[$apiName] ?? null,
@@ -418,21 +461,82 @@ class CDragonImporter
     private function shouldSkipItem(array $itemData, int $setNumber): bool
     {
         $apiName = $itemData['apiName'] ?? '';
+        $name = $itemData['name'] ?? '';
         $tags = $itemData['tags'] ?? [];
         $associatedTraits = $itemData['associatedTraits'] ?? [];
+
+        // Untranslated stub items: Riot ships items whose display name
+        // is still the raw localisation key (`tft_item_name_CursedBlade`,
+        // `tft_item_name_HextechChestguard`). These are deprecated/hidden
+        // items kept in the data file for engine compatibility but never
+        // shown in-game — drop them so the UI doesn't render placeholder
+        // names players have never seen.
+        if (str_starts_with($name, 'tft_item_name_')) {
+            return true;
+        }
 
         // Emblems can have non-standard apiName prefixes — let them through
         // regardless. Excludes augments explicitly because trait-gated augments
         // ALSO carry associatedTraits but must follow the per-set whitelist.
+        //
+        // Scope check: historical sets ship their own emblems under
+        // `TFT{N}_Item_*EmblemItem` and they all carry the Emblem tag +
+        // associatedTraits, so a naive pass-through would import every
+        // set's emblems (Duelist from Set 4/15 showing up in Set 17).
+        // Restrict by requiring the api_name prefix or the associated
+        // trait to point at the current set.
         $isAugmentName = str_contains($apiName, '_Augment_');
         $looksLikeEmblem = ! $isAugmentName
             && (in_array('Emblem', $tags, true) || ! empty($associatedTraits));
         if ($looksLikeEmblem) {
+            $currentPrefix = "TFT{$setNumber}_";
+            $fromCurrentSet = str_starts_with($apiName, $currentPrefix)
+                || (isset($associatedTraits[0])
+                    && is_string($associatedTraits[0])
+                    && str_starts_with($associatedTraits[0], $currentPrefix));
+            if ($fromCurrentSet) {
+                return false;
+            }
+        }
+
+        // Random Emblem (carousel pickup that grants a random trait)
+        // lives under `TFT{N}_MarketOffering_RandomEmblem`. It has no
+        // Emblem tag and no associated trait, so it falls through the
+        // looksLikeEmblem check. Allow it explicitly by api_name so the
+        // player still sees it in the emblems list.
+        if ($apiName === "TFT{$setNumber}_MarketOffering_RandomEmblem") {
             return false;
         }
 
-        // Evergreen base items (BFSword, Rod, Bloodthirster, IE, ...)
+        // Evergreen base items (BFSword, Rod, Bloodthirster, IE, ...),
+        // except the `Corrupted*` variants which are byte-identical
+        // duplicates of their non-corrupted counterparts (verified: same
+        // desc, composition, tags — see audit 2026-04-13). Likely legacy
+        // from a deprecated augment; they'd otherwise double every
+        // completed-item card.
         if (str_starts_with($apiName, 'TFT_Item_')) {
+            if (str_starts_with($apiName, 'TFT_Item_Corrupted')) {
+                return true;
+            }
+
+            return false;
+        }
+
+        // Set 13 leftover: champion summon items (1-star/2-star champion
+        // tokens from Crime trait) are still in the data file but the
+        // mechanic isn't in Set 17. Skip the whole `ChampionItem` family
+        // so they don't pollute the items list with deprecated entries.
+        if (str_contains($apiName, '_ChampionItem_') || str_starts_with($apiName, 'TFT17_ChampionItem_')) {
+            return true;
+        }
+
+        // Set 5 radiant items are the upgraded variants of every evergreen
+        // completed item (Radiant Infinity Edge, Radiant Bloodthirster,
+        // etc.). Riot never re-namespaced them — they still ship under the
+        // `TFT5_Item_*Radiant` prefix but are live in every current set.
+        // We pull them in as cross-set items and link back to their base
+        // via radiant_parent_id in the createItem second pass.
+        if (str_starts_with($apiName, 'TFT5_Item_') && str_ends_with($apiName, 'Radiant')) {
             return false;
         }
 
@@ -464,9 +568,43 @@ class CDragonImporter
     private function isEmblem(array $itemData): bool
     {
         $tags = $itemData['tags'] ?? [];
+        $apiName = $itemData['apiName'] ?? '';
+        $name = $itemData['name'] ?? '';
+
+        // Real emblems (Spatula + reagent → grant a trait) have a
+        // distinctive `EmblemItem` apiName suffix and "Emblem" in their
+        // display name. Set 17 PBE leaves their `associatedTraits` empty
+        // and stores the "Emblem" category tag as the hash `{ebcd1bac}`,
+        // so we match on the apiName/name pattern instead of the tag.
+        //
+        // Important: do NOT use `!empty(associatedTraits)` here. Trait
+        // items like Anima Squad weapons also carry associatedTraits
+        // and would otherwise be misrouted to the emblems table — they
+        // belong in items as `trait_item`, see isTraitItem().
+        // Include `RandomEmblem` carousel variants — not `EmblemItem`
+        // suffixed but still emblem-shaped items the player can equip.
+        return in_array('Emblem', $tags, true)
+            || str_ends_with($apiName, 'EmblemItem')
+            || str_ends_with($apiName, 'RandomEmblem')
+            || str_ends_with($name, ' Emblem')
+            || $name === 'Random Emblem';
+    }
+
+    /**
+     * Trait-granted items: weapons/relics that show up in your inventory
+     * when you run a specific trait (Anima Squad weapons, future trait
+     * loot pools). Distinct from emblems (which grant the trait) and
+     * from craftables (which are built from components).
+     */
+    private function isTraitItem(array $itemData): bool
+    {
+        $apiName = $itemData['apiName'] ?? '';
         $associated = $itemData['associatedTraits'] ?? [];
 
-        return in_array('Emblem', $tags, true) || ! empty($associated);
+        // Anima Squad pattern — confirmed in Set 17 PBE. Reuses the
+        // `*SquadItem_*` substring that Riot stamps on every Anima
+        // weapon (RocketSwarm, LionessLament, etc.).
+        return ! empty($associated) && str_contains($apiName, 'SquadItem_');
     }
 
     private function createItem(array $itemData, Set $set): void
@@ -474,13 +612,25 @@ class CDragonImporter
         $apiName = $itemData['apiName'];
         $isEvergreen = str_starts_with($apiName, 'TFT_Item_');
 
+        // Reverse-resolve hashed effect keys via FNV-1a against the
+        // description template — same trick used for trait effects.
+        // Items like TFT17_Item_PsyOps_* ship variables as `{b9c681e9}`
+        // instead of plaintext names, but the description still uses
+        // the plaintext placeholder (`@ResistReduce@`).
+        $hashToName = $this->buildPlaceholderHashMap($itemData['desc'] ?? '');
+        $effects = $this->resolveTraitEffectKeys(
+            $itemData['effects'] ?? [],
+            $hashToName,
+        );
+
         $item = Item::updateOrCreate(
             ['api_name' => $apiName],
             [
                 'set_id' => $isEvergreen ? null : $set->id,
                 'name' => $itemData['name'],
+                'description' => $itemData['desc'] ?? null,
                 'type' => $this->determineItemType($itemData),
-                'effects' => $itemData['effects'] ?? [],
+                'effects' => $effects,
                 'tags' => $this->filterTags($itemData['tags'] ?? []),
                 'icon_path' => $itemData['icon'] ?? null,
             ]
@@ -502,7 +652,18 @@ class CDragonImporter
         $tags = $itemData['tags'] ?? [];
         $apiName = $itemData['apiName'] ?? '';
 
-        if (in_array('Radiant', $tags, true) || str_contains($apiName, 'Radiant')) {
+        // Trait-item check runs before radiant so Anima Squad weapons
+        // (which Riot tags with their own trait, no composition) get
+        // their own type instead of being misfiled as `base`.
+        if ($this->isTraitItem($itemData)) {
+            return 'trait_item';
+        }
+        // Radiant check runs first (after trait_item) because TFT5
+        // radiants ALSO have a composition (inherited from their base)
+        // and would otherwise be miscategorised as 'craftable'.
+        if (in_array('Radiant', $tags, true)
+            || str_ends_with($apiName, 'Radiant')
+            || str_contains($apiName, '_Radiant')) {
             return 'radiant';
         }
         if (in_array('Artifact', $tags, true) || str_contains($apiName, 'Artifact')) {
@@ -598,29 +759,103 @@ class CDragonImporter
 
     private function createEmblem(array $itemData, Set $set): void
     {
+        $apiName = $itemData['apiName'];
+        $name = $itemData['name'] ?? '';
         $associatedTraits = $itemData['associatedTraits'] ?? [];
         $traitApiName = $associatedTraits[0] ?? null;
 
-        if (! $traitApiName) {
-            return; // Emblem without a trait → nonsense, skip
+        // Resolve hashed effect keys via FNV-1a against the description
+        // template, same trick as items/traits. Emblems for trait-gated
+        // bonuses (DRX `{6b3a76bf}` = ASTeam, etc.) need this so the
+        // stats badge can render plaintext labels.
+        $hashToName = $this->buildPlaceholderHashMap($itemData['desc'] ?? '');
+        $effects = $this->resolveTraitEffectKeys(
+            $itemData['effects'] ?? [],
+            $hashToName,
+        );
+
+        // PBE-stage emblems ship with empty associatedTraits — recover
+        // the trait reference from the apiName pattern instead. Riot's
+        // convention is `TFT{N}_Item_{TraitFragment}EmblemItem`, where
+        // the fragment matches the trait's apiName *suffix* (sans the
+        // `TFT{N}_` prefix). N.O.V.A. (`TFT17_DRX`) → `DRXEmblemItem`,
+        // Brawler (`TFT17_HPTank`) → `HPTankEmblemItem`, etc.
+        if ($traitApiName === null) {
+            $traitApiName = $this->guessTraitApiNameFromEmblem($apiName, $set->number);
         }
 
-        $traitId = TftTrait::query()
-            ->where('set_id', $set->id)
-            ->where('api_name', $traitApiName)
-            ->value('id');
+        // Resolve trait_id via apiName first, then fall back to matching
+        // the emblem's display name against the traits table. Riot uses
+        // inconsistent api_name fragments — `FavoredEmblemItem` points at
+        // the `TFT17_ADMIN` (Arbiter) trait, `PulsefireEmblemItem` at
+        // `TFT17_Timebreaker` — so the only reliable bridge is the
+        // human-readable "Arbiter Emblem" / "Timebreaker Emblem" name.
+        $traitId = null;
 
-        if (! $traitId) {
-            return; // Trait not in current set → wrong-set emblem, skip
+        if ($traitApiName !== null) {
+            $traitId = TftTrait::query()
+                ->where('set_id', $set->id)
+                ->where('api_name', $traitApiName)
+                ->value('id');
         }
 
-        Emblem::create([
+        if ($traitId === null && str_ends_with($name, ' Emblem')) {
+            $traitName = substr($name, 0, -strlen(' Emblem'));
+            $traitId = TftTrait::query()
+                ->where('set_id', $set->id)
+                ->where('name', $traitName)
+                ->value('id');
+        }
+
+        // Random Emblem intentionally has trait_id = NULL (it grants a
+        // random trait at equip time). Anything else that can't resolve
+        // a trait is probably a cross-set emblem that slipped through —
+        // skip it rather than storing a headless "[random]" row.
+        if ($traitId === null && $name !== 'Random Emblem') {
+            return;
+        }
+
+        $emblem = Emblem::create([
             'set_id' => $set->id,
-            'api_name' => $itemData['apiName'],
+            'api_name' => $apiName,
             'name' => $itemData['name'],
+            'description' => $itemData['desc'] ?? null,
+            'effects' => $effects,
             'trait_id' => $traitId,
             'icon_path' => $itemData['icon'] ?? null,
         ]);
+
+        // Composition resolution rides the same second pass as item
+        // recipes — emblems with a Spatula+X recipe (DRX, HPTank, ...)
+        // queue here, then linkEmblemComponents() in resolveItemComponents
+        // backfills the FKs once the base items table is populated.
+        $composition = $itemData['composition'] ?? [];
+        if (count($composition) >= 2) {
+            $this->pendingEmblemComponents[$emblem->id] = [$composition[0], $composition[1]];
+        }
+    }
+
+    /**
+     * Strip the `TFT{N}_Item_` prefix and `EmblemItem` suffix from an
+     * emblem apiName to recover the trait apiName fragment, then prefix
+     * it back with `TFT{N}_` so it can be matched against the traits
+     * table. Returns null for shapes that don't fit the pattern.
+     */
+    private function guessTraitApiNameFromEmblem(string $apiName, int $setNumber): ?string
+    {
+        $prefix = "TFT{$setNumber}_Item_";
+        $suffix = 'EmblemItem';
+
+        if (! str_starts_with($apiName, $prefix) || ! str_ends_with($apiName, $suffix)) {
+            return null;
+        }
+
+        $fragment = substr($apiName, strlen($prefix), -strlen($suffix));
+        if ($fragment === '') {
+            return null;
+        }
+
+        return "TFT{$setNumber}_{$fragment}";
     }
 
     /**
@@ -629,25 +864,142 @@ class CDragonImporter
      */
     private function resolveItemComponents(): void
     {
-        if (empty($this->pendingComponents)) {
+        if (! empty($this->pendingComponents)) {
+            $allApiNames = array_unique(array_merge(...array_values($this->pendingComponents)));
+            $idByApiName = Item::query()
+                ->whereIn('api_name', $allApiNames)
+                ->pluck('id', 'api_name')
+                ->all();
+
+            foreach ($this->pendingComponents as $itemId => [$c1, $c2]) {
+                Item::where('id', $itemId)->update([
+                    'component_1_id' => $idByApiName[$c1] ?? null,
+                    'component_2_id' => $idByApiName[$c2] ?? null,
+                ]);
+            }
+
+            $this->pendingComponents = [];
+        }
+
+        $this->linkRadiantParents();
+        $this->linkEmblemComponents();
+    }
+
+    /**
+     * Backfill component FKs on emblems whose CDragon record carried a
+     * 2-element composition (Spatula + reagent). Uses the same lookup
+     * shape as the item recipe pass above — single batched query, then
+     * one update per emblem.
+     */
+    private function linkEmblemComponents(): void
+    {
+        if (empty($this->pendingEmblemComponents)) {
             return;
         }
 
-        // Preload all referenced component items in 1 query
-        $allApiNames = array_unique(array_merge(...array_values($this->pendingComponents)));
+        $allApiNames = array_unique(array_merge(...array_values($this->pendingEmblemComponents)));
         $idByApiName = Item::query()
             ->whereIn('api_name', $allApiNames)
             ->pluck('id', 'api_name')
             ->all();
 
-        foreach ($this->pendingComponents as $itemId => [$c1, $c2]) {
-            Item::where('id', $itemId)->update([
+        foreach ($this->pendingEmblemComponents as $emblemId => [$c1, $c2]) {
+            Emblem::where('id', $emblemId)->update([
                 'component_1_id' => $idByApiName[$c1] ?? null,
                 'component_2_id' => $idByApiName[$c2] ?? null,
             ]);
         }
 
-        $this->pendingComponents = [];
+        $this->pendingEmblemComponents = [];
+    }
+
+    /**
+     * Link every radiant item to its base completed item via
+     * `radiant_parent_id`. Relies on a deterministic naming bridge:
+     *
+     *   TFT5_Item_InfinityEdgeRadiant   → TFT_Item_InfinityEdge
+     *   TFT5_Item_BloodthirsterRadiant  → TFT_Item_Bloodthirster
+     *
+     * Set 17's own radiant variants (TFT17_Item_PsyOps_*_Radiant) follow
+     * a different pattern — chop the `_Radiant` suffix to recover the
+     * base name. Unresolvable radiants stay with NULL parent rather than
+     * being dropped, so we can see them in the UI and add rules for new
+     * naming shapes as they appear.
+     */
+    private function linkRadiantParents(): void
+    {
+        $radiants = Item::query()
+            ->where('type', 'radiant')
+            ->whereNull('radiant_parent_id')
+            ->get(['id', 'api_name', 'name']);
+
+        if ($radiants->isEmpty()) {
+            return;
+        }
+
+        // Pre-index every potential parent (non-radiant items) twice:
+        //   - by exact api_name (fast path)
+        //   - by lowercase api_name (case-insensitive fallback for
+        //     `RapidFirecannon` vs `RapidFireCannon` style mismatches)
+        //   - by lowercased display name with "Radiant " stripped, so
+        //     `Radiant Sunfire Cape` matches `TFT_Item_RedBuff`'s
+        //     display name "Sunfire Cape" even though Riot renamed
+        //     the internal id between sets.
+        $parents = Item::query()
+            ->where('type', '!=', 'radiant')
+            ->get(['id', 'api_name', 'name']);
+
+        $byApiName = [];
+        $byApiNameLower = [];
+        $byDisplayName = [];
+        foreach ($parents as $p) {
+            $byApiName[$p->api_name] = $p->id;
+            $byApiNameLower[strtolower($p->api_name)] = $p->id;
+            $byDisplayName[strtolower($p->name)] = $p->id;
+        }
+
+        foreach ($radiants as $item) {
+            $candidate = $this->radiantParentApiName($item->api_name);
+            $parentId = null;
+
+            if ($candidate !== null) {
+                $parentId = $byApiName[$candidate]
+                    ?? $byApiNameLower[strtolower($candidate)]
+                    ?? null;
+            }
+
+            // Display-name fallback: `Radiant Infinity Edge` → `Infinity Edge`
+            if ($parentId === null) {
+                $stripped = preg_replace('/^Radiant\s+/i', '', $item->name);
+                $parentId = $byDisplayName[strtolower($stripped)] ?? null;
+            }
+
+            if ($parentId !== null) {
+                Item::where('id', $item->id)->update(['radiant_parent_id' => $parentId]);
+            }
+        }
+    }
+
+    /**
+     * Derive the expected parent api_name for a radiant item. Returns
+     * null for patterns we don't recognise yet — caller leaves the FK
+     * unset rather than guessing.
+     */
+    private function radiantParentApiName(string $radiantApiName): ?string
+    {
+        // TFT5_Item_{Name}Radiant → TFT_Item_{Name}
+        if (preg_match('/^TFT5_Item_(.+)Radiant$/', $radiantApiName, $m)) {
+            return 'TFT_Item_'.$m[1];
+        }
+
+        // TFT{N}_Item_..._{Name}Mod_Radiant → TFT{N}_Item_..._{Name}Mod
+        // (Set 17 PsyOps trait-item radiant variants share their base
+        // name with a single `_Radiant` suffix to chop off.)
+        if (str_ends_with($radiantApiName, '_Radiant')) {
+            return substr($radiantApiName, 0, -strlen('_Radiant'));
+        }
+
+        return null;
     }
 
     // ── Icon downloads ──────────────────────────────────────
@@ -712,6 +1064,59 @@ class CDragonImporter
         return $downloaded;
     }
 
+    private function downloadAbilityIcons(Set $set): int
+    {
+        $dir = public_path('icons/abilities');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $downloaded = 0;
+        $champions = Champion::query()
+            ->where('set_id', $set->id)
+            ->whereNotNull('ability_icon_path')
+            ->get(['id', 'api_name', 'ability_icon_path']);
+
+        foreach ($champions as $champion) {
+            $destPath = $dir.DIRECTORY_SEPARATOR.$champion->api_name.'.png';
+            if ($this->downloadIconIfMissing($this->cdragonAssetUrl($champion->ability_icon_path), $destPath)) {
+                $downloaded++;
+            }
+        }
+
+        return $downloaded;
+    }
+
+    /**
+     * Download icons for every item with a CDragon icon_path that we
+     * don't already have on disk. Items aren't set-scoped — base
+     * (TFT_Item_*) and TFT5 radiant variants persist across imports —
+     * so the query covers the whole table rather than a single set.
+     * Existing files short-circuit via the HEAD-check in
+     * downloadIconIfMissing, so re-runs only fetch newly-added items.
+     */
+    private function downloadItemIcons(): int
+    {
+        $dir = public_path('icons/items');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $downloaded = 0;
+        $items = Item::query()
+            ->whereNotNull('icon_path')
+            ->get(['id', 'api_name', 'icon_path']);
+
+        foreach ($items as $item) {
+            $destPath = $dir.DIRECTORY_SEPARATOR.$item->api_name.'.png';
+            if ($this->downloadIconIfMissing($this->cdragonAssetUrl($item->icon_path), $destPath)) {
+                $downloaded++;
+            }
+        }
+
+        return $downloaded;
+    }
+
     private function downloadTraitIcons(Set $set): int
     {
         $dir = public_path('icons/traits');
@@ -763,6 +1168,56 @@ class CDragonImporter
     /**
      * Same filtering for JSONB effects dicts — sometimes keys are hash-obfuscated.
      */
+    /**
+     * Build a `{hash} → plaintextName` map from every `@VarName@`
+     * placeholder found in a trait description template. Used to
+     * reverse-resolve CDragon's hashed effect variable keys back to
+     * human-readable names when importing breakpoint effects.
+     *
+     * @return array<string, string>
+     */
+    private function buildPlaceholderHashMap(string $description): array
+    {
+        preg_match_all('/@([A-Za-z_][A-Za-z0-9_]*)/', $description, $matches);
+        $map = [];
+        foreach (array_unique($matches[1] ?? []) as $name) {
+            $map[\App\Services\Tft\FnvHasher::wrapped($name)] = $name;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Rewrite a breakpoint's `variables` dict so hashed keys are replaced
+     * with plaintext names drawn from the description template. Hashed
+     * keys without a match in the placeholder set are dropped (they
+     * carry runtime engine state the tooltip never shows), plaintext
+     * keys pass through untouched.
+     *
+     * @param  array<string, mixed>  $effects
+     * @param  array<string, string>  $hashToName
+     * @return array<string, mixed>
+     */
+    private function resolveTraitEffectKeys(array $effects, array $hashToName): array
+    {
+        $resolved = [];
+        foreach ($effects as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+            if ($this->isHashKey((string) $key)) {
+                if (isset($hashToName[$key])) {
+                    $resolved[$hashToName[$key]] = $value;
+                }
+
+                continue;
+            }
+            $resolved[$key] = $value;
+        }
+
+        return $resolved;
+    }
+
     private function filterHashKeys(array $dict): array
     {
         return array_filter(

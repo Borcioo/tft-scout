@@ -91,6 +91,8 @@ class MechaEnhancedHook implements PostImportHook
 
             // Use override if available, else fall back to base ability values
             'ability_desc' => $override['desc'] ?? $base->ability_desc,
+            'ability_name' => $base->ability_name,
+            'ability_icon_path' => $base->ability_icon_path,
             'ability_stats' => $override['variables'] ?? $base->ability_stats,
 
             'base_champion_id' => $base->id,

@@ -48,6 +48,8 @@ class Champion extends Model
         'crit_chance',
         'crit_multiplier',
         'ability_desc',
+        'ability_name',
+        'ability_icon_path',
         'ability_stats',
         'base_champion_id',
         'variant_label',

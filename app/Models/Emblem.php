@@ -21,8 +21,16 @@ class Emblem extends Model
         'set_id',
         'api_name',
         'name',
+        'description',
+        'effects',
+        'component_1_id',
+        'component_2_id',
         'trait_id',
         'icon_path',
+    ];
+
+    protected $casts = [
+        'effects' => 'array',
     ];
 
     // ── Relations ──────────────────────────────────
@@ -35,5 +43,15 @@ class Emblem extends Model
     public function trait(): BelongsTo
     {
         return $this->belongsTo(TftTrait::class, 'trait_id');
+    }
+
+    public function component1(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'component_1_id');
+    }
+
+    public function component2(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'component_2_id');
     }
 }

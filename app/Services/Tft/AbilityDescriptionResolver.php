@@ -61,19 +61,33 @@ class AbilityDescriptionResolver
         ?string $template = null,
         array $championStats = [],
     ): array {
-        $merged = array_map(
-            fn (array $dv) => [
-                'name' => $dv['name'],
-                // Normalise to `value` (singular) to match the existing
-                // en_us.json-sourced ability_stats column format.
-                'value' => $dv['values'] ?? $dv['value'] ?? [],
-            ],
-            $dataValues,
-        );
-
         $placeholderNames = $template !== null
             ? $this->extractPlaceholderNames($template)
             : [];
+
+        // Some spells (Gragas DURATION/HEALING) ship DataValue names in a
+        // different case than the template's placeholder (`@Duration@`).
+        // Rewrite the stat name to match the template so frontend lookups
+        // — which are case-sensitive — still find it.
+        $placeholderByLower = [];
+        foreach ($placeholderNames as $p) {
+            $placeholderByLower[strtolower($p)] = $p;
+        }
+
+        $merged = array_map(
+            function (array $dv) use ($placeholderByLower) {
+                $name = $dv['name'];
+                $normalised = $placeholderByLower[strtolower($name)] ?? $name;
+
+                return [
+                    'name' => $normalised,
+                    // Normalise to `value` (singular) to match the existing
+                    // en_us.json-sourced ability_stats column format.
+                    'value' => $dv['values'] ?? $dv['value'] ?? [],
+                ];
+            },
+            $dataValues,
+        );
 
         $calcs = $this->calculationEvaluator->evaluate(
             $calculations,
@@ -127,6 +141,11 @@ class AbilityDescriptionResolver
         $name = $this->lookup($entries, $locKeys['key_name'] ?? null);
         $template = $this->lookup($entries, $locKeys['key_tooltip'] ?? null);
 
+        if ($template !== null) {
+            $template = $this->expandKeywordTokens($template, $entries);
+            $template = $this->substituteUnitProperties($template);
+        }
+
         $mergedStats = $this->mergeDataValuesWithCalculations(
             $dataValues,
             $calculations,
@@ -144,6 +163,71 @@ class AbilityDescriptionResolver
             'rendered' => $rendered,
             'merged_stats' => $mergedStats,
         ];
+    }
+
+    /**
+     * Replace `@TFTUnitProperty.:SomeProp@` references with a static `0`.
+     *
+     * These are runtime-accumulated stacks — Bard's abducted friends,
+     * Ezreal's takedowns, Cho'Gath's bonus health per kill, Nasus Hero's
+     * bonus damage per kill. In-game the number grows during combat;
+     * before the fight starts (and in our static tooltip) it's `0`, which
+     * is the value the game itself shows on the unit card.
+     *
+     * The `.:` separator is Riot's syntax for "lookup unit property by
+     * name" — there's no DataValue or SpellCalculation we could resolve
+     * it against, and the placeholder renderer would otherwise leave
+     * `@TFTUnitProperty.:...@` as literal text in the tooltip.
+     */
+    private function substituteUnitProperties(string $template): string
+    {
+        return preg_replace('/@TFTUnitProperty\.:[A-Za-z0-9_]+@/', '0', $template) ?? $template;
+    }
+
+    /**
+     * Expand `{{token}}` tooltip tokens in a description template.
+     *
+     * Riot ability descriptions reference named keywords like
+     * `{{TFT17_SpaceGroove_TheGroove}}` or `{{TFT_Keyword_Chill}}` that
+     * should display as short inline labels ("The Groove", "Chill"). The
+     * token key resolves against the same RST stringtable used for the
+     * tooltip itself; the resulting value often contains a rainbow
+     * `<font color='#XXX'>` wrapper per character which the frontend
+     * doesn't know how to render.
+     *
+     * We look up the token, strip any `<font>` tags (keeping only their
+     * inner text), and wrap the plain label in `<TFTKeyword>` so the
+     * existing frontend tag-class map styles it in amber. Unresolved
+     * tokens fall back to the last underscore-separated segment
+     * ("Chill") so we at least render something readable instead of
+     * leaking the raw `{{...}}` form.
+     */
+    private function expandKeywordTokens(string $template, array $entries): string
+    {
+        return preg_replace_callback(
+            '/\{\{([^}]+)\}\}/',
+            function (array $match) use ($entries) {
+                $token = trim($match[1]);
+                $resolved = $this->lookup($entries, $token);
+
+                if ($resolved === null) {
+                    // Fallback: last underscore-separated chunk ("Chill"
+                    // from "TFT_Keyword_Chill"). Keeps tooltips readable
+                    // for tokens Riot hasn't shipped a stringtable entry for.
+                    $parts = explode('_', $token);
+                    $label = end($parts) ?: $token;
+                } else {
+                    // Strip the rainbow `<font color=...>` wrapper Riot
+                    // uses for flavour — it's one `<font>` tag per character,
+                    // which collapses back to the plain label ("The Groove").
+                    $label = preg_replace('/<font[^>]*>|<\/font>/i', '', $resolved) ?? $resolved;
+                    $label = trim($label);
+                }
+
+                return '<TFTKeyword>'.$label.'</TFTKeyword>';
+            },
+            $template,
+        ) ?? $template;
     }
 
     /**

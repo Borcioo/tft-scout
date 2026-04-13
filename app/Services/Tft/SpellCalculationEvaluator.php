@@ -83,6 +83,7 @@ class SpellCalculationEvaluator
         // Index DataValues by both plaintext name and FNV-1a hash so we
         // can resolve mDataValue references regardless of form.
         $dvByName = [];
+        $dvByNameLower = [];
         $dvByHash = [];
         foreach ($dataValues as $dv) {
             $name = $dv['name'] ?? null;
@@ -91,6 +92,11 @@ class SpellCalculationEvaluator
                 continue;
             }
             $dvByName[$name] = $values;
+            // Case-insensitive fallback: Gragas ships `DURATION`/`HEALING`
+            // all-caps but the template references `@Duration@` and inner
+            // calcs reference `Healing`. Without this map those would fail
+            // to resolve and drop the whole calc.
+            $dvByNameLower[strtolower($name)] = $values;
             $dvByHash[FnvHasher::wrapped($name)] = $values;
         }
 
@@ -110,6 +116,7 @@ class SpellCalculationEvaluator
         $context = [
             'calculations' => $calculations,
             'dvByName' => $dvByName,
+            'dvByNameLower' => $dvByNameLower,
             'dvByHash' => $dvByHash,
             'championStats' => $championStats,
         ];
@@ -287,6 +294,52 @@ class SpellCalculationEvaluator
 
                 return $sum;
 
+            case 'StatByNamedDataValueCalculationPart':
+                // `championStat[mStat] × dataValue[mDataValue]`. Same shape
+                // as StatByCoefficient but with the coefficient stored as a
+                // DataValue reference (plaintext name or wrapped hash) instead
+                // of an inline mCoefficient. Nasus DamageHealth, Rammus passive,
+                // Cho'Gath TotalDamage all use this.
+                $statEnum = $part['mStat'] ?? null;
+                $statValue = $this->resolveChampionStat($statEnum, $context['championStats'] ?? []);
+                if ($statValue === null) {
+                    return null;
+                }
+                $dvValue = $this->resolveDataValue($part, $context, $star);
+                if ($dvValue === null) {
+                    return null;
+                }
+
+                return $statValue * $dvValue;
+
+            case 'StatBySubPartCalculationPart':
+                // `championStat[mStat] × evaluatePart(mSubpart)`. Graves'
+                // passive (armor × PassivePercentBAD) and Shen's shield
+                // (max_health × ShieldHP) use this — subpart itself is a
+                // NamedDataValueCalculationPart so we recurse via
+                // evaluatePart to get the inner number.
+                $statEnum = $part['mStat'] ?? null;
+                $statValue = $this->resolveChampionStat($statEnum, $context['championStats'] ?? []);
+                if ($statValue === null) {
+                    return null;
+                }
+                $subValue = isset($part['mSubpart'])
+                    ? $this->evaluatePart($part['mSubpart'], $context, $star)
+                    : null;
+                if ($subValue === null) {
+                    return null;
+                }
+
+                return $statValue * $subValue;
+
+            case 'BuffCounterByCoefficientCalculationPart':
+                // Runtime semantics: `buff_stack_count × mCoefficient`. Same
+                // zero-state substitution rationale as BuffCounterByNamedDataValue
+                // (see its case for why we return the per-stack value directly
+                // instead of trying to infer a baseline). Used by Bard (meep
+                // bonus, {caa056bc}: mCoefficient=1 = "+1 per meep").
+                return (float) ($part['mCoefficient'] ?? 0);
+
             case 'StatByCoefficientCalculationPart':
                 // mCoefficient × championStat[mStat]. mStat is an enum
                 // describing which stat to look up; we only know a handful
@@ -391,7 +444,10 @@ class SpellCalculationEvaluator
             return null;
         }
 
-        $values = $context['dvByName'][$ref] ?? $context['dvByHash'][$ref] ?? null;
+        $values = $context['dvByName'][$ref]
+            ?? $context['dvByHash'][$ref]
+            ?? $context['dvByNameLower'][strtolower($ref)]
+            ?? null;
         if (! is_array($values)) {
             return null;
         }
