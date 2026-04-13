@@ -58,6 +58,7 @@ function mapResult(r: any): ScoredTeam {
         slotsUsed: r.slotsUsed,
         roles: r.roles ?? null,
         metaMatch: r.metaMatch ?? null,
+        insights: r.insights ?? null,
     };
 }
 
