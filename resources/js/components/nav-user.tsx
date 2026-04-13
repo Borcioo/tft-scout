@@ -1,5 +1,5 @@
-import { usePage } from '@inertiajs/react';
-import { ChevronsUpDown } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { ChevronsUpDown, LogIn, UserPlus } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,14 +14,37 @@ import {
 import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { login, register } from '@/routes';
 
 export function NavUser() {
     const { auth } = usePage().props;
     const { state } = useSidebar();
     const isMobile = useIsMobile();
 
+    // Guest fallback: show login / register buttons instead of the user dropdown.
+    // Enables sidebar navigation to be useful for non-authed visitors browsing
+    // public data (champions, traits, etc.) without hiding the auth CTAs.
     if (!auth.user) {
-        return null;
+        return (
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip={{ children: 'Log in' }}>
+                        <Link href={login()} prefetch>
+                            <LogIn />
+                            <span>Log in</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip={{ children: 'Sign up' }}>
+                        <Link href={register()} prefetch>
+                            <UserPlus />
+                            <span>Sign up</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        );
     }
 
     return (

@@ -1,0 +1,129 @@
+/**
+ * Engine — orchestrates graph building + team finding.
+ *
+ * PURE — no DB, no fetch. Service layer provides all data.
+ * This is the entry point for the algorithm layer.
+ *
+ * @typedef {Object} EngineInput
+ * @property {object[]} champions - all champions (domain objects)
+ * @property {object[]} traits - all traits with breakpoints (domain objects)
+ * @property {object} scoringCtx - { unitRatings, traitRatings, styleScores, affinity }
+ * @property {object} constraints - { lockedChampions, excludedChampions, lockedTraits, emblems, ... }
+ * @property {object[]} exclusionGroups - [{ groupName, championApiName }]
+ * @property {number} level - player level (5-10)
+ * @property {number} topN - max results
+ */
+
+import { buildGraph, findTeams } from './synergy-graph.js';
+import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates.js';
+import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer.js';
+import { buildActiveTraits } from './active-traits.js';
+
+/**
+ * Generate team compositions.
+ *
+ * @param {EngineInput} input
+ * @returns {object[]} - array of { champions, activeTraits, score, level, slotsUsed }
+ */
+export function generate(input) {
+  const {
+    champions,
+    traits,
+    scoringCtx = {},
+    constraints = {},
+    exclusionGroups = [],
+    level = 8,
+    topN = 10,
+    seed = 0,
+  } = input;
+
+  // Filter candidates using exclusion groups
+  const candidates = filterCandidates(champions, constraints, exclusionGroups);
+  const locked = getLockedChampions(champions, constraints.lockedChampions || []);
+
+  // Calculate team size from level, accounting for locked enhanced champions
+  let baseTeamSize = level;
+  let extraSlots = 0;
+  for (const c of locked) {
+    if (c.slotsUsed > 1) extraSlots += c.slotsUsed - 1;
+  }
+  const effectiveTeamSize = baseTeamSize - extraSlots;
+
+  // Build graph from eligible champions (locked + candidates)
+  const eligibleChampions = [...locked, ...candidates];
+  const exclusionLookup = buildExclusionLookup(exclusionGroups);
+  const graph = buildGraph(eligibleChampions, traits, scoringCtx, exclusionLookup);
+
+  // Find teams — request extra so diversify has enough candidates
+  const searchMultiplier = (constraints.max5Cost != null ? 5 : 3);
+  const rawTeams = findTeams(graph, {
+    teamSize: effectiveTeamSize,
+    startChamps: locked.map(c => c.apiName),
+    maxResults: topN * searchMultiplier,
+    level,
+    emblems: constraints.emblems || [],
+    excludedTraits: constraints.excludedTraits || [],
+    excludedChampions: constraints.excludedChampions || [],
+    max5Cost: constraints.max5Cost ?? null,
+    seed,
+  });
+
+  // Enrich results with active traits and re-score with full scorer
+  const enriched = rawTeams.map(team => {
+    let totalSlots = 0;
+    for (const c of team.champions) totalSlots += c.slotsUsed || 1;
+    const activeTraits = buildActiveTraits(team.champions, traits, constraints.emblems || []);
+
+    // Re-score with full scorer
+    const score = teamScore({
+      champions: team.champions,
+      activeTraits,
+      level,
+      roleBalance: constraints.roleBalance ?? null,
+    }, scoringCtx);
+
+    const breakdown = teamScoreBreakdown({ champions: team.champions, activeTraits, level, roleBalance: constraints.roleBalance ?? null }, scoringCtx);
+
+    const roles = teamRoleBalance(team.champions);
+
+    return {
+      champions: team.champions,
+      activeTraits,
+      score,
+      breakdown,
+      level,
+      slotsUsed: totalSlots,
+      roles: { frontline: roles.frontline, dps: roles.dps, fighter: roles.fighter },
+    };
+  });
+
+  // Filter out comps that exceed slot budget
+  const maxSlots = level;
+  const validComps = enriched.filter(r => r.slotsUsed <= maxSlots);
+
+  // Meta-comp match detection — annotate results that match known meta comps
+  const metaComps = scoringCtx.metaComps || [];
+  if (metaComps.length > 0) {
+    for (const comp of validComps) {
+      const teamApis = new Set(comp.champions.map(c => c.baseApiName || c.apiName));
+      for (const meta of metaComps) {
+        const overlap = meta.units.filter(u => teamApis.has(u)).length;
+        // Match if ≥70% of meta comp units are in the team
+        if (overlap >= Math.ceil(meta.units.length * 0.7)) {
+          comp.metaMatch = {
+            name: meta.name,
+            avgPlace: meta.avgPlace,
+            games: meta.games,
+            overlap,
+            total: meta.units.length,
+          };
+          break; // first (best) match only
+        }
+      }
+    }
+  }
+
+  // Sort by final score and return top N
+  validComps.sort((a, b) => b.score - a.score);
+  return validComps.slice(0, topN);
+}

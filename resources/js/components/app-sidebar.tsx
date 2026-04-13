@@ -1,7 +1,14 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    Crosshair,
+    Gem,
+    Shapes,
+    ShieldPlus,
+    Sparkles,
+    Swords,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -13,27 +20,50 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+/**
+ * Sidebar navigation groups for TFT Scout.
+ *
+ * "Scout" group — active workflow (building comps, managing saved plans).
+ * "Browse" group — read-only data browsers (reference tables from CDragon).
+ *
+ * Admin dashboard and settings intentionally NOT in main nav — they live
+ * under the user menu (NavUser) and will be expanded for premium features later.
+ */
+const scoutNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
+        title: 'Scout',
+        href: '/scout',
+        icon: Crosshair,
+    },
+    {
+        title: 'My Plans',
+        href: '/plans',
+        icon: ShieldPlus,
     },
 ];
 
-const footerNavItems: NavItem[] = [
+const browseNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        title: 'Champions',
+        href: '/champions',
+        icon: Users,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Traits',
+        href: '/traits',
+        icon: Shapes,
+    },
+    {
+        title: 'Items',
+        href: '/items',
+        icon: Swords,
+    },
+    {
+        title: 'Augments',
+        href: '/augments',
+        icon: Sparkles,
     },
 ];
 
@@ -44,7 +74,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href="/" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -53,11 +83,11 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={scoutNavItems} label="Scout" />
+                <NavMain items={browseNavItems} label="Browse" />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

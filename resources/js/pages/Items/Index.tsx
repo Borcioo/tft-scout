@@ -1,0 +1,310 @@
+import { Head } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+
+type ItemComponent = {
+    api_name: string;
+    name: string;
+};
+
+type Item = {
+    id: number;
+    api_name: string;
+    name: string;
+    type: string;
+    tier: string | null;
+    effects: Record<string, number | string>;
+    tags: string[];
+    component_1: ItemComponent | null;
+    component_2: ItemComponent | null;
+};
+
+type Props = {
+    items: Item[];
+};
+
+const TYPE_ORDER = [
+    'craftable',
+    'base',
+    'radiant',
+    'artifact',
+    'support',
+] as const;
+
+const TYPE_STYLES: Record<
+    string,
+    { label: string; accent: string; border: string }
+> = {
+    craftable: {
+        label: 'Craftable',
+        accent: 'text-sky-300',
+        border: 'border-sky-600/50',
+    },
+    base: {
+        label: 'Base',
+        accent: 'text-zinc-200',
+        border: 'border-zinc-500/50',
+    },
+    radiant: {
+        label: 'Radiant',
+        accent: 'text-yellow-300',
+        border: 'border-yellow-500/60',
+    },
+    artifact: {
+        label: 'Artifact',
+        accent: 'text-fuchsia-300',
+        border: 'border-fuchsia-500/50',
+    },
+    support: {
+        label: 'Support',
+        accent: 'text-emerald-300',
+        border: 'border-emerald-500/50',
+    },
+};
+
+export default function ItemsIndex({ items }: Props) {
+    const [search, setSearch] = useState('');
+    const [activeType, setActiveType] = useState<string>('craftable');
+
+    const countsByType = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const item of items) {
+            counts[item.type] = (counts[item.type] ?? 0) + 1;
+        }
+        return counts;
+    }, [items]);
+
+    const availableTypes = useMemo(
+        () => TYPE_ORDER.filter((t) => (countsByType[t] ?? 0) > 0),
+        [countsByType],
+    );
+
+    const filtered = useMemo(() => {
+        let list = items.filter((i) => i.type === activeType);
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter(
+                (i) =>
+                    i.name.toLowerCase().includes(q) ||
+                    i.component_1?.name.toLowerCase().includes(q) ||
+                    i.component_2?.name.toLowerCase().includes(q),
+            );
+        }
+        return list;
+    }, [items, activeType, search]);
+
+    return (
+        <>
+            <Head title="Items — TFT Scout" />
+
+            <div className="flex flex-col gap-6 p-6">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            Items
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            {items.length} items across {availableTypes.length}{' '}
+                            categories. Effects shown are the raw CDragon
+                            values.
+                        </p>
+                    </div>
+
+                    <Input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by name or component..."
+                        className="max-w-xs"
+                    />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    {availableTypes.map((type) => {
+                        const style = TYPE_STYLES[type];
+                        const isActive = activeType === type;
+                        return (
+                            <button
+                                key={type}
+                                type="button"
+                                onClick={() => setActiveType(type)}
+                                className={cn(
+                                    'rounded-md border px-3 py-1 text-xs font-medium transition-colors',
+                                    isActive
+                                        ? 'border-foreground bg-foreground text-background'
+                                        : 'border-border bg-background hover:border-foreground/40',
+                                    !isActive && style.accent,
+                                )}
+                            >
+                                {style.label} · {countsByType[type]}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {filtered.length === 0 ? (
+                    <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                        No items match your search.
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                        {filtered.map((item) => (
+                            <ItemCard key={item.api_name} item={item} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </>
+    );
+}
+
+function ItemCard({ item }: { item: Item }) {
+    const style = TYPE_STYLES[item.type] ?? TYPE_STYLES.base;
+    const effectEntries = Object.entries(item.effects).slice(0, 6);
+    const hiddenCount = Math.max(
+        0,
+        Object.keys(item.effects).length - effectEntries.length,
+    );
+
+    return (
+        <Card
+            className={cn(
+                'flex flex-col gap-3 border-2 p-3 transition-colors',
+                style.border,
+            )}
+        >
+            <div className="flex items-start gap-3">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
+                    <img
+                        src={`/icons/items/${item.api_name}.png`}
+                        alt={item.name}
+                        className="size-10 object-contain"
+                        loading="lazy"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                                'none';
+                        }}
+                    />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold">
+                        {item.name}
+                    </h3>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                'px-1.5 py-0 text-[10px] font-normal',
+                                style.accent,
+                            )}
+                        >
+                            {style.label}
+                        </Badge>
+                        {item.tier && (
+                            <span className="text-[10px] text-muted-foreground">
+                                {item.tier}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {(item.component_1 || item.component_2) && (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <RecipeComponent component={item.component_1} />
+                    <span className="opacity-60">+</span>
+                    <RecipeComponent component={item.component_2} />
+                </div>
+            )}
+
+            {effectEntries.length > 0 ? (
+                <ul className="space-y-0.5 text-[11px]">
+                    {effectEntries.map(([key, value]) => (
+                        <li
+                            key={key}
+                            className="flex justify-between gap-2 font-mono"
+                        >
+                            <span className="truncate text-muted-foreground">
+                                {key}
+                            </span>
+                            <span>{formatEffectValue(value)}</span>
+                        </li>
+                    ))}
+                    {hiddenCount > 0 && (
+                        <li className="text-[10px] italic text-muted-foreground">
+                            +{hiddenCount} more
+                        </li>
+                    )}
+                </ul>
+            ) : (
+                <p className="text-[11px] italic text-muted-foreground">
+                    No numeric effects exposed.
+                </p>
+            )}
+        </Card>
+    );
+}
+
+function RecipeComponent({
+    component,
+}: {
+    component: ItemComponent | null;
+}) {
+    if (!component) {
+        return <span className="opacity-40">?</span>;
+    }
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span className="inline-flex size-6 items-center justify-center overflow-hidden rounded-sm border border-border bg-muted/40">
+                    <img
+                        src={`/icons/items/${component.api_name}.png`}
+                        alt={component.name}
+                        className="size-5 object-contain"
+                        loading="lazy"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                                'none';
+                        }}
+                    />
+                </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+                {component.name}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
+/**
+ * Same heuristic as traits: magnitude < 1 → percent, otherwise flat.
+ * Imperfect (AS=15 is flat %, AD=0.15 is fractional %) until we have a
+ * per-field units table from CDragon bin parsing.
+ */
+function formatEffectValue(value: number | string): string {
+    if (typeof value === 'string') return value;
+    if (Math.abs(value) > 0 && Math.abs(value) < 1) {
+        return `${(value * 100).toFixed(0)}%`;
+    }
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+ItemsIndex.layout = (page: React.ReactNode) => (
+    <AppLayout
+        breadcrumbs={[
+            { title: 'Browse', href: '#' },
+            { title: 'Items', href: '/items' },
+        ]}
+    >
+        {page}
+    </AppLayout>
+);
