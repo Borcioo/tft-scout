@@ -78,16 +78,26 @@ export default function ScoutIndex({ setNumber }: Props) {
             });
     }, [generate, level, topN, max5Cost, roleBalance, lockedChampions, lockedTraits, emblems]);
 
-    const debouncedParams = useDebounced(
-        { level, topN, max5Cost, roleBalance, lockedChampions, lockedTraits, emblems },
-        300,
-    );
+    // Serialise params to a stable string key — object literals get a
+    // new reference every render, which made useDebounced retrigger in
+    // a loop when `run()` itself caused a re-render. A JSON string only
+    // changes when a param's actual value changes.
+    const paramsKey = JSON.stringify({
+        level,
+        topN,
+        max5Cost,
+        roleBalance,
+        lockedChampions,
+        lockedTraits,
+        emblems,
+    });
+    const debouncedParamsKey = useDebounced(paramsKey, 300);
 
     useEffect(() => {
         if (champions.length === 0) return;
         run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedParams, champions.length]);
+    }, [debouncedParamsKey, champions.length]);
 
     return (
         <>
