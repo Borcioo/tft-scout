@@ -146,6 +146,7 @@ export type ScoredTeam = {
     slotsUsed: number;
     roles: Record<string, number> | null;
     metaMatch: { id: string; name: string; similarity: number } | null;
+    insights?: TeamInsights | null;
 };
 
 export type WorkerInMsg =
@@ -155,3 +156,27 @@ export type WorkerInMsg =
 export type WorkerOutMsg =
     | { id: number; result: { results: ScoredTeam[]; insights: unknown } }
     | { id: number; error: string };
+
+// ── "Why this comp?" insights ────────────────────
+// Produced by the worker (see team-insights.ts) and rendered by
+// WhyThisComp.tsx. Discriminated union lets the UI switch on `kind`
+// without needing any string parsing.
+
+export type InsightItem =
+    | { kind: 'metaMatch'; compName: string; avgPlace: number; games: number }
+    | { kind: 'topCarry'; championApiName: string; displayName: string; avgPlace: number; games: number }
+    | { kind: 'strongTrait'; traitApiName: string; displayName: string; count: number; avgPlace: number; games: number }
+    | { kind: 'affinityHit'; championApiName: string; championName: string; traitApiName: string; traitName: string; avgPlace: number }
+    | { kind: 'provenPair'; aApi: string; aName: string; bApi: string; bName: string; avgPlace: number }
+    | { kind: 'highBreakpoint'; traitApiName: string; displayName: string; count: number; avgPlace: number }
+    | { kind: 'weakChampion'; championApiName: string; championName: string; avgPlace: number; reasonTraitName: string }
+    | { kind: 'lowBreakpoint'; traitApiName: string; displayName: string; count: number; avgPlace: number }
+    | { kind: 'unprovenTrait'; traitApiName: string; displayName: string; games: number }
+    | { kind: 'singleCore'; traitApiName: string; displayName: string }
+    | { kind: 'noMetaMatch' }
+    | { kind: 'staleData' };
+
+export type TeamInsights = {
+    strengths: InsightItem[];
+    concerns: InsightItem[];
+};
