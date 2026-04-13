@@ -150,6 +150,10 @@ class InspectCharacterBin extends Command
             if (! isset($report[$section]['spells']) || ! is_array($report[$section]['spells'])) {
                 continue;
             }
+            $championStats = $this->buildChampionStatsFromResolved(
+                $report[$section]['resolved_stats'] ?? [],
+            );
+
             foreach ($report[$section]['spells'] as &$spell) {
                 $spell['resolved_ability'] = $resolver->resolve(
                     $spell['loc_keys'] ?? ['key_name' => null, 'key_tooltip' => null],
@@ -157,10 +161,43 @@ class InspectCharacterBin extends Command
                     $starLevel,
                     $channel,
                     calculations: $spell['calculations'] ?? [],
+                    championStats: $championStats,
                 );
             }
             unset($spell);
         }
+    }
+
+    /**
+     * Build the mStat-enum → stat-value map the evaluator needs for
+     * StatByCoefficient nodes, pulling from the inspector's already-
+     * resolved stat list (value-matched via StatHashResolver). Keeps
+     * the standalone inspect command working for champions like Jinx
+     * whose formulas reference champion-level stats.
+     *
+     * Enum convention matches CharacterAbilityEnrichHook — add new
+     * entries in both places as spells surface them.
+     *
+     * @param  list<array{hash: string, stat: string|null, value: int|float, source: string}>  $resolvedStats
+     * @return array<int, float>
+     */
+    private function buildChampionStatsFromResolved(array $resolvedStats): array
+    {
+        $byName = [];
+        foreach ($resolvedStats as $entry) {
+            $name = $entry['stat'] ?? null;
+            if ($name !== null) {
+                $byName[$name] = (float) $entry['value'];
+            }
+        }
+
+        return array_filter(
+            [
+                // mStat 4 → attack_speed_ratio (Jinx NumRockets)
+                4 => $byName['attack_speed_ratio'] ?? null,
+            ],
+            fn ($v) => $v !== null,
+        );
     }
 
     private function printVariantSummary(array $main, array $clone): void

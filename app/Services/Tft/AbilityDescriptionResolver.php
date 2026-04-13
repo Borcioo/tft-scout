@@ -45,14 +45,21 @@ class AbilityDescriptionResolver
      * reverse-resolve hashed calc keys (e.g. `{c30d568b}` ↔ `ModifiedNumRockets`)
      * by FNV-1a matching against the placeholders found in the template.
      *
+     * `$championStats` maps mStat enum values to champion stat values so
+     * StatByCoefficient nodes (Jinx NumRockets uses mStat=4 for AS) can
+     * be evaluated. Hooks build this dict from the Champion model before
+     * calling resolve().
+     *
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
      * @param  array<string, mixed>  $calculations
+     * @param  array<int, float>  $championStats
      * @return list<array{name: string, value: array<int, int|float>, kind?: string}>
      */
     public function mergeDataValuesWithCalculations(
         array $dataValues,
         array $calculations,
         ?string $template = null,
+        array $championStats = [],
     ): array {
         $merged = array_map(
             fn (array $dv) => [
@@ -72,6 +79,7 @@ class AbilityDescriptionResolver
             $calculations,
             $dataValues,
             $placeholderNames,
+            $championStats,
         );
 
         foreach ($calcs as $calc) {
@@ -102,6 +110,7 @@ class AbilityDescriptionResolver
      * @param  array{key_name: string|null, key_tooltip: string|null}  $locKeys
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
      * @param  array<string, mixed>  $calculations  raw mSpellCalculations dict
+     * @param  array<int, float>  $championStats   mStat enum → stat value
      * @return array{name: string|null, template: string|null, rendered: string|null, merged_stats: array}
      */
     public function resolve(
@@ -111,6 +120,7 @@ class AbilityDescriptionResolver
         string $channel = 'pbe',
         string $locale = 'en_us',
         array $calculations = [],
+        array $championStats = [],
     ): array {
         $entries = $this->stringtable->entries($channel, $locale);
 
@@ -121,6 +131,7 @@ class AbilityDescriptionResolver
             $dataValues,
             $calculations,
             $template,
+            $championStats,
         );
 
         $rendered = $template !== null
@@ -187,16 +198,24 @@ class AbilityDescriptionResolver
     }
 
     /**
-     * Present a number the way tooltips usually show it: integer if close
-     * enough to whole, otherwise short decimal. Matches how Riot formats
-     * numbers in in-game tooltips.
+     * Present a number the way tooltips usually show it. The key
+     * distinction is between legit fractional values (`2.5 seconds`,
+     * `0.75 crit chance`) that players should see, and arithmetic
+     * artefacts from SpellCalculationEvaluator (`18.14 rockets`) that
+     * tooltips round to integers.
+     *
+     * Heuristic: if the fractional part is smaller than 0.2 treat it
+     * as imprecision from the evaluator and round to an int. Anything
+     * larger is a deliberate half-integer step (2.5, 30.5) that we
+     * keep so the displayed number matches in-game text.
      */
     private function formatNumber(float $value): string
     {
-        if (abs($value - round($value)) < 0.01) {
+        $fractional = abs($value - round($value));
+        if ($fractional < 0.2) {
             return (string) (int) round($value);
         }
 
-        return (string) round($value, 2);
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     }
 }

@@ -35,10 +35,27 @@ namespace App\Services\Tft;
  *   - `mStat` ABSENT — dataValue is a scaling coefficient against the
  *     implicit base AP stat (100 in TFT), multiply by 100.
  *
- * Unsupported part types (Product, Exponent, Clamp, StatByCoefficient)
- * return null, which propagates up the tree — any calc containing
- * unsupported parts is dropped from the output so the frontend falls
- * back to its `[PlaceholderName]` stub rather than rendering a bogus 0.
+ * Supported part types:
+ *   - SumOfSubPartsCalculationPart — recursive sum over mSubparts
+ *   - SubPartScaledProportionalToStat — dataValue * mRatio (with 100×
+ *     implicit scaling when mStat is absent)
+ *   - NamedDataValueCalculationPart — direct DataValue lookup
+ *   - NumberCalculationPart — literal constant `mNumber`
+ *   - ProductOfSubPartsCalculationPart — mPart1 × mPart2
+ *   - ExponentSubPartsCalculationPart — part1 ^ part2 (NB: inner keys
+ *     use lowercase `part1` / `part2` while Product uses `mPart1` /
+ *     `mPart2` — Riot naming quirk, both handled)
+ *   - ClampSubPartsCalculationPart — clamp(sum(mSubparts), mFloor, mCeiling)
+ *   - StatByCoefficientCalculationPart — mCoefficient × championStat[mStat]
+ *   - ByNamedSpellCalculationSubPart (detected by mSpellCalculationKey) —
+ *     recursive lookup of another entry in mSpellCalculations
+ *
+ * Champion stats for StatByCoefficient come via `championStats` in the
+ * evaluation context: an associative array keyed by the mStat enum
+ * integer. Passing `['4' => 0.75]` lets us resolve mStat=4 (attack
+ * speed) references like Jinx NumRockets. Only mStat values actually
+ * used by known spells are mapped; unknown ones return null and drop
+ * the whole calc so the frontend can fall back to its `[Name]` stub.
  */
 class SpellCalculationEvaluator
 {
@@ -54,12 +71,14 @@ class SpellCalculationEvaluator
      * @param  array<string, mixed>  $calculations  raw spell.mSpellCalculations dict
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues  from inspector
      * @param  list<string>  $placeholderNames  plaintext names extracted from the template
+     * @param  array<int, float>  $championStats  mStat enum → champion stat value
      * @return list<array{name: string, value: array<int, float>, kind: string}>
      */
     public function evaluate(
         array $calculations,
         array $dataValues,
         array $placeholderNames = [],
+        array $championStats = [],
     ): array {
         // Index DataValues by both plaintext name and FNV-1a hash so we
         // can resolve mDataValue references regardless of form.
@@ -86,10 +105,13 @@ class SpellCalculationEvaluator
 
         // Keep the whole calcs dict around so cross-references via
         // mSpellCalculationKey resolve without another lookup pass.
+        // championStats is passed through so StatByCoefficient nodes can
+        // look up champion-level stats by their mStat enum value.
         $context = [
             'calculations' => $calculations,
             'dvByName' => $dvByName,
             'dvByHash' => $dvByHash,
+            'championStats' => $championStats,
         ];
 
         $out = [];
@@ -206,6 +228,81 @@ class SpellCalculationEvaluator
             case 'NumberCalculationPart':
                 return (float) ($part['mNumber'] ?? 0);
 
+            case 'ProductOfSubPartsCalculationPart':
+                // Unlike the sum variant, Product stores its operands as
+                // `mPart1` and `mPart2` (Riot naming quirk). Either
+                // missing operand makes the whole node unresolvable.
+                $p1 = isset($part['mPart1'])
+                    ? $this->evaluatePart($part['mPart1'], $context, $star)
+                    : null;
+                $p2 = isset($part['mPart2'])
+                    ? $this->evaluatePart($part['mPart2'], $context, $star)
+                    : null;
+                if ($p1 === null || $p2 === null) {
+                    return null;
+                }
+
+                return $p1 * $p2;
+
+            case 'ExponentSubPartsCalculationPart':
+                // Exponent uses lowercase `part1` / `part2` (different
+                // from Product's mPart1 / mPart2). Base^0 handled by
+                // PHP's ** operator; negative base with fractional
+                // exponent would throw, but such values don't appear
+                // in TFT spell data in practice.
+                $e1 = isset($part['part1'])
+                    ? $this->evaluatePart($part['part1'], $context, $star)
+                    : null;
+                $e2 = isset($part['part2'])
+                    ? $this->evaluatePart($part['part2'], $context, $star)
+                    : null;
+                if ($e1 === null || $e2 === null) {
+                    return null;
+                }
+                if ($e1 === 0.0 && $e2 < 0) {
+                    return null; // 1/0 — unresolvable
+                }
+
+                return $e1 ** $e2;
+
+            case 'ClampSubPartsCalculationPart':
+                // Sums mSubparts then clamps to [mFloor, mCeiling]. Either
+                // bound can be null — treat that as -INF / +INF.
+                $sum = 0.0;
+                foreach ($part['mSubparts'] ?? [] as $sub) {
+                    $subValue = $this->evaluatePart($sub, $context, $star);
+                    if ($subValue === null) {
+                        return null;
+                    }
+                    $sum += $subValue;
+                }
+                $floor = $part['mFloor'] ?? null;
+                $ceiling = $part['mCeiling'] ?? null;
+                if ($floor !== null) {
+                    $sum = max($sum, (float) $floor);
+                }
+                if ($ceiling !== null) {
+                    $sum = min($sum, (float) $ceiling);
+                }
+
+                return $sum;
+
+            case 'StatByCoefficientCalculationPart':
+                // mCoefficient × championStat[mStat]. mStat is an enum
+                // describing which stat to look up; we only know a handful
+                // so far. mStatFormula (0 = base, 1 = bonus, 2 = total)
+                // is currently ignored — we always return the base value
+                // the Champion model holds. If a spell breaks because it
+                // expects the bonus stat we'll extend this.
+                $statEnum = $part['mStat'] ?? null;
+                $coefficient = (float) ($part['mCoefficient'] ?? 1.0);
+                $statValue = $this->resolveChampionStat($statEnum, $context['championStats'] ?? []);
+                if ($statValue === null) {
+                    return null;
+                }
+
+                return $coefficient * $statValue;
+
             // By-reference sub-calc: resolves via mSpellCalculationKey
             // pointing at another entry in mSpellCalculations. The type
             // name itself is usually a hash (`{f3cbe7b2}`) so we detect
@@ -215,11 +312,36 @@ class SpellCalculationEvaluator
                     return $this->evaluateSubCalc($part['mSpellCalculationKey'], $context, $star);
                 }
 
-                // Unsupported types (Product, Exponent, Clamp,
-                // StatByCoefficient, etc.) — return null to mark the
-                // whole calc as unresolvable.
+                // Any truly unknown type — return null to mark the
+                // whole calc as unresolvable so we don't fabricate a value.
                 return null;
         }
+    }
+
+    /**
+     * Map an mStat enum integer to the corresponding champion stat value.
+     * Only populated with values we've empirically confirmed against
+     * real spells. Unknown enums return null and drop the calc.
+     *
+     * Known mappings (TFT17, empirical):
+     *   4 → attack_speed (verified via Jinx NumRockets)
+     *
+     * Add more as new spells surface them during import.
+     *
+     * @param  array<int|string, float>  $championStats
+     */
+    private function resolveChampionStat(?int $statEnum, array $championStats): ?float
+    {
+        if ($statEnum === null) {
+            return null;
+        }
+
+        // championStats is keyed by the mStat enum directly, so hooks
+        // can pass whatever stats they know about and the evaluator
+        // transparently picks them up.
+        return isset($championStats[$statEnum])
+            ? (float) $championStats[$statEnum]
+            : null;
     }
 
     /**

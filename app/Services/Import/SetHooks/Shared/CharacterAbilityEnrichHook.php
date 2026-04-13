@@ -104,6 +104,7 @@ class CharacterAbilityEnrichHook implements PostImportHook
             $primarySpell['data_values'] ?? [],
             starLevel: 0,
             calculations: $primarySpell['calculations'] ?? [],
+            championStats: $this->buildChampionStatsForEvaluator($champion),
         );
 
         $template = $resolved['template'] ?? null;
@@ -117,6 +118,24 @@ class CharacterAbilityEnrichHook implements PostImportHook
             'ability_desc' => $template,
             'ability_stats' => $resolved['merged_stats'] ?? [],
         ]);
+    }
+
+    /**
+     * Build the mStat-enum → champion-stat-value map that
+     * StatByCoefficientCalculationPart nodes need. Only the enums we've
+     * empirically confirmed are populated; adding more as new spells
+     * surface them costs one entry here each.
+     *
+     * mStat enum (empirical, TFT17):
+     *   4 → attack_speed  (Jinx NumRockets formula)
+     *
+     * @return array<int, float>
+     */
+    private function buildChampionStatsForEvaluator(Champion $champion): array
+    {
+        return [
+            4 => (float) $champion->attack_speed,
+        ];
     }
 
     /**

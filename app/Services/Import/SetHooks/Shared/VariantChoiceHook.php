@@ -240,6 +240,11 @@ class VariantChoiceHook implements PostImportHook
             $match['data_values'] ?? [],
             starLevel: 0,
             calculations: $match['calculations'] ?? [],
+            championStats: [
+                // mStat 4 = attack_speed (see CharacterAbilityEnrichHook
+                // for the enum convention)
+                4 => (float) $base->attack_speed,
+            ],
         );
 
         $template = $resolved['template'] ?? null;
