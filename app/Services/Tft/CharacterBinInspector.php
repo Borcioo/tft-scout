@@ -26,6 +26,16 @@ class CharacterBinInspector
 {
     private const CDRAGON_BASE = 'https://raw.communitydragon.org';
 
+    /**
+     * In-process cache keyed by "{channel}:{apiName}" so multiple hooks
+     * in the same import transaction don't re-fetch the same BIN. Each
+     * full report is ~25 KB parsed, so caching 60+ champions is cheap
+     * and cuts HTTP traffic roughly in half for full-set imports.
+     *
+     * @var array<string, array<string, mixed>|false>
+     */
+    private array $reportCache = [];
+
     public function __construct(
         private readonly HttpFactory $http,
     ) {}
@@ -40,6 +50,11 @@ class CharacterBinInspector
      */
     public function inspect(string $apiName, string $channel = 'pbe'): array
     {
+        $cacheKey = "{$channel}:{$apiName}";
+        if (isset($this->reportCache[$cacheKey])) {
+            return $this->reportCache[$cacheKey];
+        }
+
         $setNumber = $this->extractSetNumber($apiName);
         $traitHashMap = $this->buildTraitHashMap($setNumber);
 
@@ -53,7 +68,7 @@ class CharacterBinInspector
         $traitCloneApiName = $apiName.'_TraitClone';
         $traitClone = $this->fetchAndParseCharacter($traitCloneApiName, $channel, $traitHashMap);
 
-        return [
+        $report = [
             'api_name' => $apiName,
             'set_number' => $setNumber,
             'channel' => $channel,
@@ -62,6 +77,19 @@ class CharacterBinInspector
             'has_variant_choice' => $traitClone !== null,
             'trait_clone' => $traitClone,
         ];
+
+        $this->reportCache[$cacheKey] = $report;
+
+        return $report;
+    }
+
+    /**
+     * Drop all cached reports. Useful between import runs or in tests
+     * where the underlying CDragon content might change.
+     */
+    public function clearCache(): void
+    {
+        $this->reportCache = [];
     }
 
     /**

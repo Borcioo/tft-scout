@@ -7,45 +7,38 @@ namespace App\Services\Tft;
  * numbers so they can be rendered into description templates alongside
  * regular DataValues.
  *
- * Background: a spell's description template often references computed
- * variables like `@TotalDamage@` or `@ModifiedDamagePerSecond@` that
- * aren't in DataValues directly. These live in mSpellCalculations, each
- * with a formula tree of CalculationPart nodes. Evaluating the tree
- * against the spell's DataValues gives you the final display number.
+ * Background
+ * ----------
+ * A spell's description template often references computed variables
+ * like `@TotalDamage@` or `@ModifiedNumRockets@` that aren't in
+ * DataValues directly. These live in `mSpellCalculations`, each with
+ * a formula tree of CalculationPart nodes. Evaluating the tree against
+ * the spell's DataValues gives you the final display number.
  *
- * Observed formula shapes for TFT17 Miss Fortune variants:
+ * Calc keys come in two forms:
+ *   - Plaintext key (`TotalDamage`) — name matches the template placeholder
+ *     directly and CDragon has it in the public hashlist.
+ *   - Hashed key (`{c30d568b}`) — the plaintext name (e.g. `ModifiedNumRockets`)
+ *     is NOT in any public hashlist yet. We still want to expose it to the
+ *     template, so we reverse-lookup by computing FNV-1a 32 of every
+ *     `@Name@` placeholder we find and matching it against the hashed keys.
  *
- *   GameCalculation:
- *     mFormulaParts:
- *       SumOfSubPartsCalculationPart:
- *         mSubparts:
- *           SubPartScaledProportionalToStat:
- *             mSubpart: { mDataValue: "ADDamage" | "{hash}" }
- *             mRatio: 1.0
- *             mStat: 3     (AD scaling flag — see note below)
+ * Calc nodes can recursively reference other calcs via
+ * `mSpellCalculationKey` — `TotalDamage` for Jinx sums two sub-calcs
+ * (`{fbc8a418}` = AD contribution, `{02acd6dc}` = AP contribution). We
+ * keep the whole `mSpellCalculations` dict as context during evaluation
+ * so cross-references resolve naturally.
  *
- * About `mStat`: empirically two regimes exist depending on whether the
- * SubPart declares an `mStat` flag:
+ * mStat convention (for SubPartScaledProportionalToStat):
+ *   - `mStat` PRESENT (e.g. `mStat: 3` for AD flat) — dataValue is already
+ *     a display number, compute `dataValue * mRatio` as-is.
+ *   - `mStat` ABSENT — dataValue is a scaling coefficient against the
+ *     implicit base AP stat (100 in TFT), multiply by 100.
  *
- *   - `mStat` PRESENT (e.g. mStat=3 for AD scaling) — the dataValue is
- *     already a flat display number; compute `dataValue * mRatio` as-is.
- *     Example: MF Conduit DamageAD[1]=65, mRatio=1.0 → 65 flat damage.
- *
- *   - `mStat` ABSENT — the dataValue is a scaling coefficient against
- *     the implicit base AP stat (100 in TFT). Multiply by 100 to surface
- *     the displayed contribution.
- *     Example: MF Conduit DamageAP[1]=10, mRatio=0.01 → 10 * 0.01 * 100 = 10.
- *
- * Summing both parts gives MF Conduit 1-star ModifiedDamagePerSecond = 75,
- * which matches MetaTFT community data. The same formula reproduces the
- * Challenger and Replicator breakdowns from Riot's tooltip conventions.
- *
- * This is a heuristic — if a future spell puts non-AP stats in no-mStat
- * subparts we'll need a per-stat lookup. For now the 100× multiplier
- * faithfully renders every stance spell we've seen in TFT17 BINs.
- *
- * `mDataValue` can be either a plaintext name (new TFT17 spells) or a
- * FNV-1a 32 hash like `{313962b5}` (legacy format). Both are resolved.
+ * Unsupported part types (Product, Exponent, Clamp, StatByCoefficient)
+ * return null, which propagates up the tree — any calc containing
+ * unsupported parts is dropped from the output so the frontend falls
+ * back to its `[PlaceholderName]` stub rather than rendering a bogus 0.
  */
 class SpellCalculationEvaluator
 {
@@ -53,51 +46,82 @@ class SpellCalculationEvaluator
     public const MAX_STARS = 7;
 
     /**
-     * Evaluate every named calculation in `mSpellCalculations`.
+     * Evaluate every calculation in `mSpellCalculations` and return the
+     * subset we can fully resolve. Each entry has a plaintext name that
+     * matches a template placeholder (either from its original plaintext
+     * key or from a reverse FNV-1a match against a hashed key).
      *
      * @param  array<string, mixed>  $calculations  raw spell.mSpellCalculations dict
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues  from inspector
+     * @param  list<string>  $placeholderNames  plaintext names extracted from the template
      * @return list<array{name: string, value: array<int, float>, kind: string}>
      */
-    public function evaluate(array $calculations, array $dataValues): array
-    {
-        // Index DataValues both by plaintext name and by hash so we can
-        // resolve mDataValue references of either form.
-        $byName = [];
-        $byHash = [];
+    public function evaluate(
+        array $calculations,
+        array $dataValues,
+        array $placeholderNames = [],
+    ): array {
+        // Index DataValues by both plaintext name and FNV-1a hash so we
+        // can resolve mDataValue references regardless of form.
+        $dvByName = [];
+        $dvByHash = [];
         foreach ($dataValues as $dv) {
             $name = $dv['name'] ?? null;
             $values = $dv['values'] ?? $dv['value'] ?? [];
             if (! is_string($name) || ! is_array($values)) {
                 continue;
             }
-            $byName[$name] = $values;
-            $byHash[FnvHasher::wrapped($name)] = $values;
+            $dvByName[$name] = $values;
+            $dvByHash[FnvHasher::wrapped($name)] = $values;
         }
 
+        // Build hash → plaintext name map for placeholder names that
+        // show up in the template. This lets us surface calcs whose
+        // keys are hashed like `{c30d568b}` but whose plaintext name
+        // (`ModifiedNumRockets`) is visible in the template text.
+        $hashToPlaceholder = [];
+        foreach ($placeholderNames as $name) {
+            $hashToPlaceholder[FnvHasher::wrapped($name)] = $name;
+        }
+
+        // Keep the whole calcs dict around so cross-references via
+        // mSpellCalculationKey resolve without another lookup pass.
+        $context = [
+            'calculations' => $calculations,
+            'dvByName' => $dvByName,
+            'dvByHash' => $dvByHash,
+        ];
+
         $out = [];
-        foreach ($calculations as $calcName => $calc) {
-            // Skip hashed-key calcs — those are internal and not referenced
-            // from tooltip templates. Tooltip placeholders use the plaintext
-            // key (e.g. `@TotalDamage@`) which maps to the top-level key.
-            if (! is_string($calcName) || str_starts_with($calcName, '{')) {
-                continue;
-            }
+        foreach ($calculations as $calcKey => $calc) {
             if (! is_array($calc)) {
                 continue;
             }
 
+            // Determine the display name: either a plaintext key, or the
+            // reverse-hash match from template placeholders.
+            $displayName = $this->resolveCalcName($calcKey, $hashToPlaceholder);
+            if ($displayName === null) {
+                continue; // hashed key with no matching template placeholder — skip
+            }
+
             $values = [];
+            $ok = true;
             for ($star = 0; $star < self::MAX_STARS; $star++) {
-                $total = 0.0;
-                foreach ($calc['mFormulaParts'] ?? [] as $part) {
-                    $total += $this->evaluatePart($part, $byName, $byHash, $star);
+                $total = $this->evaluateCalculation($calc, $context, $star);
+                if ($total === null) {
+                    $ok = false;
+                    break;
                 }
                 $values[] = round($total, 2);
             }
 
+            if (! $ok) {
+                continue; // unsupported formula node somewhere — drop silently
+            }
+
             $out[] = [
-                'name' => $calcName,
+                'name' => $displayName,
                 'value' => $values,
                 'kind' => 'calculated',
             ];
@@ -107,12 +131,44 @@ class SpellCalculationEvaluator
     }
 
     /**
-     * Recursive dispatch over the mFormulaParts node types we've seen
-     * in the wild. Unknown types return 0 (with the effect of skipping
-     * the contribution) rather than throwing — one exotic spell
-     * shouldn't break a whole import.
+     * Map a calc key to a human-readable name:
+     *   - plaintext key (`TotalDamage`) → itself
+     *   - hashed key (`{c30d568b}`) → reverse-hash match against placeholders,
+     *     or null if no template reference known
      */
-    private function evaluatePart(array $part, array $byName, array $byHash, int $star): float
+    private function resolveCalcName(string $key, array $hashToPlaceholder): ?string
+    {
+        if (! (str_starts_with($key, '{') && str_ends_with($key, '}'))) {
+            return $key;
+        }
+
+        return $hashToPlaceholder[$key] ?? null;
+    }
+
+    /**
+     * Walk a GameCalculation's mFormulaParts and sum them for one star.
+     * Returns null if any sub-part can't be resolved.
+     */
+    private function evaluateCalculation(array $calc, array $context, int $star): ?float
+    {
+        $total = 0.0;
+        foreach ($calc['mFormulaParts'] ?? [] as $part) {
+            $partValue = $this->evaluatePart($part, $context, $star);
+            if ($partValue === null) {
+                return null;
+            }
+            $total += $partValue;
+        }
+
+        return $total;
+    }
+
+    /**
+     * Recursive dispatch over the formula part node types we know about.
+     * Unknown types return null so the caller can skip the whole calc
+     * rather than silently producing a wrong number.
+     */
+    private function evaluatePart(array $part, array $context, int $star): ?float
     {
         $type = $part['__type'] ?? '';
 
@@ -120,16 +176,22 @@ class SpellCalculationEvaluator
             case 'SumOfSubPartsCalculationPart':
                 $sum = 0.0;
                 foreach ($part['mSubparts'] ?? [] as $sub) {
-                    $sum += $this->evaluatePart($sub, $byName, $byHash, $star);
+                    $subValue = $this->evaluatePart($sub, $context, $star);
+                    if ($subValue === null) {
+                        return null;
+                    }
+                    $sum += $subValue;
                 }
 
                 return $sum;
 
             case 'SubPartScaledProportionalToStat':
-                // Inner structure: { mSubpart: {mDataValue}, mRatio, mStat }
                 $inner = $part['mSubpart'] ?? [];
                 $ratio = (float) ($part['mRatio'] ?? 1.0);
-                $dvValue = $this->resolveDataValue($inner, $byName, $byHash, $star);
+                $dvValue = $this->resolveDataValue($inner, $context, $star);
+                if ($dvValue === null) {
+                    return null;
+                }
 
                 // mStat present → flat-damage subpart (already in final units)
                 // mStat absent → ratio against implicit base AP (= 100 in TFT)
@@ -138,33 +200,57 @@ class SpellCalculationEvaluator
                     : $dvValue * $ratio * 100.0;
 
             case 'NamedDataValueCalculationPart':
-                // Direct reference to a data value without any ratio wrap.
-                return $this->resolveDataValue($part, $byName, $byHash, $star);
+                // Direct reference without any ratio wrapper.
+                return $this->resolveDataValue($part, $context, $star);
 
             case 'NumberCalculationPart':
-                // Literal constant — rare but possible.
                 return (float) ($part['mNumber'] ?? 0);
 
+            // By-reference sub-calc: resolves via mSpellCalculationKey
+            // pointing at another entry in mSpellCalculations. The type
+            // name itself is usually a hash (`{f3cbe7b2}`) so we detect
+            // this case by presence of the key rather than by type.
             default:
-                return 0.0;
+                if (isset($part['mSpellCalculationKey'])) {
+                    return $this->evaluateSubCalc($part['mSpellCalculationKey'], $context, $star);
+                }
+
+                // Unsupported types (Product, Exponent, Clamp,
+                // StatByCoefficient, etc.) — return null to mark the
+                // whole calc as unresolvable.
+                return null;
         }
+    }
+
+    /**
+     * Look up a referenced calc by its key and evaluate it for the given
+     * star level. Returns null if the key doesn't exist in the context.
+     */
+    private function evaluateSubCalc(string $key, array $context, int $star): ?float
+    {
+        $target = $context['calculations'][$key] ?? null;
+        if (! is_array($target)) {
+            return null;
+        }
+
+        return $this->evaluateCalculation($target, $context, $star);
     }
 
     /**
      * Look up a data value for the given star level. `mDataValue` can be
      * either a plaintext name or a wrapped FNV-1a hash like `{313962b5}`.
-     * Missing references yield 0.
+     * Missing references return null so the caller can bail on the calc.
      */
-    private function resolveDataValue(array $node, array $byName, array $byHash, int $star): float
+    private function resolveDataValue(array $node, array $context, int $star): ?float
     {
         $ref = $node['mDataValue'] ?? null;
         if (! is_string($ref)) {
-            return 0.0;
+            return null;
         }
 
-        $values = $byName[$ref] ?? $byHash[$ref] ?? null;
+        $values = $context['dvByName'][$ref] ?? $context['dvByHash'][$ref] ?? null;
         if (! is_array($values)) {
-            return 0.0;
+            return null;
         }
 
         return (float) ($values[$star] ?? 0);

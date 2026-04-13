@@ -41,12 +41,19 @@ class AbilityDescriptionResolver
      * still find their raw DataValue. Calc entries get `kind: calculated`
      * so downstream consumers (DB, frontend) can tell them apart.
      *
+     * The optional `$template` parameter gives the evaluator a chance to
+     * reverse-resolve hashed calc keys (e.g. `{c30d568b}` ↔ `ModifiedNumRockets`)
+     * by FNV-1a matching against the placeholders found in the template.
+     *
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
      * @param  array<string, mixed>  $calculations
      * @return list<array{name: string, value: array<int, int|float>, kind?: string}>
      */
-    public function mergeDataValuesWithCalculations(array $dataValues, array $calculations): array
-    {
+    public function mergeDataValuesWithCalculations(
+        array $dataValues,
+        array $calculations,
+        ?string $template = null,
+    ): array {
         $merged = array_map(
             fn (array $dv) => [
                 'name' => $dv['name'],
@@ -57,11 +64,35 @@ class AbilityDescriptionResolver
             $dataValues,
         );
 
-        foreach ($this->calculationEvaluator->evaluate($calculations, $dataValues) as $calc) {
+        $placeholderNames = $template !== null
+            ? $this->extractPlaceholderNames($template)
+            : [];
+
+        $calcs = $this->calculationEvaluator->evaluate(
+            $calculations,
+            $dataValues,
+            $placeholderNames,
+        );
+
+        foreach ($calcs as $calc) {
             $merged[] = $calc;
         }
 
         return $merged;
+    }
+
+    /**
+     * Extract every `@VarName@` placeholder name from a template string.
+     * Used to feed the calc evaluator so it can match calcs whose
+     * hashed key is the FNV-1a of a template placeholder.
+     *
+     * @return list<string>
+     */
+    private function extractPlaceholderNames(string $template): array
+    {
+        preg_match_all('/@([A-Za-z_][A-Za-z0-9_]*)(?:\*[0-9.]+)?@/', $template, $matches);
+
+        return array_values(array_unique($matches[1] ?? []));
     }
 
     /**
@@ -86,7 +117,11 @@ class AbilityDescriptionResolver
         $name = $this->lookup($entries, $locKeys['key_name'] ?? null);
         $template = $this->lookup($entries, $locKeys['key_tooltip'] ?? null);
 
-        $mergedStats = $this->mergeDataValuesWithCalculations($dataValues, $calculations);
+        $mergedStats = $this->mergeDataValuesWithCalculations(
+            $dataValues,
+            $calculations,
+            $template,
+        );
 
         $rendered = $template !== null
             ? $this->renderTemplate($template, $mergedStats, $starLevel)

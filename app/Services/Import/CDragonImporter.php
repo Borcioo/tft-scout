@@ -11,6 +11,7 @@ use App\Models\TftTrait;
 use App\Services\Import\Contracts\PostImportHook;
 use App\Services\Import\SetHooks\Set17\MechaEnhancedHook;
 use App\Services\Import\SetHooks\Set17\RemoveNonPlayableHook;
+use App\Services\Import\SetHooks\Shared\CharacterAbilityEnrichHook;
 use App\Services\Import\SetHooks\Shared\VariantChoiceHook;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
@@ -48,14 +49,19 @@ class CDragonImporter
      * Add new sets here when they release.
      */
     /**
-     * Note: VariantChoiceHook is generic and runs for every set — it
-     * detects variant-choice champions (like Miss Fortune Set 17) from
-     * CDragon BIN files dynamically. The remaining hooks are set-specific
-     * quirks that can't be data-driven.
+     * Hook order matters — run CharacterAbilityEnrichHook BEFORE
+     * VariantChoiceHook so the inspector's in-memory report cache is
+     * warm by the time variants need the same character data; this
+     * halves HTTP traffic for variant champions.
+     *
+     * CharacterAbilityEnrichHook and VariantChoiceHook are both generic
+     * and run for every set. The remaining hooks are set-specific
+     * quirks that can't be data-driven yet.
      */
     private const SET_HOOKS = [
         17 => [
             RemoveNonPlayableHook::class,
+            CharacterAbilityEnrichHook::class,
             VariantChoiceHook::class,
             MechaEnhancedHook::class,
         ],
