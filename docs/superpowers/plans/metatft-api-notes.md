@@ -134,15 +134,34 @@ GET /explorer/units
 **Params (from `ratings.service.js` line 263–267):**
 ```js
 {
-  unit_unique: baseApiName + '-1',   // same pattern as explorer/traits
+  unit_unique: baseApiName + '-1',   // e.g. "TFT17_Aatrox-1"  ("-1" suffix = star level)
   formatnoarray: 'true',
   compact: 'true',
 }
 ```
 
-**Response shape** (field names from `ratings.service.js` aggregation context):
-- Returns which other units appear alongside this unit and their performance stats.
-- Aggregated into `unit_companions` table.
+**Response shape:**
+
+> ⚠ Unverified — confirm on first live call. `metatft-cache.js` was not committed to the
+> legacy snapshot. Shape below is inferred by symmetry with `explorer/traits` and from
+> the `getCompanions` aggregation in `ratings.service.js`.
+
+```json
+{
+  "results": [
+    {
+      "unit": "TFT17_Graves",
+      "placement_count": [120, 89, 75, 60, 42, 28, 15, 7]
+    }
+  ]
+}
+```
+- `unit` = apiName of the companion unit that co-occurs with the queried unit
+  (field name may be `companion`, `companionUnitApiName`, or similar — verify on live call)
+- `placement_count` = same placement-count array shape as `explorer/traits`
+- The `getCompanions` aggregation stores `{ unitApiName, companionApiName, avgPlace, games, frequency }`
+  into `unit_companions`, so the raw response likely includes `avg_place` / `games` fields
+  or they are derived from `placement_count` during aggregation
 
 **Aggregation target:** `unit_companions` table
 
@@ -156,22 +175,67 @@ GET /explorer/units
 GET /unit_items
 ```
 
-**Params (two call sites in `ratings.service.js`):**
+This endpoint is called with **two different param signatures** from two separate methods
+in `ratings.service.js`. Each call produces a different aggregation.
 
-Call site 1 — `getItemSets()` (line 116):
+---
+
+#### Call A — Full 3-item sets (`getItemSets`, line 116)
+
+**Params:**
 ```js
 { unit: baseApiName }   // e.g. "TFT17_Aatrox"
 ```
 
-Call site 2 — `getItemBuilds()` (line 193):
+**Used for:** populating the `unit_item_sets` table — full recommended item combinations
+per champion (3-item sets with avg placement + game count).
+
+**Response shape:**
+
+> ⚠ Unverified — confirm on first live call. Shape below is inferred from the
+> `getItemSets` aggregation in `ratings.service.js`.
+
+```json
+{
+  "results": [
+    {
+      "items": ["TFT_Item_RabadonsDeathcap", "TFT_Item_Shadowflame", "TFT_Item_Zhonya"],
+      "avg_place": 3.72,
+      "games": 412
+    }
+  ]
+}
+```
+- `items` = JSON array of 3 item apiNames forming the full build
+- `avg_place` = mean placement across `games` sampled games
+- `games` = sample size
+
+**Aggregation target:** `unit_item_sets` table —
+shape `{ unitApiName, items (JSON array of 3 item apiNames), avgPlace, games }`
+
+---
+
+#### Call B — Per-item-count builds (`getItemBuilds`, line 193)
+
+**Params:**
 ```js
 {
   unit: baseApiName,
-  num_items: '3',        // request 3-item sets explicitly
+  num_items: '3',    // request aggregates keyed by N-item sets
 }
 ```
 
-**Response shape** (from `getItemSets` parsing in service):
+**Used for:** populating the `unit_item_builds` table — likely per-N-item-count
+performance aggregates (the `num_items=3` hint suggests the endpoint can return
+subsets; without it, it may return per-item or mixed-size aggregates).
+
+**Response shape:**
+
+> ⚠ Unverified — confirm on first live call. `metatft-cache.js` was not committed to
+> the legacy snapshot; exact shape is unknown. Likely similar to Call A but the
+> `items` field may be keyed differently or include partial (1- and 2-item) builds
+> when `num_items` is omitted.
+
 ```json
 {
   "results": [
@@ -184,9 +248,11 @@ Call site 2 — `getItemBuilds()` (line 193):
 }
 ```
 
-**Aggregation targets:** `unit_item_sets` and `unit_item_builds` tables
+**Aggregation target:** `unit_item_builds` table
 
-**TTL:** 6 hours
+---
+
+**TTL (both calls):** 6 hours
 
 ---
 
