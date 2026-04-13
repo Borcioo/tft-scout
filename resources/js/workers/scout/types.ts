@@ -146,7 +146,7 @@ export type ScoredTeam = {
     slotsUsed: number;
     roles: Record<string, number> | null;
     metaMatch: { id: string; name: string; similarity: number } | null;
-    insights?: TeamInsights | null;
+    insights: TeamInsights | null;
 };
 
 export type WorkerInMsg =
