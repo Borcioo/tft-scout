@@ -85,12 +85,20 @@ extraSlots += c.slotsUsed - 1;
   // When trait locks are active, widen the search even more because
   // the post-generation filter below drops teams that miss the
   // requirement, and the raw pool needs to be big enough to survive.
+  //
+  // Search budget is floored at MIN_SEARCH_BUDGET so the raw pool is
+  // independent of the caller's topN. Phase cutoffs inside findTeams
+  // scale off maxResults (`results.size >= maxResults * N`), so with
+  // a small topN those early exits used to fire before strong comps
+  // had a chance to surface. Keeping a fixed floor means the rank-1
+  // team is deterministic for a given seed regardless of topN.
+  const MIN_SEARCH_BUDGET = 100;
   const searchMultiplier = (constraints.max5Cost != null ? 5 : 3)
     * (traitLocks.length > 0 ? 3 : 1);
   const rawTeams = findTeams(graph, {
     teamSize: effectiveTeamSize,
     startChamps: locked.map(c => c.apiName),
-    maxResults: topN * searchMultiplier,
+    maxResults: Math.max(topN, MIN_SEARCH_BUDGET) * searchMultiplier,
     level,
     emblems: constraints.emblems || [],
     excludedTraits: constraints.excludedTraits || [],
