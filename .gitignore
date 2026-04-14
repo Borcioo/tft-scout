@@ -29,6 +29,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-.claude/
+.claude/*
+!.claude/skills/
 .worktrees/
 /tmp
