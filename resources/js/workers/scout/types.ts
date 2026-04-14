@@ -99,6 +99,8 @@ export type ScoutConstraints = {
     emblems: { apiName: string; count: number }[];
     max5Cost: number | null;
     roleBalance: boolean | null;
+    minFrontline: number;
+    minDps: number;
 };
 
 export type ScoutParams = {
@@ -111,6 +113,8 @@ export type ScoutParams = {
     topN?: number;
     max5Cost?: number | null;
     roleBalance?: boolean | null;
+    minFrontline?: number;
+    minDps?: number;
     seed?: number;
 };
 
