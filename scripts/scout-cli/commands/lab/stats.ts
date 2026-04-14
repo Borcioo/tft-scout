@@ -1,5 +1,6 @@
 import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
-import { rowsToMarkdown, STATS, type Scope } from '../../lab/queries';
+import { rowsToMarkdown, STATS  } from '../../lab/queries';
+import type {Scope} from '../../lab/queries';
 
 export async function runLabStats(argv: string[]): Promise<void> {
     assertLabEnabled();
@@ -16,10 +17,12 @@ export async function runLabStats(argv: string[]): Promise<void> {
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
+
         if (!a.startsWith('--') && name === null) {
             name = a;
             continue;
         }
+
         switch (a) {
             case '--experiment':
                 scope.experimentId = argv[++i];
@@ -49,18 +52,22 @@ export async function runLabStats(argv: string[]): Promise<void> {
 
     if (!name) {
         const lines = ['Available stats:', ''];
+
         for (const [key, def] of Object.entries(STATS)) {
             lines.push(`  ${key}  -  ${def.description}`);
         }
+
         lines.push('');
         lines.push(
             'Scope flags: --experiment <id> --tag <label> --last <N> (default 500) --since <iso> --all',
         );
         process.stdout.write(lines.join('\n') + '\n');
+
         return;
     }
 
     const def = STATS[name];
+
     if (!def) {
         throw new Error(`Unknown stat: ${name}. Run 'lab stats' for the list.`);
     }
@@ -68,11 +75,13 @@ export async function runLabStats(argv: string[]): Promise<void> {
     assertDbExists(dbPath);
     const db = openDb(dbPath, true);
     db.pragma('query_only = ON');
+
     try {
         const { sql, params } = def.build(scope);
         const stmt = db.prepare(sql);
         const rows = stmt.all(params) as Record<string, unknown>[];
         const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
         if (asJson) {
             process.stdout.write(
                 JSON.stringify({ name, scope, columns, rows }, null, 2) + '\n',

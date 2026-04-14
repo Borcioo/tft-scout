@@ -1,6 +1,7 @@
 import { loadContext } from '../context';
 import { assertLabEnabled, DEFAULT_DB_PATH, initSchema, openDb } from '../lab/db';
-import { runExperiment, type ExperimentArgs } from '../lab/experiment';
+import { runExperiment  } from '../lab/experiment';
+import type {ExperimentArgs} from '../lab/experiment';
 
 type ExperimentCliArgs = ExperimentArgs & { live: boolean; snapshotPath: string };
 
@@ -17,8 +18,10 @@ function parseArgs(argv: string[]): ExperimentCliArgs {
         live: false,
         snapshotPath: 'tmp/scout-context.json',
     };
+
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
+
         switch (a) {
             case '--preset':
                 out.preset = argv[++i];
@@ -56,6 +59,7 @@ function parseArgs(argv: string[]): ExperimentCliArgs {
                 throw new Error(`Unknown flag for experiment: ${a}`);
         }
     }
+
     return out;
 }
 
@@ -65,6 +69,7 @@ export async function runExperimentCommand(argv: string[]): Promise<void> {
     const ctx = await loadContext({ live: args.live, snapshotPath: args.snapshotPath });
     const db = openDb(DEFAULT_DB_PATH);
     initSchema(db);
+
     try {
         const result = await runExperiment(db, ctx, args, (done, total, combo) => {
             process.stderr.write(`[${done}/${total}] ${JSON.stringify(combo)}\n`);

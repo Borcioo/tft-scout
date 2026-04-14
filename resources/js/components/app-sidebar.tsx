@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
     Crosshair,
-    Gem,
     Radar,
     Shapes,
     ShieldPlus,

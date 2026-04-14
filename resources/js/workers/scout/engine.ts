@@ -16,12 +16,12 @@
  * @property {number} topN - max results
  */
 
-import { buildGraph, findTeams } from './synergy-graph';
-import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
-import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { buildActiveTraits } from './active-traits';
-import { buildTeamInsights } from './team-insights';
+import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
 import { buildHeroExclusionGroup } from './hero-exclusion';
+import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
+import { buildGraph, findTeams } from './synergy-graph';
+import { buildTeamInsights } from './team-insights';
 
 /**
  * Generate team compositions.
@@ -58,11 +58,15 @@ export function generate(input) {
   const locked = getLockedChampions(champions, constraints.lockedChampions || []);
 
   // Calculate team size from level, accounting for locked enhanced champions
-  let baseTeamSize = level;
+  const baseTeamSize = level;
   let extraSlots = 0;
+
   for (const c of locked) {
-    if (c.slotsUsed > 1) extraSlots += c.slotsUsed - 1;
+    if (c.slotsUsed > 1) {
+extraSlots += c.slotsUsed - 1;
+}
   }
+
   const effectiveTeamSize = baseTeamSize - extraSlots;
 
   // Build graph from eligible champions (locked + candidates)
@@ -98,7 +102,11 @@ export function generate(input) {
   // Enrich results with active traits and re-score with full scorer
   const enriched = rawTeams.map(team => {
     let totalSlots = 0;
-    for (const c of team.champions) totalSlots += c.slotsUsed || 1;
+
+    for (const c of team.champions) {
+totalSlots += c.slotsUsed || 1;
+}
+
     const activeTraits = buildActiveTraits(team.champions, traits, constraints.emblems || []);
 
     // Re-score with full scorer
@@ -133,28 +141,48 @@ export function generate(input) {
   const minDps = constraints.minDps ?? 0;
   const applyRoleFilter = minFrontline > 0 || minDps > 0;
   const validComps = enriched.filter(r => {
-    if (r.slotsUsed > maxSlots) return false;
+    if (r.slotsUsed > maxSlots) {
+return false;
+}
+
     for (const lock of traitLocks) {
       const active = r.activeTraits.find(t => t.apiName === lock.apiName);
-      if (!active || active.count < lock.minUnits) return false;
+
+      if (!active || active.count < lock.minUnits) {
+return false;
+}
     }
+
     if (applyRoleFilter) {
-      if (!r.roles) return false;
+      if (!r.roles) {
+return false;
+}
+
       const fl = r.roles.frontline + 0.5 * r.roles.fighter;
       const dps = r.roles.dps + 0.5 * r.roles.fighter;
-      if (fl < minFrontline) return false;
-      if (dps < minDps) return false;
+
+      if (fl < minFrontline) {
+return false;
+}
+
+      if (dps < minDps) {
+return false;
+}
     }
+
     return true;
   });
 
   // Meta-comp match detection — annotate results that match known meta comps
   const metaComps = scoringCtx.metaComps || [];
+
   if (metaComps.length > 0) {
     for (const comp of validComps) {
       const teamApis = new Set(comp.champions.map(c => c.baseApiName || c.apiName));
+
       for (const meta of metaComps) {
         const overlap = meta.units.filter(u => teamApis.has(u)).length;
+
         // Match if ≥70% of meta comp units are in the team
         if (overlap >= Math.ceil(meta.units.length * 0.7)) {
           comp.metaMatch = {
@@ -189,5 +217,6 @@ export function generate(input) {
 
   // Sort by final score and return top N
   validComps.sort((a, b) => b.score - a.score);
+
   return validComps.slice(0, topN);
 }

@@ -13,7 +13,10 @@ declare const self: DedicatedWorkerGlobalScope;
 let cachedContext: ScoutContext | null = null;
 
 async function fetchContext(): Promise<ScoutContext> {
-    if (cachedContext) return cachedContext;
+    if (cachedContext) {
+return cachedContext;
+}
+
     // In dev the worker runs under a `blob:` origin injected by
     // use-scout-worker.ts, which can't resolve root-relative URLs.
     // The hook sets `self.__API_BASE__` so we can build absolutes.
@@ -24,8 +27,13 @@ async function fetchContext(): Promise<ScoutContext> {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
     });
-    if (!res.ok) throw new Error(`Context fetch failed: ${res.status}`);
+
+    if (!res.ok) {
+throw new Error(`Context fetch failed: ${res.status}`);
+}
+
     cachedContext = (await res.json()) as ScoutContext;
+
     return cachedContext;
 }
 
@@ -62,7 +70,7 @@ function mapResult(r: any): ScoredTeam {
     };
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
     const p = params as any;
     const {
@@ -115,7 +123,7 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
 
     return { results: results.map(mapResult), insights };
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
+ 
 
 self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
     const msg = e.data;

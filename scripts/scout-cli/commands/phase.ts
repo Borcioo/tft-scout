@@ -1,22 +1,23 @@
 import { readFileSync } from 'node:fs';
 
 // @ts-expect-error — worker modules use // @ts-nocheck
+import { buildActiveTraits } from '../../../resources/js/workers/scout/active-traits';
 import {
     buildExclusionLookup,
     filterCandidates,
     getLockedChampions,
 } from '../../../resources/js/workers/scout/candidates';
 // @ts-expect-error
+import { buildHeroExclusionGroup } from '../../../resources/js/workers/scout/hero-exclusion';
+import { teamRoleBalance, teamScore, teamScoreBreakdown } from '../../../resources/js/workers/scout/scorer';
 import { buildGraph, findTeams } from '../../../resources/js/workers/scout/synergy-graph';
 // @ts-expect-error
-import { buildActiveTraits } from '../../../resources/js/workers/scout/active-traits';
 // @ts-expect-error
-import { teamRoleBalance, teamScore, teamScoreBreakdown } from '../../../resources/js/workers/scout/scorer';
 // @ts-expect-error
 import { buildTeamInsights } from '../../../resources/js/workers/scout/team-insights';
 // @ts-expect-error
-import { buildHeroExclusionGroup } from '../../../resources/js/workers/scout/hero-exclusion';
 
+import type { ScoutContext } from '../../../resources/js/workers/scout/types';
 import { loadContext } from '../context';
 import {
     summariseActiveTraits,
@@ -26,12 +27,12 @@ import {
     summariseRoleBalance,
     summariseScore,
 } from '../format';
-import { findChampions } from '../lookup';
-import { parseCommonArgs, type CommonArgs } from '../params';
 import { assertLabEnabled, openDb } from '../lab/db';
 import { currentGitSha } from '../lab/git';
 import { recordRun } from '../lab/ingest';
-import type { ScoutContext } from '../../../resources/js/workers/scout/types';
+import { findChampions } from '../lookup';
+import { parseCommonArgs  } from '../params';
+import type {CommonArgs} from '../params';
 
 const PHASES = [
     'candidates',
@@ -47,16 +48,19 @@ type PhaseName = (typeof PHASES)[number];
 
 export async function runPhase(argv: string[]): Promise<void> {
     const phase = argv[0] as PhaseName;
+
     if (!phase || !PHASES.includes(phase)) {
         throw new Error(`Phase command expects one of: ${PHASES.join(', ')}. Got: ${phase}`);
     }
+
     const args = parseCommonArgs(argv.slice(1));
     const ctx = await loadContext({ live: args.live, snapshotPath: args.snapshotPath });
 
     if (args.rawInputPath) {
         const raw = JSON.parse(readFileSync(args.rawInputPath, 'utf8'));
         const result = runPhaseRawInput(phase, raw);
-        print(result, args.full);
+        print(result);
+
         return;
     }
 
@@ -67,6 +71,7 @@ export async function runPhase(argv: string[]): Promise<void> {
     if (args.tag) {
         assertLabEnabled();
         const db = openDb();
+
         try {
             const gitSha = currentGitSha();
             recordRun(
@@ -128,6 +133,7 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
 
     if (phase === 'candidates') {
         const candidates = filterCandidates(ctx.champions, constraints, exclusionGroups);
+
         return args.full ? candidates : summariseCandidates(candidates);
     }
 
@@ -138,6 +144,7 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
 
     if (phase === 'graph') {
         const graph = buildGraph(eligible, ctx.traits, ctx.scoringCtx, exclusionLookup);
+
         return args.full ? graph : summariseGraph(graph);
     }
 
@@ -159,6 +166,7 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
 
     if (phase === 'find-teams') {
         const teams = findTeams(graph, findOpts);
+
         return args.full ? teams : summariseFindTeams(teams);
     }
 
@@ -166,10 +174,12 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
     if (!args.team) {
         throw new Error(`Phase ${phase} requires --team A,B,C,... (champion apiNames).`);
     }
+
     const teamChamps = findChampions(ctx, args.team);
 
     if (phase === 'role-balance') {
         const balance = teamRoleBalance(teamChamps);
+
         return args.full ? balance : summariseRoleBalance(balance);
     }
 
@@ -184,6 +194,7 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
         const score = teamScore(team, ctx.scoringCtx);
         const breakdown = teamScoreBreakdown(team, ctx.scoringCtx);
         const result = { score, breakdown };
+
         return args.full ? result : summariseScore(result);
     }
 
@@ -197,18 +208,26 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
             roles: teamRoleBalance(teamChamps),
             slotsUsed: teamChamps.reduce((s: number, c: any) => s + (c.slotsUsed ?? 1), 0),
         };
+
         return buildTeamInsights(team, { ...ctx.scoringCtx, stale: ctx.stale }, 0);
     }
 }
 
 function mergeHeroExclusion(ctx: ScoutContext): string[][] {
     const heroGroup = buildHeroExclusionGroup(ctx.champions);
+
     return heroGroup.length >= 2 ? [...(ctx.exclusionGroups ?? []), heroGroup] : ctx.exclusionGroups ?? [];
 }
 
 function extraSlotsFromLocked(locked: any[]): number {
     let extra = 0;
-    for (const c of locked) if ((c.slotsUsed ?? 1) > 1) extra += (c.slotsUsed ?? 1) - 1;
+
+    for (const c of locked) {
+if ((c.slotsUsed ?? 1) > 1) {
+extra += (c.slotsUsed ?? 1) - 1;
+}
+}
+
     return extra;
 }
 
@@ -226,6 +245,6 @@ function constraintsFromArgs(args: CommonArgs): any {
     };
 }
 
-function print(result: unknown, _full: boolean): void {
+function print(result: unknown): void {
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
 }

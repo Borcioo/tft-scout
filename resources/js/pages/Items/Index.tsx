@@ -71,18 +71,24 @@ const SCALE_ICON_LABELS: Record<string, string> = {
  * turns `<br>` into newline breaks.
  */
 function renderDescription(text: string | null | undefined): React.ReactNode[] {
-    if (!text) return [];
+    if (!text) {
+return [];
+}
+
     let normalised = text.replace(/<br\s*\/?>/gi, '\n');
     normalised = normalised.replace(/&nbsp;/g, ' ');
     normalised = normalised.replace(/(?:%i:\w+%)+/g, (match) => {
         const parts = match.match(/%i:(\w+)%/g) || [];
+
         return parts
             .map((p) => {
                 const name = p.replace(/%i:|%/g, '');
+
                 return SCALE_ICON_LABELS[name] ?? name.replace(/^scale/, '');
             })
             .join('+');
     });
+
     return tokenize(normalised);
 }
 
@@ -98,7 +104,10 @@ function tokenize(text: string): React.ReactNode[] {
         const start = match.index;
 
         if (closingSlash) {
-            if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+            if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
+
             lastIndex = start + full.length;
             continue;
         }
@@ -107,13 +116,18 @@ function tokenize(text: string): React.ReactNode[] {
         const closeIdx = findMatchingClose(text, tagRegex.lastIndex, tagName);
 
         if (closeIdx === -1) {
-            if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+            if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
+
             nodes.push(full);
             lastIndex = start + full.length;
             continue;
         }
 
-        if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+        if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
 
         const innerText = text.slice(start + full.length, closeIdx);
         const innerNodes = tokenize(innerText);
@@ -129,16 +143,27 @@ function tokenize(text: string): React.ReactNode[] {
         tagRegex.lastIndex = lastIndex;
     }
 
-    if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+    if (lastIndex < text.length) {
+nodes.push(text.slice(lastIndex));
+}
 
     return nodes.flatMap((node, i) => {
-        if (typeof node !== 'string') return [node];
+        if (typeof node !== 'string') {
+return [node];
+}
+
         const parts = node.split('\n');
         const out: React.ReactNode[] = [];
         parts.forEach((part, pi) => {
-            if (pi > 0) out.push(<br key={`br-${i}-${pi}`} />);
-            if (part) out.push(part);
+            if (pi > 0) {
+out.push(<br key={`br-${i}-${pi}`} />);
+}
+
+            if (part) {
+out.push(part);
+}
         });
+
         return out;
     });
 }
@@ -152,21 +177,32 @@ function findMatchingClose(
     const closes = new RegExp(`</${tagName}>`, 'g');
     let depth = 1;
     let cursor = fromIndex;
+
     while (cursor < text.length) {
         opens.lastIndex = cursor;
         closes.lastIndex = cursor;
         const openMatch = opens.exec(text);
         const closeMatch = closes.exec(text);
-        if (!closeMatch) return -1;
+
+        if (!closeMatch) {
+return -1;
+}
+
         if (openMatch && openMatch.index < closeMatch.index) {
             depth++;
             cursor = openMatch.index + openMatch[0].length;
             continue;
         }
+
         depth--;
-        if (depth === 0) return closeMatch.index;
+
+        if (depth === 0) {
+return closeMatch.index;
+}
+
         cursor = closeMatch.index + closeMatch[0].length;
     }
+
     return -1;
 }
 
@@ -250,8 +286,14 @@ const CORE_STATS: { key: string; label: string; format: 'flat' | 'pct' | 'pctFla
 ];
 
 function formatCoreStat(value: number, format: 'flat' | 'pct' | 'pctFlat'): string {
-    if (format === 'pctFlat') return `${Math.round(value * 100)}%`;
-    if (format === 'pct') return `${Math.round(value)}%`;
+    if (format === 'pctFlat') {
+return `${Math.round(value * 100)}%`;
+}
+
+    if (format === 'pct') {
+return `${Math.round(value)}%`;
+}
+
     // Flat — keep half-integers (e.g. 2.5 sec) but trim trailing zeros.
     return Number.isInteger(value)
         ? String(value)
@@ -267,12 +309,15 @@ function pickCoreStats(
     effects: Record<string, number | string>,
 ): { label: string; value: string }[] {
     const out: { label: string; value: string }[] = [];
+
     for (const stat of CORE_STATS) {
         const raw = effects[stat.key];
+
         if (typeof raw === 'number' && raw !== 0) {
             out.push({ label: stat.label, value: '+' + formatCoreStat(raw, stat.format) });
         }
     }
+
     return out;
 }
 
@@ -291,9 +336,11 @@ export default function ItemsIndex({ items }: Props) {
 
     const countsByType = useMemo(() => {
         const counts: Record<string, number> = {};
+
         for (const item of items) {
             counts[item.type] = (counts[item.type] ?? 0) + 1;
         }
+
         return counts;
     }, [items]);
 
@@ -304,6 +351,7 @@ export default function ItemsIndex({ items }: Props) {
 
     const filtered = useMemo(() => {
         let list = items.filter((i) => i.type === activeType);
+
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(
@@ -313,6 +361,7 @@ export default function ItemsIndex({ items }: Props) {
                     i.component_2?.name.toLowerCase().includes(q),
             );
         }
+
         return list;
     }, [items, activeType, search]);
 
@@ -346,6 +395,7 @@ export default function ItemsIndex({ items }: Props) {
                     {availableTypes.map((type) => {
                         const style = TYPE_STYLES[type];
                         const isActive = activeType === type;
+
                         return (
                             <button
                                 key={type}
@@ -421,9 +471,11 @@ function ItemSubsections({
         }));
         const used = new Set(out.flatMap((b) => b.items.map((i) => i.api_name)));
         const leftover = items.filter((i) => !used.has(i.api_name));
+
         if (leftover.length > 0) {
             out.push({ title: 'Other', items: leftover });
         }
+
         return out.filter((b) => b.items.length > 0);
     }, [items, groups]);
 
@@ -566,6 +618,7 @@ function RecipeComponent({
     if (!component) {
         return <span className="opacity-40">?</span>;
     }
+
     return (
         <Tooltip>
             <TooltipTrigger asChild>
@@ -595,10 +648,14 @@ function RecipeComponent({
  * per-field units table from CDragon bin parsing.
  */
 function formatEffectValue(value: number | string): string {
-    if (typeof value === 'string') return value;
+    if (typeof value === 'string') {
+return value;
+}
+
     if (Math.abs(value) > 0 && Math.abs(value) < 1) {
         return `${(value * 100).toFixed(0)}%`;
     }
+
     return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 

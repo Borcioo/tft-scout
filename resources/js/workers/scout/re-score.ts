@@ -11,8 +11,8 @@
  * can render a warning instead of a broken score.
  */
 
-import { teamScore } from './scorer';
 import { buildActiveTraits } from './active-traits';
+import { teamScore } from './scorer';
 
 /**
  * @param {object} params
@@ -30,11 +30,13 @@ export function rescoreTeam({ championApis, level, emblems, context }: any) {
     .filter(Boolean);
 
   const missing = championApis.length - champs.length;
+
   if (missing > 0) {
     return { score: null, missing, champions: champs, activeTraits: [] };
   }
 
   const activeTraits = buildActiveTraits(champs, traits, emblems);
   const score = teamScore({ champions: champs, activeTraits, level }, scoringCtx);
+
   return { score, missing: 0, champions: champs, activeTraits };
 }

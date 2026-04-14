@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
 // @ts-expect-error — engine.ts uses `// @ts-nocheck`, no public types
 import { generate } from '../../../resources/js/workers/scout/engine';
 import { loadContext } from '../context';
-import { summariseGenerate, type GenerateFilteredCounts } from '../format';
-import { parseCommonArgs } from '../params';
+import { summariseGenerate  } from '../format';
+import type {GenerateFilteredCounts} from '../format';
 import { assertLabEnabled, openDb } from '../lab/db';
 import { currentGitSha } from '../lab/git';
 import { recordRun } from '../lab/ingest';
+import { parseCommonArgs } from '../params';
 
 export async function runGenerate(argv: string[]): Promise<void> {
     const args = parseCommonArgs(argv);
@@ -17,6 +18,7 @@ export async function runGenerate(argv: string[]): Promise<void> {
         const raw = JSON.parse(readFileSync(args.rawInputPath, 'utf8'));
         const out = generate(raw);
         printResults(out, args.full);
+
         return;
     }
 
@@ -62,6 +64,7 @@ export async function runGenerate(argv: string[]): Promise<void> {
     if (args.tag) {
         assertLabEnabled();
         const db = openDb();
+
         try {
             const gitSha = currentGitSha();
             recordRun(
@@ -101,8 +104,10 @@ export async function runGenerate(argv: string[]): Promise<void> {
 function printResults(results: any[], full: boolean): void {
     if (full) {
         process.stdout.write(JSON.stringify(results, null, 2) + '\n');
+
         return;
     }
+
     // We do not have the intermediate raw / enriched / valid counts
     // because `generate` does not expose them. Report the final length
     // for both `afterValidComps` and `afterTopN` and surface raw / enriched

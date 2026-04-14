@@ -28,12 +28,19 @@ const ROLE_CATEGORY = {
  */
 export function teamRoleBalance(champions: any) {
   let frontline = 0, dps = 0, fighter = 0;
+
   for (const c of champions) {
     const cat = (ROLE_CATEGORY as any)[c.role] || 'fighter';
-    if (cat === 'frontline') frontline++;
-    else if (cat === 'dps') dps++;
-    else fighter++;
+
+    if (cat === 'frontline') {
+frontline++;
+} else if (cat === 'dps') {
+dps++;
+} else {
+fighter++;
+}
   }
+
   return { frontline, dps, fighter, effectiveFrontline: frontline + fighter * 0.5, effectiveDps: dps + fighter * 0.5 };
 }
 
@@ -46,19 +53,28 @@ export function teamRoleBalance(champions: any) {
 export function roleBalancePenalty(champions: any) {
   const { effectiveFrontline, effectiveDps } = teamRoleBalance(champions);
   const teamSize = champions.length;
-  if (teamSize === 0) return 0;
+
+  if (teamSize === 0) {
+return 0;
+}
 
   let penalty = 0;
 
   // No frontline at all = heavy penalty (never works in meta)
-  if (effectiveFrontline < 1) penalty += 15;
-  // Less than ~25% frontline = soft penalty
-  else if (effectiveFrontline / teamSize < 0.2) penalty += 5;
+  if (effectiveFrontline < 1) {
+    penalty += 15;
+  } else if (effectiveFrontline / teamSize < 0.2) {
+    // Less than ~25% frontline = soft penalty
+    penalty += 5;
+  }
 
   // No DPS at all = heavy penalty
-  if (effectiveDps < 1) penalty += 15;
-  // Less than ~20% DPS = soft penalty
-  else if (effectiveDps / teamSize < 0.15) penalty += 5;
+  if (effectiveDps < 1) {
+    penalty += 15;
+  } else if (effectiveDps / teamSize < 0.15) {
+    // Less than ~20% DPS = soft penalty
+    penalty += 5;
+  }
 
   return penalty;
 }
@@ -68,18 +84,23 @@ export function roleBalancePenalty(champions: any) {
 function starPowerFallback(cost: any, level: any) {
   const costIdx = Math.min(Math.max(Math.round(cost), 1), 5) - 1;
   const starPowers = (expectedStarPower as any)[level] || (expectedStarPower as any)[8];
+
   return (baseStat(cost) * starPowers[costIdx]) / 1.5;
 }
 
-function baseStat(cost: any) { return cost + 1; }
+function baseStat(cost: any) {
+ return cost + 1; 
+}
 
 export function championScore(champion: any, ctx: any, level = 8) {
   const lookupApi = champion.baseApiName || champion.apiName;
 
   const unitRating = ctx.unitRatings?.[lookupApi];
+
   if (unitRating && unitRating.games >= minGamesForReliable) {
     return unitRating.score * weights.unitRating;
   }
+
   return starPowerFallback(champion.cost, level) / 6.0 * weights.championPower;
 }
 
@@ -87,7 +108,10 @@ export function championScore(champion: any, ctx: any, level = 8) {
 
 export function traitScore(trait: any, ctx: any) {
   const { apiName, count, breakpoints } = trait;
-  if (!breakpoints || breakpoints.length === 0) return { score: 0, near: null };
+
+  if (!breakpoints || breakpoints.length === 0) {
+return { score: 0, near: null };
+}
 
   const sorted = [...breakpoints].sort((a: any, b: any) => a.minUnits - b.minUnits);
 
@@ -95,6 +119,7 @@ export function traitScore(trait: any, ctx: any) {
   let activeBp = null;
   let activeIdx = -1;
   let nextBp = null;
+
   for (let i = sorted.length - 1; i >= 0; i--) {
     if (count >= sorted[i].minUnits) {
       activeBp = sorted[i];
@@ -106,6 +131,7 @@ export function traitScore(trait: any, ctx: any) {
 
   // Near-breakpoint detection
   let near = null;
+
   if (!activeBp) {
     if (count === sorted[0].minUnits - 1) {
       near = { current: count, next: sorted[0].minUnits, missing: 1 };
@@ -114,7 +140,9 @@ export function traitScore(trait: any, ctx: any) {
     near = { current: count, next: nextBp.minUnits, missing: 1 };
   }
 
-  if (!activeBp) return { score: 0, near };
+  if (!activeBp) {
+return { score: 0, near };
+}
 
   // Unique traits (single champion)
   if (activeBp.minUnits === 1 && sorted.length === 1) {
@@ -122,6 +150,7 @@ export function traitScore(trait: any, ctx: any) {
     const score = (rating && rating.games >= minGamesForReliable)
       ? rating.score * weights.uniqueTrait
       : 5;
+
     return { score, near };
   }
 
@@ -135,7 +164,10 @@ export function traitScore(trait: any, ctx: any) {
   if (rating && rating.games >= minGamesForReliable) {
     const breakEven = activeIdx >= 3 ? 0.20 : activeIdx >= 1 ? 0.40 : 0.25;
     basePts = (rating.score - breakEven) * weights.traitRating * bpMult;
-    if (basePts < -5) basePts = -5;
+
+    if (basePts < -5) {
+basePts = -5;
+}
   } else {
     const styleName = activeBp.style || 'Bronze';
     const styleScore = ctx.styleScores?.[styleName] || 0.22;
@@ -144,7 +176,11 @@ export function traitScore(trait: any, ctx: any) {
 
   // Near-breakpoint bonus + overflow penalty
   let adjust = 0;
-  if (near) adjust = nearBreakpointBonus;
+
+  if (near) {
+adjust = nearBreakpointBonus;
+}
+
   if (nextBp && count > activeBp.minUnits) {
     const toNext = nextBp.minUnits - count;
     adjust = toNext === 1 ? nearBreakpointBonus : -(count - activeBp.minUnits) * weights.overflowPenalty;
@@ -158,21 +194,33 @@ export function traitScore(trait: any, ctx: any) {
 export function affinityBonus(champion: any, activeTraitApis: any, ctx: any) {
   const lookupApi = champion.baseApiName || champion.apiName;
   const affData = ctx.affinity?.[lookupApi];
-  if (!affData || affData.length === 0) return 0;
+
+  if (!affData || affData.length === 0) {
+return 0;
+}
 
   // Collect matching affinities, keep only the strongest few per champion
   // This prevents trait-diverse comps from getting unbounded affinity advantage
   const matches = [];
+
   for (const aff of affData) {
     if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
       matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
     }
   }
-  if (matches.length === 0) return 0;
+
+  if (matches.length === 0) {
+return 0;
+}
+
   matches.sort((a: any, b: any) => b - a);
   const maxMatches = 3;
   let bonus = 0;
-  for (let i = 0; i < Math.min(matches.length, maxMatches); i++) bonus += matches[i];
+
+  for (let i = 0; i < Math.min(matches.length, maxMatches); i++) {
+bonus += matches[i];
+}
+
   return bonus;
 }
 
@@ -186,22 +234,34 @@ export function affinityBonus(champion: any, activeTraitApis: any, ctx: any) {
  */
 function dominantTraitDampen(activeTraits: any, ctx: any) {
   let bestAvg = 8;
+
   for (const trait of activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
     let activeIdx = -1;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) { activeIdx = i; break; }
+      if (trait.count >= sorted[i].minUnits) {
+ activeIdx = i; break; 
+}
     }
-    if (activeIdx < 0) continue;
+
+    if (activeIdx < 0) {
+continue;
+}
+
     const bpPos = activeIdx + 1;
     const rating = ctx.traitRatings?.[trait.apiName]?.[bpPos];
+
     if (rating && rating.games >= thresholds.phaseMinGames && rating.avgPlace < bestAvg) {
       bestAvg = rating.avgPlace;
     }
   }
 
   // Scale: avgPlace 1.0 → weight 0.6, avgPlace 3.5 → weight 1.0
-  if (bestAvg >= 3.5) return 1.0;
+  if (bestAvg >= 3.5) {
+return 1.0;
+}
+
   return 0.6 + (bestAvg - 1.0) * 0.16;
 }
 
@@ -215,15 +275,20 @@ function dominantTraitDampen(activeTraits: any, ctx: any) {
  */
 export function orphanPenalty(champion: any, activeTraitApis: any) {
   for (const t of champion.traits) {
-    if (activeTraitApis.has(t)) return 0;
+    if (activeTraitApis.has(t)) {
+return 0;
+}
   }
+
   return weights.orphanPenalty;
 }
 
 // ── Companion bonus ─────────────────────────────
 
 export function companionBonus(team: any, ctx: any) {
-  if (!ctx.companions) return 0;
+  if (!ctx.companions) {
+return 0;
+}
 
   let bonus = 0;
   const teamApis = new Set(team.champions.map((c: any) => c.baseApiName || c.apiName));
@@ -231,14 +296,29 @@ export function companionBonus(team: any, ctx: any) {
   // Only count pairs where BOTH champions are in the team
   // Use a seen set to avoid double-counting A→B and B→A
   const seen = new Set();
+
   for (const champApi of teamApis) {
     const companionList = (ctx.companions as any)[champApi as any];
-    if (!companionList) continue;
+
+    if (!companionList) {
+continue;
+}
+
     for (const comp of companionList) {
-      if (!teamApis.has(comp.companion)) continue;
-      if (comp.games < thresholds.companionMinGames) continue;
+      if (!teamApis.has(comp.companion)) {
+continue;
+}
+
+      if (comp.games < thresholds.companionMinGames) {
+continue;
+}
+
       const pairKey = [champApi, comp.companion].sort((a: any, b: any) => a.localeCompare(b)).join('+');
-      if (seen.has(pairKey)) continue;
+
+      if (seen.has(pairKey)) {
+continue;
+}
+
       seen.add(pairKey);
       bonus += weights.affinityBonus * (1 - comp.avgPlace / 8);
     }
@@ -265,6 +345,7 @@ export function teamScore(team: any, ctx: any) {
 
   // Trait scores
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
+
   for (const trait of team.activeTraits) {
     const { score: tScore } = traitScore(trait, ctx);
     score += tScore;
@@ -288,17 +369,27 @@ export function teamScore(team: any, ctx: any) {
   for (const trait of team.activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
     let activeIdx = -1;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) { activeIdx = i; break; }
+      if (trait.count >= sorted[i].minUnits) {
+ activeIdx = i; break; 
+}
     }
-    if (activeIdx < 0) continue;
+
+    if (activeIdx < 0) {
+continue;
+}
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[activeIdx + 1];
+
     if (rating && rating.games >= thresholds.phaseMinGames && rating.avgPlace < 4.0) {
       let bonus = (4.0 - rating.avgPlace) * weights.traitRating;
+
       // Exceptional breakpoints (avg < 2.5) get exponential boost
       if (rating.avgPlace < 2.5) {
         bonus += Math.pow(2.5 - rating.avgPlace, 2) * weights.traitRating * 2;
       }
+
       score += bonus;
     }
   }
@@ -306,11 +397,19 @@ export function teamScore(team: any, ctx: any) {
   // Synergy concentration — bonus for traits at 2nd+ breakpoint
   const highBreakpoints = team.activeTraits.filter((t: any) => {
     const sorted = [...(t.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    if (sorted.length <= 1 || sorted[0].minUnits <= 1) return false;
+
+    if (sorted.length <= 1 || sorted[0].minUnits <= 1) {
+return false;
+}
+
     let activeIdx = 0;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if (t.count >= sorted[i].minUnits) { activeIdx = i; break; }
+      if (t.count >= sorted[i].minUnits) {
+ activeIdx = i; break; 
+}
     }
+
     return activeIdx >= 1;
   });
   score += highBreakpoints.length * weights.synergyBonus;
@@ -326,32 +425,44 @@ export function teamScoreBreakdown(team: any, ctx: any) {
   const breakdown = { champions: 0, traits: 0, affinity: 0, companions: 0, synergy: 0, balance: 0, total: 0 } as any;
 
   const champScoreWeight = dominantTraitDampen(team.activeTraits, ctx);
+
   for (const champ of team.champions) {
     const pts = championScore(champ, ctx, level);
     breakdown.champions += (champ.slotsUsed > 1 ? pts * champ.slotsUsed : pts) * champScoreWeight;
   }
 
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
+
   for (const trait of team.activeTraits) {
     const { score: tScore } = traitScore(trait, ctx);
     breakdown.traits += tScore;
   }
 
   let orphanTotal = 0;
+
   for (const champ of team.champions) {
     orphanTotal += orphanPenalty(champ, activeTraitApis);
   }
+
   for (const champ of team.champions) {
     breakdown.affinity += affinityBonus(champ, activeTraitApis, ctx);
   }
 
   const highBreakpoints = team.activeTraits.filter((t: any) => {
     const sorted = [...(t.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    if (sorted.length <= 1 || sorted[0].minUnits <= 1) return false;
+
+    if (sorted.length <= 1 || sorted[0].minUnits <= 1) {
+return false;
+}
+
     let activeIdx = 0;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if (t.count >= sorted[i].minUnits) { activeIdx = i; break; }
+      if (t.count >= sorted[i].minUnits) {
+ activeIdx = i; break; 
+}
     }
+
     return activeIdx >= 1;
   });
   breakdown.companions = companionBonus(team, ctx);
@@ -359,22 +470,34 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   // Proven team bonus
   let provenBonus = 0;
+
   for (const trait of team.activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
     let activeIdx = -1;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) { activeIdx = i; break; }
+      if (trait.count >= sorted[i].minUnits) {
+ activeIdx = i; break; 
+}
     }
-    if (activeIdx < 0) continue;
+
+    if (activeIdx < 0) {
+continue;
+}
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[activeIdx + 1];
+
     if (rating && rating.games >= thresholds.phaseMinGames && rating.avgPlace < 4.0) {
       let bonus = (4.0 - rating.avgPlace) * weights.traitRating;
+
       if (rating.avgPlace < 2.5) {
         bonus += Math.pow(2.5 - rating.avgPlace, 2) * weights.traitRating * 2;
       }
+
       provenBonus += bonus;
     }
   }
+
   breakdown.proven = provenBonus;
 
   breakdown.balance = -roleBalancePenalty(team.champions);
@@ -382,7 +505,9 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance + breakdown.orphan;
 
-  for (const k of Object.keys(breakdown)) breakdown[k] = Math.round(breakdown[k] * 10) / 10;
+  for (const k of Object.keys(breakdown)) {
+breakdown[k] = Math.round(breakdown[k] * 10) / 10;
+}
 
   return breakdown;
 }

@@ -10,6 +10,7 @@
  * strongTrait already fired) can scan already-pushed items.
  */
 
+import { INSIGHTS_CONFIG } from './insights-config';
 import type {
   InsightItem,
   MetaCompEntry,
@@ -17,7 +18,6 @@ import type {
   ScoringContext,
   TeamInsights,
 } from './types';
-import { INSIGHTS_CONFIG } from './insights-config';
 
 const CFG = INSIGHTS_CONFIG;
 
@@ -40,9 +40,13 @@ function lookupApi(champion: { apiName: string; baseApiName: string | null }): s
  */
 function activeBreakpointIdx(count: number, breakpoints: { minUnits: number }[]): number {
   const sorted = [...breakpoints].sort((a, b) => a.minUnits - b.minUnits);
+
   for (let i = sorted.length - 1; i >= 0; i--) {
-    if (count >= sorted[i].minUnits) return i;
+    if (count >= sorted[i].minUnits) {
+return i;
+}
   }
+
   return -1;
 }
 
@@ -88,12 +92,23 @@ function pushMetaMatch(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]
   let best: { meta: MetaCompEntry; overlap: number } | null = null;
 
   for (const meta of ctx.metaComps ?? []) {
-    if (meta.avgPlace > CFG.metaMatch.maxAvgPlace) continue;
+    if (meta.avgPlace > CFG.metaMatch.maxAvgPlace) {
+continue;
+}
+
     const units = meta.units;
-    if (units.length === 0) continue;
+
+    if (units.length === 0) {
+continue;
+}
+
     const overlapCount = units.filter(u => teamApis.has(u)).length;
     const overlapPct = overlapCount / units.length;
-    if (overlapPct < CFG.metaMatch.minOverlapPct) continue;
+
+    if (overlapPct < CFG.metaMatch.minOverlapPct) {
+continue;
+}
+
     if (!best || overlapCount > best.overlap) {
       best = { meta, overlap: overlapCount };
     }
@@ -111,14 +126,29 @@ function pushMetaMatch(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]
 
 function pushTopCarry(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
   const seen = new Set<string>();
+
   for (const champ of team.champions) {
     const api = lookupApi(champ);
-    if (seen.has(api)) continue;
+
+    if (seen.has(api)) {
+continue;
+}
+
     seen.add(api);
     const rating = ctx.unitRatings?.[api];
-    if (!rating) continue;
-    if (rating.games < CFG.topCarry.minGames) continue;
-    if (rating.avgPlace > CFG.topCarry.maxAvgPlace) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.games < CFG.topCarry.minGames) {
+continue;
+}
+
+    if (rating.avgPlace > CFG.topCarry.maxAvgPlace) {
+continue;
+}
+
     out.push({
       kind: 'topCarry',
       championApiName: api,
@@ -131,11 +161,24 @@ function pushTopCarry(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[])
 
 function pushStrongTrait(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
   for (const trait of team.activeTraits) {
-    if (trait.breakpoint == null) continue;
+    if (trait.breakpoint == null) {
+continue;
+}
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[trait.breakpoint];
-    if (!rating) continue;
-    if (rating.games < CFG.strongTrait.minGames) continue;
-    if (rating.avgPlace > CFG.strongTrait.maxAvgPlace) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.games < CFG.strongTrait.minGames) {
+continue;
+}
+
+    if (rating.avgPlace > CFG.strongTrait.maxAvgPlace) {
+continue;
+}
+
     out.push({
       kind: 'strongTrait',
       traitApiName: trait.apiName,
@@ -153,20 +196,36 @@ function pushAffinityHit(team: ScoredTeam, ctx: ScoringContext, out: InsightItem
   for (const champ of team.champions) {
     const api = lookupApi(champ);
     const rows = ctx.affinity?.[api];
-    if (!rows || rows.length === 0) continue;
+
+    if (!rows || rows.length === 0) {
+continue;
+}
+
     // Filter BEFORE sort — otherwise a 2-game "1.00 avg" noise row
     // lands in top-3 and pushes real signal out. Hero variants are
     // especially noise-prone on MetaTFT because their sample pool
     // is a fraction of a normal champion's.
     const eligible = rows.filter(r => r.games >= CFG.affinityHit.minGames);
-    if (eligible.length === 0) continue;
+
+    if (eligible.length === 0) {
+continue;
+}
+
     const topN = eligible
       .sort((a, b) => a.avgPlace - b.avgPlace)
       .slice(0, CFG.affinityHit.topN);
+
     for (const row of topN) {
       const active = activeTraitsByApi.get(row.trait);
-      if (!active) continue;
-      if (row.avgPlace > CFG.affinityHit.maxAvgPlace) continue;
+
+      if (!active) {
+continue;
+}
+
+      if (row.avgPlace > CFG.affinityHit.maxAvgPlace) {
+continue;
+}
+
       out.push({
         kind: 'affinityHit',
         championApiName: api,
@@ -182,27 +241,53 @@ function pushAffinityHit(team: ScoredTeam, ctx: ScoringContext, out: InsightItem
 
 function pushProvenPair(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
   const teamByApi = new Map<string, { api: string; name: string }>();
+
   for (const c of team.champions) {
     const api = lookupApi(c);
-    if (!teamByApi.has(api)) teamByApi.set(api, { api, name: c.name });
+
+    if (!teamByApi.has(api)) {
+teamByApi.set(api, { api, name: c.name });
+}
   }
 
   const firedPairs = new Set<string>();
 
   for (const { api: aApi, name: aName } of teamByApi.values()) {
     const rows = ctx.companions?.[aApi];
-    if (!rows) continue;
+
+    if (!rows) {
+continue;
+}
+
     const topN = [...rows]
       .sort((x, y) => x.avgPlace - y.avgPlace)
       .slice(0, CFG.provenPair.topN);
+
     for (const row of topN) {
       const B = teamByApi.get(row.companion);
-      if (!B) continue;
-      if (B.api === aApi) continue;
-      if (row.games < CFG.provenPair.minGames) continue;
-      if (row.avgPlace > CFG.provenPair.maxAvgPlace) continue;
+
+      if (!B) {
+continue;
+}
+
+      if (B.api === aApi) {
+continue;
+}
+
+      if (row.games < CFG.provenPair.minGames) {
+continue;
+}
+
+      if (row.avgPlace > CFG.provenPair.maxAvgPlace) {
+continue;
+}
+
       const key = pairKey(aApi, B.api);
-      if (firedPairs.has(key)) continue;
+
+      if (firedPairs.has(key)) {
+continue;
+}
+
       firedPairs.add(key);
       out.push({
         kind: 'provenPair',
@@ -224,12 +309,26 @@ function pushHighBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightI
   );
 
   for (const trait of team.activeTraits) {
-    if (strongTraitApis.has(trait.apiName)) continue;
+    if (strongTraitApis.has(trait.apiName)) {
+continue;
+}
+
     const idx = activeBreakpointIdx(trait.count, (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? []);
-    if (idx < 1) continue; // needs 2nd breakpoint or higher
+
+    if (idx < 1) {
+continue;
+} // needs 2nd breakpoint or higher
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[idx + 1];
-    if (!rating) continue;
-    if (rating.avgPlace > CFG.highBreakpoint.maxAvgPlace) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.avgPlace > CFG.highBreakpoint.maxAvgPlace) {
+continue;
+}
+
     out.push({
       kind: 'highBreakpoint',
       traitApiName: trait.apiName,
@@ -249,13 +348,30 @@ function pushWeakChampion(team: ScoredTeam, ctx: ScoringContext, out: InsightIte
 
   for (const champ of team.champions) {
     const api = lookupApi(champ);
-    if (seen.has(api)) continue;
+
+    if (seen.has(api)) {
+continue;
+}
+
     seen.add(api);
-    if (champ.cost < CFG.weakChampion.minCost) continue;
+
+    if (champ.cost < CFG.weakChampion.minCost) {
+continue;
+}
+
     const rating = ctx.unitRatings?.[api];
-    if (!rating) continue;
-    if (rating.games < CFG.weakChampion.minGames) continue;
-    if (rating.avgPlace < CFG.weakChampion.minAvgPlace) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.games < CFG.weakChampion.minGames) {
+continue;
+}
+
+    if (rating.avgPlace < CFG.weakChampion.minAvgPlace) {
+continue;
+}
 
     const reasonTraitApi = champ.traits.find(t => activeTraitSet.has(t)) ?? champ.traits[0] ?? '';
     const reasonTraitName = activeTraitNames.get(reasonTraitApi) ?? reasonTraitApi;
@@ -274,10 +390,21 @@ function pushLowBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightIt
   for (const trait of team.activeTraits) {
     const bps = (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
     const idx = activeBreakpointIdx(trait.count, bps);
-    if (idx !== 0) continue; // only fires when the trait sits on its lowest active breakpoint
+
+    if (idx !== 0) {
+continue;
+} // only fires when the trait sits on its lowest active breakpoint
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[1];
-    if (!rating) continue;
-    if (rating.avgPlace < CFG.lowBreakpoint.minAvgPlace) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.avgPlace < CFG.lowBreakpoint.minAvgPlace) {
+continue;
+}
+
     out.push({
       kind: 'lowBreakpoint',
       traitApiName: trait.apiName,
@@ -290,10 +417,20 @@ function pushLowBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightIt
 
 function pushUnprovenTrait(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
   for (const trait of team.activeTraits) {
-    if (trait.breakpoint == null) continue;
+    if (trait.breakpoint == null) {
+continue;
+}
+
     const rating = ctx.traitRatings?.[trait.apiName]?.[trait.breakpoint];
-    if (!rating) continue;
-    if (rating.games >= CFG.unprovenTrait.maxGames) continue;
+
+    if (!rating) {
+continue;
+}
+
+    if (rating.games >= CFG.unprovenTrait.maxGames) {
+continue;
+}
+
     out.push({
       kind: 'unprovenTrait',
       traitApiName: trait.apiName,
@@ -307,8 +444,10 @@ function pushSingleCore(team: ScoredTeam, out: InsightItem[]): void {
   const highBp = team.activeTraits.filter(t => {
     const bps = (t as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
     const idx = activeBreakpointIdx(t.count, bps);
+
     return idx >= 1;
   });
+
   if (highBp.length === 1) {
     const only = highBp[0];
     out.push({
@@ -325,14 +464,24 @@ function pushNoMetaMatch(
   median: number,
   out: InsightItem[],
 ): void {
-  if (team.score >= median) return; // only experimental-looking, below-median teams
+  if (team.score >= median) {
+return;
+} // only experimental-looking, below-median teams
 
   const teamApis = new Set(team.champions.map(c => lookupApi(c)));
+
   for (const meta of ctx.metaComps ?? []) {
     const units = meta.units;
-    if (units.length === 0) continue;
+
+    if (units.length === 0) {
+continue;
+}
+
     const overlap = units.filter(u => teamApis.has(u)).length / units.length;
-    if (overlap >= CFG.noMetaMatch.minOverlapPctIgnore) return; // has some meta match, bail
+
+    if (overlap >= CFG.noMetaMatch.minOverlapPctIgnore) {
+return;
+} // has some meta match, bail
   }
 
   out.push({ kind: 'noMetaMatch' });

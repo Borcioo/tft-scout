@@ -47,6 +47,7 @@ export default function ChampionsIndex({ champions }: Props) {
 
     const filtered = useMemo(() => {
         let list = champions;
+
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(
@@ -55,18 +56,22 @@ export default function ChampionsIndex({ champions }: Props) {
                     c.traits.some((t) => t.name.toLowerCase().includes(q)),
             );
         }
+
         if (costFilter !== null) {
             list = list.filter((c) => c.cost === costFilter);
         }
+
         return list;
     }, [champions, search, costFilter]);
 
     const grouped = useMemo(() => {
         const groups: Record<number, Champion[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
         for (const champ of filtered) {
             const cost = Math.min(Math.max(champ.cost, 1), 5);
             groups[cost].push(champ);
         }
+
         return groups;
     }, [filtered]);
 
@@ -127,7 +132,11 @@ export default function ChampionsIndex({ champions }: Props) {
                     <div className="flex flex-col gap-6">
                         {costs.map((cost) => {
                             const champs = grouped[cost];
-                            if (champs.length === 0) return null;
+
+                            if (champs.length === 0) {
+return null;
+}
+
                             return (
                                 <section
                                     key={cost}

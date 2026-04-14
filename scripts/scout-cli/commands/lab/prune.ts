@@ -12,9 +12,14 @@ type PruneArgs = {
 
 function parseDuration(s: string): number {
     const m = /^(\d+)([hdw])$/.exec(s);
-    if (!m) throw new Error(`Bad duration "${s}". Use e.g. 6h, 7d, 2w.`);
+
+    if (!m) {
+throw new Error(`Bad duration "${s}". Use e.g. 6h, 7d, 2w.`);
+}
+
     const n = Number(m[1]);
     const mult: Record<string, number> = { h: 3600, d: 86400, w: 604800 };
+
     return n * mult[m[2]] * 1000;
 }
 
@@ -29,8 +34,10 @@ export async function runLabPrune(argv: string[]): Promise<void> {
         yes: false,
         dbPath: DEFAULT_DB_PATH,
     };
+
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
+
         switch (a) {
             case '--older-than':
                 args.olderThan = argv[++i];

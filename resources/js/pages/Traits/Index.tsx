@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -100,15 +100,19 @@ const SCALE_ICON_LABELS: Record<string, string> = {
  * React nodes for drop-in placement.
  */
 function renderDescription(text: string | null | undefined): React.ReactNode[] {
-    if (!text) return [];
+    if (!text) {
+return [];
+}
 
     let normalised = text.replace(/<br\s*\/?>/gi, '\n');
     normalised = normalised.replace(/&nbsp;/g, ' ');
     normalised = normalised.replace(/(?:%i:\w+%)+/g, (match) => {
         const parts = match.match(/%i:(\w+)%/g) || [];
+
         return parts
             .map((p) => {
                 const name = p.replace(/%i:|%/g, '');
+
                 return SCALE_ICON_LABELS[name] ?? name.replace(/^scale/, '');
             })
             .join('+');
@@ -129,7 +133,10 @@ function tokenize(text: string): React.ReactNode[] {
         const start = match.index;
 
         if (closingSlash) {
-            if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+            if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
+
             lastIndex = start + full.length;
             continue;
         }
@@ -138,13 +145,18 @@ function tokenize(text: string): React.ReactNode[] {
         const closeIdx = findMatchingClose(text, tagRegex.lastIndex, tagName);
 
         if (closeIdx === -1) {
-            if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+            if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
+
             nodes.push(full);
             lastIndex = start + full.length;
             continue;
         }
 
-        if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+        if (start > lastIndex) {
+nodes.push(text.slice(lastIndex, start));
+}
 
         const innerText = text.slice(start + full.length, closeIdx);
         const innerNodes = tokenize(innerText);
@@ -160,16 +172,27 @@ function tokenize(text: string): React.ReactNode[] {
         tagRegex.lastIndex = lastIndex;
     }
 
-    if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+    if (lastIndex < text.length) {
+nodes.push(text.slice(lastIndex));
+}
 
     return nodes.flatMap((node, i) => {
-        if (typeof node !== 'string') return [node];
+        if (typeof node !== 'string') {
+return [node];
+}
+
         const parts = node.split('\n');
         const out: React.ReactNode[] = [];
         parts.forEach((part, pi) => {
-            if (pi > 0) out.push(<br key={`br-${i}-${pi}`} />);
-            if (part) out.push(part);
+            if (pi > 0) {
+out.push(<br key={`br-${i}-${pi}`} />);
+}
+
+            if (part) {
+out.push(part);
+}
         });
+
         return out;
     });
 }
@@ -196,7 +219,9 @@ function findMatchingClose(
         const openMatch = opens.exec(text);
         const closeMatch = closes.exec(text);
 
-        if (!closeMatch) return -1;
+        if (!closeMatch) {
+return -1;
+}
 
         if (openMatch && openMatch.index < closeMatch.index) {
             depth++;
@@ -205,7 +230,11 @@ function findMatchingClose(
         }
 
         depth--;
-        if (depth === 0) return closeMatch.index;
+
+        if (depth === 0) {
+return closeMatch.index;
+}
+
         cursor = closeMatch.index + closeMatch[0].length;
     }
 
@@ -215,22 +244,29 @@ function findMatchingClose(
 export default function TraitsIndex({ public_traits, unique_traits }: Props) {
     const [search, setSearch] = useState('');
 
-    const filterFn = (t: Trait) => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return (
-            t.name.toLowerCase().includes(q) ||
-            t.champions.some((c) => c.name.toLowerCase().includes(q))
-        );
-    };
+    const filterFn = useCallback(
+        (t: Trait) => {
+            if (!search.trim()) {
+                return true;
+            }
+
+            const q = search.toLowerCase();
+
+            return (
+                t.name.toLowerCase().includes(q) ||
+                t.champions.some((c) => c.name.toLowerCase().includes(q))
+            );
+        },
+        [search],
+    );
 
     const filteredPublic = useMemo(
         () => public_traits.filter(filterFn),
-        [public_traits, search],
+        [public_traits, filterFn],
     );
     const filteredUnique = useMemo(
         () => unique_traits.filter(filterFn),
-        [unique_traits, search],
+        [unique_traits, filterFn],
     );
 
     const totalCount = filteredPublic.length + filteredUnique.length;

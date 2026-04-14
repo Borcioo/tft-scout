@@ -1,5 +1,5 @@
-import { ScoutCompCard } from './ScoutCompCard';
 import type { ScoredTeam } from '@/workers/scout/types';
+import { ScoutCompCard } from './ScoutCompCard';
 
 type Props = {
     teams: ScoredTeam[];

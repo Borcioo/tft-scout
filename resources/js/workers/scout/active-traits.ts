@@ -16,9 +16,13 @@
  */
 export function buildActiveTraits(champions: any, allTraits: any, emblems: any) {
   const traitMap: any = {};
-  for (const t of allTraits) traitMap[t.apiName] = t;
+
+  for (const t of allTraits) {
+traitMap[t.apiName] = t;
+}
 
   const traitCounts: any = {};
+
   for (const c of champions) {
     for (const t of c.traits) {
       const isMechaEnhanced = c.variant === 'enhanced' && t === 'TFT17_Mecha';
@@ -29,25 +33,42 @@ export function buildActiveTraits(champions: any, allTraits: any, emblems: any) 
   // Emblems — capped by non-trait champions available as holders
   const champTraitSets = champions.map((c: any) => new Set(c.traits || []));
   const emblemsByTrait: any = {};
-  for (const e of (emblems || [])) emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+
+  for (const e of (emblems || [])) {
+emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+}
+
   for (const [trait, count] of Object.entries(emblemsByTrait)) {
     const holders = champTraitSets.filter((ts: any) => !ts.has(trait)).length;
     const usable = Math.min(count as number, holders);
-    if (usable > 0) traitCounts[trait] = (traitCounts[trait] || 0) + usable;
+
+    if (usable > 0) {
+traitCounts[trait] = (traitCounts[trait] || 0) + usable;
+}
   }
 
   // Build active traits list (only traits that hit at least the first breakpoint)
   const activeTraits = [];
+
   for (const [apiName, count] of Object.entries(traitCounts)) {
     const traitDef = traitMap[apiName];
-    if (!traitDef) continue;
+
+    if (!traitDef) {
+continue;
+}
 
     const sorted = [...(traitDef.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
     let activeBp = null;
+
     for (let i = sorted.length - 1; i >= 0; i--) {
-      if ((count as number) >= sorted[i].minUnits) { activeBp = sorted[i]; break; }
+      if ((count as number) >= sorted[i].minUnits) {
+ activeBp = sorted[i]; break; 
+}
     }
-    if (!activeBp) continue;
+
+    if (!activeBp) {
+continue;
+}
 
     activeTraits.push({
       apiName,

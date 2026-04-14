@@ -33,10 +33,15 @@ export type GenerateFilteredCounts = {
 export function summariseCandidates(candidates: any[]): unknown {
     const byCost: Record<number, number> = {};
     const byTrait: Record<string, number> = {};
+
     for (const c of candidates) {
         byCost[c.cost] = (byCost[c.cost] ?? 0) + 1;
-        for (const t of c.traits ?? []) byTrait[t] = (byTrait[t] ?? 0) + 1;
+
+        for (const t of c.traits ?? []) {
+byTrait[t] = (byTrait[t] ?? 0) + 1;
+}
     }
+
     return {
         count: candidates.length,
         byCost,
@@ -48,15 +53,23 @@ export function summariseCandidates(candidates: any[]): unknown {
 export function summariseGraph(graph: any): unknown {
     const nodes = Object.keys(graph?.nodes ?? {}).length;
     const edges: Array<[string, string]> = [];
+
     // adjacency shape: { championApiName: [{ champ, sharedTraits, traits }, ...] }
     // Each undirected edge is stored on BOTH endpoints, so dedupe by ordering.
     for (const [from, neighbourList] of Object.entries(graph?.adjacency ?? {})) {
-        if (!Array.isArray(neighbourList)) continue;
+        if (!Array.isArray(neighbourList)) {
+continue;
+}
+
         for (const edge of neighbourList) {
             const to = edge?.champ;
-            if (typeof to === 'string' && from < to) edges.push([from, to]);
+
+            if (typeof to === 'string' && from < to) {
+edges.push([from, to]);
+}
         }
     }
+
     return {
         nodes,
         edges: edges.length,
@@ -106,9 +119,16 @@ export function formatActiveTraits(traits: any[]): string {
 }
 
 export function formatRoles(roles: any): string {
-    if (!roles) return '';
+    if (!roles) {
+return '';
+}
+
     const parts = [`fl:${roles.frontline}`, `dps:${roles.dps}`];
-    if (roles.fighter > 0) parts.push(`fighter:${roles.fighter}`);
+
+    if (roles.fighter > 0) {
+parts.push(`fighter:${roles.fighter}`);
+}
+
     return parts.join(' ');
 }
 
@@ -117,8 +137,15 @@ function round1(n: number): number {
 }
 
 function roundBreakdown(b: Record<string, number> | null | undefined): Record<string, number> {
-    if (!b) return {};
+    if (!b) {
+return {};
+}
+
     const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(b)) out[k] = round1(v);
+
+    for (const [k, v] of Object.entries(b)) {
+out[k] = round1(v);
+}
+
     return out;
 }

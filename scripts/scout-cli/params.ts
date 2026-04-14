@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
-import { DEFAULT_SNAPSHOT_PATH } from './context';
 import type { ScoutParams } from '../../resources/js/workers/scout/types';
+import { DEFAULT_SNAPSHOT_PATH } from './context';
 
 /**
  * Shared flag set understood by the `generate` and `phase` commands.
@@ -32,6 +32,7 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
+
         switch (a) {
             case '--level':
                 out.params.level = Number(argv[++i]);
@@ -100,7 +101,10 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
 }
 
 function csv(value: string | undefined): string[] {
-    if (!value) return [];
+    if (!value) {
+return [];
+}
+
     return value
         .split(',')
         .map((s) => s.trim())
@@ -110,9 +114,11 @@ function csv(value: string | undefined): string[] {
 function parseTraitLocks(value: string | undefined): { apiName: string; minUnits: number }[] {
     return csv(value).map((entry) => {
         const [apiName, minUnits] = entry.split(':');
+
         if (!apiName || !minUnits) {
             throw new Error(`--locked-trait expects "apiName:minUnits", got "${entry}"`);
         }
+
         return { apiName, minUnits: Number(minUnits) };
     });
 }
@@ -120,9 +126,11 @@ function parseTraitLocks(value: string | undefined): { apiName: string; minUnits
 function parseEmblems(value: string | undefined): { apiName: string; count: number }[] {
     return csv(value).map((entry) => {
         const [apiName, count] = entry.split(':');
+
         if (!apiName || !count) {
             throw new Error(`--emblem expects "apiName:count", got "${entry}"`);
         }
+
         return { apiName, count: Number(count) };
     });
 }

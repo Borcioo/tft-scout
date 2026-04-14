@@ -22,6 +22,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
 
     const setMinUnits = (apiName: string, minUnits: number) => {
         const existing = locked.find((l) => l.apiName === apiName);
+
         if (!existing) {
             onChange([...locked, { apiName, minUnits }]);
         } else if (minUnits === 0) {
@@ -51,6 +52,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
                     const lockedEntry = locked.find(
                         (l) => l.apiName === trait.apiName,
                     );
+
                     return (
                         <div
                             key={trait.apiName}

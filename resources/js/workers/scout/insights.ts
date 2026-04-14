@@ -27,10 +27,14 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
 
   // Build trait lookup
   const traitMap = {};
-  for (const t of traits) traitMap[t.apiName] = t;
+
+  for (const t of traits) {
+traitMap[t.apiName] = t;
+}
 
   // Build champion trait membership
   const champsByTrait = {};
+
   for (const c of champions) {
     for (const t of c.traits) {
       (champsByTrait[t] ??= []).push(c);
@@ -39,7 +43,10 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
 
   // Group emblems by trait
   const emblemsByTrait = {};
-  for (const e of emblems) emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+
+  for (const e of emblems) {
+emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+}
 
   // Locked champions' traits
   const lockedSet = new Set(lockedChampions);
@@ -48,11 +55,17 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
   // ── Emblem opportunity insights ──────────────────
   for (const [traitApi, emblemCount] of Object.entries(emblemsByTrait)) {
     const trait = traitMap[traitApi];
-    if (!trait) continue;
+
+    if (!trait) {
+continue;
+}
 
     const members = champsByTrait[traitApi] || [];
     const bps = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    if (bps.length === 0) continue;
+
+    if (bps.length === 0) {
+continue;
+}
 
     const lockedInTrait = lockedChampObjects.filter(c => c.traits.includes(traitApi)).length;
 
@@ -60,8 +73,14 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
     for (let i = bps.length - 1; i >= 0; i--) {
       const bp = bps[i];
       const champsNeeded = bp.minUnits - emblemCount;
-      if (champsNeeded < 0) continue;
-      if (champsNeeded > members.length) continue;
+
+      if (champsNeeded < 0) {
+continue;
+}
+
+      if (champsNeeded > members.length) {
+continue;
+}
 
       // Each emblem needs a non-trait champion to hold it
       // Min team size = champsNeeded (trait) + emblemCount (holders)
@@ -73,7 +92,9 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
       const rating = traitRatings[traitApi]?.[bpPosition];
 
       // Only show if data exists
-      if (!rating || rating.games < thresholds.phaseMinGames) continue;
+      if (!rating || rating.games < thresholds.phaseMinGames) {
+continue;
+}
 
       const alreadyHave = lockedInTrait + emblemCount;
       const stillNeed = Math.max(0, champsNeeded - lockedInTrait);
@@ -101,31 +122,55 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
   // ── Vertical potential from locked champions ─────
   // If user locked 3+ of the same trait, hint at going deeper
   const lockedTraitCounts = {};
+
   for (const c of lockedChampObjects) {
-    for (const t of c.traits) lockedTraitCounts[t] = (lockedTraitCounts[t] || 0) + 1;
+    for (const t of c.traits) {
+lockedTraitCounts[t] = (lockedTraitCounts[t] || 0) + 1;
+}
   }
 
   for (const [traitApi, count] of Object.entries(lockedTraitCounts)) {
-    if (count < 3) continue;
-    if (emblemsByTrait[traitApi]) continue; // already covered by emblem insight
+    if (count < 3) {
+continue;
+}
+
+    if (emblemsByTrait[traitApi]) {
+continue;
+} // already covered by emblem insight
 
     const trait = traitMap[traitApi];
-    if (!trait) continue;
+
+    if (!trait) {
+continue;
+}
+
     const bps = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
     const members = champsByTrait[traitApi] || [];
 
     // Find next breakpoint above current count
     const nextBp = bps.find(bp => bp.minUnits > count);
-    if (!nextBp) continue;
+
+    if (!nextBp) {
+continue;
+}
 
     const bpIdx = bps.indexOf(nextBp);
     const rating = traitRatings[traitApi]?.[bpIdx + 1];
-    if (!rating || rating.games < thresholds.phaseMinGames) continue;
-    if (rating.avgPlace > thresholds.deepVerticalMaxAvg) continue;
+
+    if (!rating || rating.games < thresholds.phaseMinGames) {
+continue;
+}
+
+    if (rating.avgPlace > thresholds.deepVerticalMaxAvg) {
+continue;
+}
 
     const stillNeed = nextBp.minUnits - count;
     const available = members.filter(m => !lockedSet.has(m.apiName)).length;
-    if (available < stillNeed) continue;
+
+    if (available < stillNeed) {
+continue;
+}
 
     insights.push({
       type: 'vertical_potential',
@@ -144,6 +189,7 @@ export function generateInsights({ champions, traits, lockedChampions = [], embl
   // Sort: high priority first, then by avgPlace
   insights.sort((a, b) => {
     const prio = { high: 0, medium: 1, low: 2 };
+
     return (prio[a.priority] - prio[b.priority]) || (a.avgPlace - b.avgPlace);
   });
 

@@ -6,7 +6,6 @@ import {
     Target,
     Users,
 } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +15,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 import { login, register } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 

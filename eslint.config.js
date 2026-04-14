@@ -106,6 +106,25 @@ export default [
         },
     },
     {
+        // Legacy ported JS worker modules carry `// @ts-nocheck` at the top
+        // because they were ported verbatim from a ~900-line JS original.
+        // Full retyping is out of scope; unused-vars in long-dead helpers
+        // are accepted for the same reason.
+        files: ['resources/js/workers/scout/**/*.ts'],
+        rules: {
+            '@typescript-eslint/ban-ts-comment': 'off',
+            '@typescript-eslint/no-unused-vars': 'off',
+        },
+    },
+    {
+        // scout-cli imports untyped worker modules via `@ts-expect-error`
+        // stubs; the description requirement adds noise without value.
+        files: ['scripts/scout-cli/**/*.ts'],
+        rules: {
+            '@typescript-eslint/ban-ts-comment': 'off',
+        },
+    },
+    {
         ignores: [
             'vendor',
             'node_modules',
@@ -117,6 +136,7 @@ export default [
             'resources/js/components/ui/*',
             'resources/js/routes/**',
             'resources/js/wayfinder/**',
+            'legacy/**',
         ],
     },
     prettier, // Turn off all rules that might conflict with Prettier

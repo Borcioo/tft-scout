@@ -15,9 +15,12 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
     const setCount = (apiName: string, count: number) => {
         if (count <= 0) {
             onChange(emblems.filter((e) => e.apiName !== apiName));
+
             return;
         }
+
         const existing = emblems.find((e) => e.apiName === apiName);
+
         if (existing) {
             onChange(
                 emblems.map((e) =>
@@ -39,7 +42,11 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
                     const trait = traits.find(
                         (t) => t.apiName === entry.apiName,
                     );
-                    if (!trait) return null;
+
+                    if (!trait) {
+return null;
+}
+
                     return (
                         <Badge
                             key={entry.apiName}

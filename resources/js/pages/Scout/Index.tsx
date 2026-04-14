@@ -1,6 +1,5 @@
 import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import { EmblemPicker } from '@/components/scout/EmblemPicker';
 import { LockedChampionsPicker } from '@/components/scout/LockedChampionsPicker';
 import { LockedTraitsPicker } from '@/components/scout/LockedTraitsPicker';
@@ -8,6 +7,7 @@ import { ScoutControls } from '@/components/scout/ScoutControls';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
+import AppLayout from '@/layouts/app-layout';
 import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/types';
 
 type Props = {
@@ -21,8 +21,10 @@ function useDebounced<T>(value: T, delayMs: number): T {
     const [debounced, setDebounced] = useState(value);
     useEffect(() => {
         const timer = setTimeout(() => setDebounced(value), delayMs);
+
         return () => clearTimeout(timer);
     }, [value, delayMs]);
+
     return debounced;
 }
 
@@ -109,7 +111,10 @@ function ScoutIndexInner({ setNumber }: Props) {
     const debouncedParamsKey = useDebounced(paramsKey, 300);
 
     useEffect(() => {
-        if (champions.length === 0) return;
+        if (champions.length === 0) {
+return;
+}
+
         run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedParamsKey, champions.length]);

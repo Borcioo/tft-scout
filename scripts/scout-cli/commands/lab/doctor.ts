@@ -1,16 +1,22 @@
 import { statSync } from 'node:fs';
 
-import { currentGitSha } from '../../lab/git';
 import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import { currentGitSha } from '../../lab/git';
 
 export async function runLabDoctor(argv: string[]): Promise<void> {
     assertLabEnabled();
     let dbPath = DEFAULT_DB_PATH;
+
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === '--db') dbPath = argv[++i];
-        else throw new Error(`Unknown flag for lab doctor: ${a}`);
+
+        if (a === '--db') {
+dbPath = argv[++i];
+} else {
+throw new Error(`Unknown flag for lab doctor: ${a}`);
+}
     }
+
     assertDbExists(dbPath);
     const db = openDb(dbPath, true);
 
@@ -21,6 +27,7 @@ export async function runLabDoctor(argv: string[]): Promise<void> {
     )?.version ?? null;
 
     const counts: Record<string, number> = {};
+
     for (const table of [
         'runs',
         'results',

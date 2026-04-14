@@ -21,12 +21,15 @@ export async function loadContext(opts: LoadOptions): Promise<ScoutContext> {
     if (opts.live) {
         return await fetchLive();
     }
+
     if (!existsSync(opts.snapshotPath)) {
         throw new Error(
             `No snapshot at ${opts.snapshotPath}. Run \`npm run scout -- snapshot\` first or pass --live.`,
         );
     }
+
     const raw = readFileSync(opts.snapshotPath, 'utf8');
+
     try {
         return JSON.parse(raw) as ScoutContext;
     } catch (err) {
@@ -40,9 +43,11 @@ export async function fetchLive(): Promise<ScoutContext> {
     const base = process.env.SCOUT_API_BASE ?? 'http://localhost';
     const url = `${base}/api/scout/context`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
+
     if (!res.ok) {
         throw new Error(`Live fetch ${url} failed: HTTP ${res.status} ${res.statusText}`);
     }
+
     return (await res.json()) as ScoutContext;
 }
 

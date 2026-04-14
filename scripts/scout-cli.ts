@@ -58,42 +58,49 @@ async function main() {
 
     if (!command || command === '--help' || command === '-h') {
         process.stdout.write(HELP);
+
         return;
     }
 
     if (command === 'snapshot') {
         const { parseSnapshotArgs, runSnapshot } = await import('./scout-cli/commands/snapshot');
         await runSnapshot(parseSnapshotArgs(rest));
+
         return;
     }
 
     if (command === 'context') {
         const { parseContextArgs, runContext } = await import('./scout-cli/commands/context');
         await runContext(parseContextArgs(rest));
+
         return;
     }
 
     if (command === 'generate') {
         const { runGenerate } = await import('./scout-cli/commands/generate');
         await runGenerate(rest);
+
         return;
     }
 
     if (command === 'phase') {
         const { runPhase } = await import('./scout-cli/commands/phase');
         await runPhase(rest);
+
         return;
     }
 
     if (command === 'lab') {
         const { runLab } = await import('./scout-cli/commands/lab');
         await runLab(rest);
+
         return;
     }
 
     if (command === 'experiment') {
         const { runExperimentCommand } = await import('./scout-cli/commands/experiment');
         await runExperimentCommand(rest);
+
         return;
     }
 

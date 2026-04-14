@@ -9,10 +9,12 @@ export async function runLabQuery(argv: string[]): Promise<void> {
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
+
         if (!a.startsWith('--') && sql === null) {
             sql = a;
             continue;
         }
+
         switch (a) {
             case '--limit':
                 limit = Number(argv[++i]);
@@ -46,9 +48,11 @@ export async function runLabQuery(argv: string[]): Promise<void> {
 
         if (asCsv) {
             const lines = [columns.join(',')];
+
             for (const r of sliced) {
                 lines.push(columns.map((c) => csvField(r[c])).join(','));
             }
+
             process.stdout.write(lines.join('\n') + '\n');
         } else {
             process.stdout.write(
@@ -69,10 +73,15 @@ export async function runLabQuery(argv: string[]): Promise<void> {
 }
 
 function csvField(value: unknown): string {
-    if (value === null || value === undefined) return '';
+    if (value === null || value === undefined) {
+return '';
+}
+
     const s = String(value);
+
     if (s.includes(',') || s.includes('"') || s.includes('\n')) {
         return '"' + s.replace(/"/g, '""') + '"';
     }
+
     return s;
 }

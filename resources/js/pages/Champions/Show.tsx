@@ -142,9 +142,18 @@ const TAG_CLASS_MAP: Record<string, string> = {
 };
 
 function scaleStat(base: number, starLevel: number): number {
-    if (starLevel === 1) return base;
-    if (starLevel === 2) return base * STAR_SCALING;
-    if (starLevel === 3) return base * STAR_SCALING * STAR_SCALING;
+    if (starLevel === 1) {
+return base;
+}
+
+    if (starLevel === 2) {
+return base * STAR_SCALING;
+}
+
+    if (starLevel === 3) {
+return base * STAR_SCALING * STAR_SCALING;
+}
+
     return base;
 }
 
@@ -165,7 +174,10 @@ function humanizeShowIfCondition(condition: string): string {
     const stripped = condition.replace(/^TFT\d+_/, '');
     const parts = stripped.split('_');
     const traitName = parts[0];
-    if (!traitName) return `${condition} active`;
+
+    if (!traitName) {
+return `${condition} active`;
+}
 
     return `${traitName} active`;
 }
@@ -206,7 +218,10 @@ function getStarValue(
 ): number | undefined {
     // For constant stats, any position returns the same value, so offset is a no-op
     const allSame = stat.value.every((v) => v === stat.value[0]);
-    if (allSame) return stat.value[0];
+
+    if (allSame) {
+return stat.value[0];
+}
 
     return stat.value[offset + starLevel - 1];
 }
@@ -237,11 +252,17 @@ function resolvePlaceholderStat(
     // Phase 1: exact name match
     for (const candidate of exactCandidates) {
         const hit = stats.find((s) => s.name.toLowerCase() === candidate);
-        if (hit) return hit;
+
+        if (hit) {
+return hit;
+}
     }
 
     const stripped = varName.replace(/^Modified/, '').toLowerCase();
-    if (!stripped) return null;
+
+    if (!stripped) {
+return null;
+}
 
     // Phase 2: prefix matches
     const prefixMatches = stats.filter((s) =>
@@ -249,10 +270,14 @@ function resolvePlaceholderStat(
     );
 
     const pickBest = (pool: AbilityStat[]): AbilityStat | null => {
-        if (pool.length === 0) return null;
+        if (pool.length === 0) {
+return null;
+}
+
         // Prefer names without "Percent" (those are usually scaling coefficients)
         const nonPercent = pool.filter((s) => !/percent/i.test(s.name));
         const candidatePool = nonPercent.length > 0 ? nonPercent : pool;
+
         // Tiebreak by max non-zero value in the array (primary = larger magnitude)
         return candidatePool
             .slice()
@@ -265,19 +290,26 @@ function resolvePlaceholderStat(
                     ...b.value.filter((v) => v !== 0).map(Math.abs),
                     0,
                 );
+
                 return maxB - maxA;
             })[0];
     };
 
     const prefixPick = pickBest(prefixMatches);
-    if (prefixPick) return prefixPick;
+
+    if (prefixPick) {
+return prefixPick;
+}
 
     // Phase 3: substring match anywhere in stat name
     const substrMatches = stats.filter((s) =>
         s.name.toLowerCase().includes(stripped),
     );
     const substrPick = pickBest(substrMatches);
-    if (substrPick) return substrPick;
+
+    if (substrPick) {
+return substrPick;
+}
 
     // Phase 4: Scaling-variable fallback for @Modified*@ placeholders.
     // When @ModifiedDamage@ has no Damage-named variable, the damage is
@@ -289,7 +321,10 @@ function resolvePlaceholderStat(
     if (/^Modified/i.test(varName)) {
         const scalingStats = stats.filter((s) => /Scaling$/i.test(s.name));
         const scalingPick = pickBest(scalingStats);
-        if (scalingPick) return scalingPick;
+
+        if (scalingPick) {
+return scalingPick;
+}
     }
 
     return null;
@@ -307,10 +342,14 @@ function autoColorForStat(stat: AbilityStat): string {
     const name = stat.name.toLowerCase();
 
     // Healing — green (TFT standard)
-    if (/heal/.test(name)) return 'font-semibold text-emerald-400';
+    if (/heal/.test(name)) {
+return 'font-semibold text-emerald-400';
+}
 
     // Shields — cyan (defensive, TFT uses blue-ish for shield bars)
-    if (/shield/.test(name)) return 'font-semibold text-cyan-400';
+    if (/shield/.test(name)) {
+return 'font-semibold text-cyan-400';
+}
 
     // Damage — orange (physical damage TFT convention)
     if (/damage|shockwave|burst|nova/.test(name)) {
@@ -323,7 +362,9 @@ function autoColorForStat(stat: AbilityStat): string {
     }
 
     // Mana-related — blue (TFT mana bar color)
-    if (/mana|cost/.test(name)) return 'font-semibold text-blue-400';
+    if (/mana|cost/.test(name)) {
+return 'font-semibold text-blue-400';
+}
 
     // Stat bonuses / defensive buffs — amber
     if (/durability|bonus|resist|tenacity|armor|attackspeed|critchance/.test(name)) {
@@ -353,7 +394,9 @@ function parseAbilityDescription(
     starLevel: number,
     statOffset: number,
 ): React.ReactNode | null {
-    if (!desc) return null;
+    if (!desc) {
+return null;
+}
 
     let text = desc;
 
@@ -387,8 +430,10 @@ function parseAbilityDescription(
         const parts = match.match(/%i:(\w+)%/g) || [];
         const labels = parts.map((p) => {
             const name = p.replace(/%i:|%/g, '');
+
             return SCALE_ICON_LABELS[name] ?? name.replace(/^scale/, '');
         });
+
         return labels.join('+');
     });
 
@@ -400,7 +445,9 @@ function parseAbilityDescription(
     text = text.replace(/[ \t]+/g, ' ');
     text = text.trim();
 
-    if (!text) return null;
+    if (!text) {
+return null;
+}
 
     // Tokenize tags AND placeholders together, carrying the "am I inside a
     // color tag" context so we can decide between inherited tag colors
@@ -449,7 +496,10 @@ function renderAbilityTokens(
     let key = 0;
 
     for (const match of matches) {
-        if (match.index === undefined) continue;
+        if (match.index === undefined) {
+continue;
+}
+
         if (match.index > lastIndex) {
             nodes.push(text.slice(lastIndex, match.index));
         }
@@ -507,6 +557,7 @@ function renderAbilityTokens(
             const multiplierStr = match[4];
 
             const stat = resolvePlaceholderStat(varName, ctx.stats);
+
             if (!stat) {
                 nodes.push(`[${varName.replace(/^Modified/, '')}]`);
             } else {
@@ -515,6 +566,7 @@ function renderAbilityTokens(
                     ctx.starLevel,
                     ctx.statOffset,
                 );
+
                 if (rawValue === undefined) {
                     nodes.push(`[${stat.name}]`);
                 } else {
@@ -585,10 +637,15 @@ type FormatOpts = {
  */
 function isPercentStat(stat: AbilityStat): boolean {
     // Duration variables are handled separately by isDurationStat — never %
-    if (isDurationStat(stat)) return false;
+    if (isDurationStat(stat)) {
+return false;
+}
 
     const nonZeroValues = stat.value.filter((v) => v !== 0);
-    if (nonZeroValues.length === 0) return false;
+
+    if (nonZeroValues.length === 0) {
+return false;
+}
 
     return nonZeroValues.every((v) => Math.abs(v) < 1);
 }
@@ -616,7 +673,10 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
     // Description already did the math via `@Var*N@` — render the result
     // as-is, the description has literal "%" or context surrounding it.
     if (explicitMultiplier) {
-        if (Number.isInteger(val)) return String(val);
+        if (Number.isInteger(val)) {
+return String(val);
+}
+
         return val.toFixed(1);
     }
 
@@ -627,12 +687,16 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
         // already says "seconds" or "-hex range", so we return bare numbers.
         if (isDurationStat(stat)) {
             const formatted = Number.isInteger(val) ? String(val) : val.toFixed(1);
+
             return suppressUnitSuffix ? formatted : formatted + 's';
         }
+
         if (isHexStat(stat)) {
             const rounded = String(Math.round(val));
+
             return suppressUnitSuffix ? rounded : rounded + ' hex';
         }
+
         if (isPercentStat(stat)) {
             // Surrounding description prose carries the literal "%"
             // character, so in-parser calls that pass suppressUnitSuffix
@@ -645,8 +709,14 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
     }
 
     // Default formatting rules (used when no stat context)
-    if (Number.isInteger(val)) return String(val);
-    if (Math.abs(val) < 1) return Math.round(val * 100) + '%';
+    if (Number.isInteger(val)) {
+return String(val);
+}
+
+    if (Math.abs(val) < 1) {
+return Math.round(val * 100) + '%';
+}
+
     return val.toFixed(1);
 }
 
@@ -973,6 +1043,7 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                                                                         s,
                                                                         statOffset,
                                                                     );
+
                                                                 return (
                                                                     <td
                                                                         key={s}
@@ -1134,6 +1205,7 @@ function VariantList({
                         ? variant.variant_label.charAt(0).toUpperCase() +
                           variant.variant_label.slice(1)
                         : 'Base';
+
                     return (
                         <Button
                             key={variant.api_name}

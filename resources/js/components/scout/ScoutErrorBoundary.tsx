@@ -1,4 +1,5 @@
-import { Component, type ReactNode } from 'react';
+import { Component  } from 'react';
+import type {ReactNode} from 'react';
 
 type Props = {
     children: ReactNode;
@@ -29,7 +30,7 @@ export class ScoutErrorBoundary extends Component<Props, State> {
         // Surface the stack in dev tools — the production bundle still
         // calls this but DevTools keeps the stack readable via source
         // maps, so we log both so the user can copy either.
-        // eslint-disable-next-line no-console
+         
         console.error('[Scout] crashed:', error, info.componentStack);
     }
 

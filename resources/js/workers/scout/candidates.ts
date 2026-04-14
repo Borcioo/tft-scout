@@ -29,11 +29,13 @@ export function buildExclusionLookup(
   exclusionGroups: string[][],
 ): Record<string, Set<string>> {
   const lookup: Record<string, Set<string>> = {};
+
   for (const group of exclusionGroups) {
     for (const member of group) {
       lookup[member] = new Set(group.filter(x => x !== member));
     }
   }
+
   return lookup;
 }
 
@@ -54,21 +56,29 @@ export function filterCandidates(
 
   // If a champion from an exclusion group is locked, exclude all other group members
   const exclusionLookup = buildExclusionLookup(exclusionGroups);
+
   for (const locked of lockedChampions) {
     const conflicts = exclusionLookup[locked];
-    if (conflicts) conflicts.forEach((c: any) => excludedSet.add(c));
+
+    if (conflicts) {
+conflicts.forEach((c: any) => excludedSet.add(c));
+}
   }
 
   // Build relevant traits set (from locked champions + locked traits + emblems)
   const relevantTraits = new Set(
     lockedTraits.map((t: any) => typeof t === 'string' ? t : t.apiName)
   );
+
   for (const champ of allChampions) {
     if (lockedSet.has(champ.apiName)) {
       champ.traits.forEach((t: any) => relevantTraits.add(t));
     }
   }
-  for (const emblem of emblems) relevantTraits.add(emblem);
+
+  for (const emblem of emblems) {
+relevantTraits.add(emblem);
+}
 
   // Filter and rank candidates
   const candidates = allChampions
@@ -88,5 +98,6 @@ export function filterCandidates(
  */
 export function getLockedChampions(allChampions: any, lockedApiNames: any) {
   const lockSet = new Set(lockedApiNames);
+
   return allChampions.filter((c: any) => lockSet.has(c.apiName));
 }

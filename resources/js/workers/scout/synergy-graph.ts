@@ -25,12 +25,18 @@ function applyEmblems(traitCounts, emblems, champTraitSets) {
   // champTraitSets: array of Sets, one per champion (their natural traits)
   // For each emblem trait, count how many champions DON'T have it → max usable
   const emblemsByTrait = {};
-  for (const e of emblems) emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+
+  for (const e of emblems) {
+emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+}
 
   for (const [trait, count] of Object.entries(emblemsByTrait)) {
     const holders = champTraitSets.filter(ts => !ts.has(trait)).length;
     const usable = Math.min(count, holders);
-    if (usable > 0) traitCounts[trait] = (traitCounts[trait] || 0) + usable;
+
+    if (usable > 0) {
+traitCounts[trait] = (traitCounts[trait] || 0) + usable;
+}
   }
 }
 
@@ -44,12 +50,14 @@ function applyEmblems(traitCounts, emblems, champTraitSets) {
  */
 export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup = {}) {
   const nodes = {};
+
   for (const c of champions) {
     nodes[c.apiName] = c;
   }
 
   // Trait → champion apiNames
   const traitMap = {};
+
   for (const c of champions) {
     for (const t of c.traits) {
       (traitMap[t] ??= []).push(c.apiName);
@@ -58,13 +66,17 @@ export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup =
 
   // Adjacency: champA → [{ champ, sharedTraits, traits }]
   const adjacency = {};
-  for (const api of Object.keys(nodes)) adjacency[api] = [];
+
+  for (const api of Object.keys(nodes)) {
+adjacency[api] = [];
+}
 
   for (const [trait, members] of Object.entries(traitMap)) {
     for (let i = 0; i < members.length; i++) {
       for (let j = i + 1; j < members.length; j++) {
         const a = members[i], b = members[j];
         const existing = adjacency[a].find(e => e.champ === b);
+
         if (existing) {
           existing.sharedTraits++;
           existing.traits.push(trait);
@@ -78,6 +90,7 @@ export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup =
 
   // Trait breakpoint lookup: traitApiName → [minUnits...]
   const traitBreakpoints = {};
+
   for (const t of traits) {
     traitBreakpoints[t.apiName] = (t.breakpoints || [])
       .sort((a, b) => a.minUnits - b.minUnits)
@@ -86,24 +99,38 @@ export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup =
 
   // Trait style lookup: traitApiName → { position → styleName }
   const traitStyles = {};
+
   for (const t of traits) {
     const styleMap = {};
+
     for (const bp of (t.breakpoints || [])) {
       styleMap[bp.position] = bp.style;
     }
+
     traitStyles[t.apiName] = styleMap;
   }
 
   // Add companion edges — champions that perform well together in real games
   // These create "hidden" graph connections beyond shared traits
   const companionData = scoringCtx.companions || {};
+
   for (const [unitApi, companionList] of Object.entries(companionData)) {
-    if (!nodes[unitApi] || !companionList) continue;
+    if (!nodes[unitApi] || !companionList) {
+continue;
+}
+
     for (const comp of companionList) {
-      if (!nodes[comp.companion]) continue;
-      if (comp.games < thresholds.companionMinGames) continue;
+      if (!nodes[comp.companion]) {
+continue;
+}
+
+      if (comp.games < thresholds.companionMinGames) {
+continue;
+}
+
       // Only add edge if not already connected via traits
       const existing = adjacency[unitApi]?.find(e => e.champ === comp.companion);
+
       if (!existing) {
         adjacency[unitApi].push({
           champ: comp.companion,
@@ -131,14 +158,20 @@ function quickScore(champApis, graph, emblems = []) {
   const { unitRatings = {}, traitRatings = {}, styleScores = {}, affinity = {}, companions = {} } = scoringCtx;
 
   const traitCounts = {};
+
   for (const api of champApis) {
     const node = nodes[api];
-    if (!node) continue;
+
+    if (!node) {
+continue;
+}
+
     for (const t of node.traits) {
       const isMechaEnhanced = node.variant === 'enhanced' && t === 'TFT17_Mecha';
       traitCounts[t] = (traitCounts[t] || 0) + (isMechaEnhanced ? 2 : 1);
     }
   }
+
   const champTraitSets = champApis.map(api => new Set(nodes[api]?.traits || []));
   applyEmblems(traitCounts, emblems, champTraitSets);
 
@@ -147,9 +180,14 @@ function quickScore(champApis, graph, emblems = []) {
   // Champion scores
   for (const api of champApis) {
     const node = nodes[api];
-    if (!node) continue;
+
+    if (!node) {
+continue;
+}
+
     const lookupApi = node.baseApiName || api;
     const ur = unitRatings[lookupApi];
+
     if (ur && ur.games >= minGamesForReliable) {
       score += ur.score * weights.unitRating;
     } else {
@@ -161,10 +199,16 @@ function quickScore(champApis, graph, emblems = []) {
   for (const [trait, count] of Object.entries(traitCounts)) {
     const bps = traitBreakpoints[trait] || [];
     let activeIdx = -1;
+
     for (let i = bps.length - 1; i >= 0; i--) {
-      if (count >= bps[i]) { activeIdx = i; break; }
+      if (count >= bps[i]) {
+ activeIdx = i; break; 
+}
     }
-    if (activeIdx < 0) continue;
+
+    if (activeIdx < 0) {
+continue;
+}
 
     if (bps[0] === 1 && bps.length === 1) {
       const tr = traitRatings[trait]?.[1];
@@ -186,39 +230,64 @@ function quickScore(champApis, graph, emblems = []) {
       score += fallback * weights.traitRating * bpMult;
     }
 
-    if (activeIdx >= 1) score += weights.synergyBonus;
+    if (activeIdx >= 1) {
+score += weights.synergyBonus;
+}
 
     // Proven bonus — exceptional breakpoints get direct boost (mirrors full scorer)
     if (tr && tr.games >= thresholds.phaseMinGames && tr.avgPlace < 4.0) {
       let proven = (4.0 - tr.avgPlace) * weights.traitRating;
-      if (tr.avgPlace < 2.5) proven += Math.pow(2.5 - tr.avgPlace, 2) * weights.traitRating * 2;
+
+      if (tr.avgPlace < 2.5) {
+proven += Math.pow(2.5 - tr.avgPlace, 2) * weights.traitRating * 2;
+}
+
       score += proven;
     }
 
     const nextBp = bps[activeIdx + 1];
+
     if (nextBp) {
       const toNext = nextBp - count;
-      if (toNext === 1) score += nearBreakpointBonus;
-      else if (count > bps[activeIdx]) score -= (count - bps[activeIdx]) * weights.overflowPenalty;
+
+      if (toNext === 1) {
+score += nearBreakpointBonus;
+} else if (count > bps[activeIdx]) {
+score -= (count - bps[activeIdx]) * weights.overflowPenalty;
+}
     }
   }
 
   // Active traits = those that hit at least their first breakpoint
   const activeTraitApis = new Set();
+
   for (const [trait, count] of Object.entries(traitCounts)) {
     const bps = traitBreakpoints[trait] || [];
-    if (bps.length > 0 && count >= bps[0]) activeTraitApis.add(trait);
+
+    if (bps.length > 0 && count >= bps[0]) {
+activeTraitApis.add(trait);
+}
   }
 
   // Orphan penalty — champion whose traits don't overlap with any active trait
   for (const api of champApis) {
     const node = nodes[api];
-    if (!node) continue;
+
+    if (!node) {
+continue;
+}
+
     let hasActive = false;
+
     for (const t of node.traits) {
-      if (activeTraitApis.has(t)) { hasActive = true; break; }
+      if (activeTraitApis.has(t)) {
+ hasActive = true; break; 
+}
     }
-    if (!hasActive) score -= weights.orphanPenalty;
+
+    if (!hasActive) {
+score -= weights.orphanPenalty;
+}
   }
 
   // Lightweight affinity + companion bonus (subset of full scorer)
@@ -226,25 +295,36 @@ function quickScore(champApis, graph, emblems = []) {
 
   for (const api of champApis) {
     const node = nodes[api];
-    if (!node) continue;
+
+    if (!node) {
+continue;
+}
+
     const lookupApi = node.baseApiName || api;
 
     // Affinity: does this champion statistically win with active traits?
     // Cap at top 3 matches per champion to avoid diversity bias
     const affData = affinity[lookupApi];
+
     if (affData) {
       const affMatches = [];
+
       for (const aff of affData) {
         if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
           affMatches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
         }
       }
+
       affMatches.sort((a, b) => b - a);
-      for (let i = 0; i < Math.min(affMatches.length, 3); i++) score += affMatches[i];
+
+      for (let i = 0; i < Math.min(affMatches.length, 3); i++) {
+score += affMatches[i];
+}
     }
 
     // Companions: are champion pairs confirmed as strong?
     const compData = companions[lookupApi];
+
     if (compData) {
       for (const comp of compData) {
         if (champApiSet.has(comp.companion) && comp.games >= thresholds.companionMinGames) {
@@ -273,35 +353,66 @@ const SHOP_ODDS = {
 };
 
 function costPenalty(champApis, graph, level, lockedSet = null, max5Cost = null) {
-  if (!level) return 0;
+  if (!level) {
+return 0;
+}
+
   const odds = SHOP_ODDS[level] || SHOP_ODDS[8];
   // Locked champions are a pure bonus — they don't consume budget and don't
   // count toward cost limits. Limits are still computed from the full team size
   // so non-locked slots have the normal budget of a fielded team.
   const teamSize = champApis.length;
-  if (teamSize === 0) return 0;
+
+  if (teamSize === 0) {
+return 0;
+}
+
   const limits = odds.map(o => {
-    if (o === 0) return 0;
-    if (o <= 0.05) return 1;
-    if (o <= 0.15) return 2;
+    if (o === 0) {
+return 0;
+}
+
+    if (o <= 0.05) {
+return 1;
+}
+
+    if (o <= 0.15) {
+return 2;
+}
+
     return Math.ceil(o * teamSize) + 1;
   });
+
   // User's explicit max5Cost raises the 5-cost soft cap — they signaled they
   // want 5-cost heavy teams, so don't penalize them up to their chosen limit.
   if (max5Cost != null && max5Cost > limits[4]) {
     limits[4] = max5Cost;
   }
+
   const costCounts = [0, 0, 0, 0, 0];
+
   for (const api of champApis) {
-    if (lockedSet && lockedSet.has(api)) continue;
+    if (lockedSet && lockedSet.has(api)) {
+continue;
+}
+
     const cost = graph.nodes[api]?.cost || 3;
-    if (cost >= 1 && cost <= 5) costCounts[cost - 1]++;
+
+    if (cost >= 1 && cost <= 5) {
+costCounts[cost - 1]++;
+}
   }
+
   let penalty = 0;
+
   for (let i = 0; i < 5; i++) {
     const excess = costCounts[i] - limits[i];
-    if (excess > 0) penalty += excess * 12;
+
+    if (excess > 0) {
+penalty += excess * 12;
+}
   }
+
   return penalty;
 }
 
@@ -309,10 +420,12 @@ function costPenalty(champApis, graph, level, lockedSet = null, max5Cost = null)
 
 function createRng(seed) {
   let s = seed | 0;
+
   return function () {
     s = (s + 0x6D2B79F5) | 0;
     let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -320,13 +433,22 @@ function createRng(seed) {
 function weightedPick(candidates, temperature, rng) {
   const poolSize = Math.min(candidates.length, Math.max(3, Math.round(12 * temperature)));
   const w = [];
-  for (let i = 0; i < poolSize; i++) w.push(Math.pow(1 - temperature * 0.6, i));
+
+  for (let i = 0; i < poolSize; i++) {
+w.push(Math.pow(1 - temperature * 0.6, i));
+}
+
   const total = w.reduce((a, b) => a + b, 0);
   let rand = rng() * total;
+
   for (let i = 0; i < w.length; i++) {
     rand -= w[i];
-    if (rand <= 0) return candidates[i];
+
+    if (rand <= 0) {
+return candidates[i];
+}
   }
+
   return candidates[poolSize - 1];
 }
 
@@ -353,6 +475,7 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
   // Budget for seeds = teamSize minus locked slots
   const seedBudget = teamSize - lockedSet.size;
   let validSeeds = seeds;
+
   if (validSeeds.length > seedBudget) {
     validSeeds.sort((a, b) => (nodes[b]?.cost || 0) - (nodes[a]?.cost || 0));
     validSeeds = validSeeds.slice(0, seedBudget);
@@ -365,8 +488,14 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
   // Exclude conflicts of start champions + count 5-costs
   for (const api of validStart) {
     const conflicts = exclusionLookup[api];
-    if (conflicts) conflicts.forEach(c => excludedSet.add(c));
-    if ((nodes[api]?.cost || 0) === 5) fiveCostCount++;
+
+    if (conflicts) {
+conflicts.forEach(c => excludedSet.add(c));
+}
+
+    if ((nodes[api]?.cost || 0) === 5) {
+fiveCostCount++;
+}
   }
 
   while (team.length < teamSize) {
@@ -378,9 +507,18 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
     // Neighbors first
     for (const member of team) {
       for (const edge of (adjacency[member] || [])) {
-        if (used.has(edge.champ) || seen.has(edge.champ) || excludedSet.has(edge.champ)) continue;
-        if (allowedSet && !allowedSet.has(edge.champ)) continue;
-        if (atFiveCostLimit && (nodes[edge.champ]?.cost || 0) === 5) continue;
+        if (used.has(edge.champ) || seen.has(edge.champ) || excludedSet.has(edge.champ)) {
+continue;
+}
+
+        if (allowedSet && !allowedSet.has(edge.champ)) {
+continue;
+}
+
+        if (atFiveCostLimit && (nodes[edge.champ]?.cost || 0) === 5) {
+continue;
+}
+
         seen.add(edge.champ);
         const testTeam = [...team, edge.champ];
         const score = quickScore(testTeam, graph, emblems) - costPenalty(testTeam, graph, context.level, context.lockedSet, context.max5Cost);
@@ -391,9 +529,18 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
     // Fill with non-neighbors if needed
     if (candidates.length < 15) {
       for (const api of Object.keys(nodes)) {
-        if (used.has(api) || seen.has(api) || excludedSet.has(api)) continue;
-        if (allowedSet && !allowedSet.has(api)) continue;
-        if (atFiveCostLimit && (nodes[api]?.cost || 0) === 5) continue;
+        if (used.has(api) || seen.has(api) || excludedSet.has(api)) {
+continue;
+}
+
+        if (allowedSet && !allowedSet.has(api)) {
+continue;
+}
+
+        if (atFiveCostLimit && (nodes[api]?.cost || 0) === 5) {
+continue;
+}
+
         seen.add(api);
         const testTeam = [...team, api];
         const score = quickScore(testTeam, graph, emblems) - costPenalty(testTeam, graph, context.level, context.lockedSet, context.max5Cost);
@@ -401,31 +548,48 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
       }
     }
 
-    if (candidates.length === 0) break;
+    if (candidates.length === 0) {
+break;
+}
+
     candidates.sort((a, b) => b.score - a.score);
 
     // Penalize excluded traits
     if (context.excludedTraits?.length) {
       for (const c of candidates) {
         const node = nodes[c.champ];
+
         if (node) {
           for (const t of node.traits) {
-            if (context.excludedTraits.includes(t)) c.score -= 15;
+            if (context.excludedTraits.includes(t)) {
+c.score -= 15;
+}
           }
         }
       }
+
       candidates.sort((a, b) => b.score - a.score);
     }
 
     const pick = weightedPick(candidates, temperature, rng);
-    if (!pick) break;
+
+    if (!pick) {
+break;
+}
+
     team.push(pick.champ);
     used.add(pick.champ);
-    if ((nodes[pick.champ]?.cost || 0) === 5) fiveCostCount++;
+
+    if ((nodes[pick.champ]?.cost || 0) === 5) {
+fiveCostCount++;
+}
 
     // Exclude conflicting members from same exclusion group
     const conflicts = exclusionLookup[pick.champ];
-    if (conflicts) conflicts.forEach(c => excludedSet.add(c));
+
+    if (conflicts) {
+conflicts.forEach(c => excludedSet.add(c));
+}
   }
 
   return team;
@@ -438,33 +602,50 @@ function buildOneTeam(graph, teamSize, startChamps, context, temperature, rng) {
 
 function phaseTemperatureSweep({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
   const attempts = Math.max(maxResults * 3, 60);
+
   for (let i = 0; i < attempts; i++) {
     const temp = 0.15 + (i / attempts) * 0.85;
     addResult(buildOneTeam(graph, teamSize, startChamps, context, temp, rng));
-    if (results.size >= maxResults * 2) break;
+
+    if (results.size >= maxResults * 2) {
+break;
+}
   }
 }
 
 function phaseTraitSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits }) {
   const { traitBreakpoints, traitMap } = graph;
+
   for (const [trait, members] of Object.entries(traitMap)) {
     const bps = traitBreakpoints[trait] || [];
-    if (bps.length === 0 || bps[0] <= 1) continue;
-    if (excludedTraits.includes(trait)) continue;
+
+    if (bps.length === 0 || bps[0] <= 1) {
+continue;
+}
+
+    if (excludedTraits.includes(trait)) {
+continue;
+}
 
     const available = members.filter(m =>
       !excludedSet.has(m) &&
       !startChamps.includes(m) &&
       (!context.allowedSet || context.allowedSet.has(m))
     );
-    if (available.length < 2) continue;
+
+    if (available.length < 2) {
+continue;
+}
 
     for (let a = 0; a < 3; a++) {
       const shuffled = [...available].sort(() => rng() - 0.5);
       const seeds = [...startChamps, ...shuffled.slice(0, 2)];
       addResult(buildOneTeam(graph, teamSize, seeds, context, 0.3 + rng() * 0.5, rng));
     }
-    if (results.size >= maxResults * 3) break;
+
+    if (results.size >= maxResults * 3) {
+break;
+}
   }
 }
 
@@ -474,8 +655,14 @@ function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResu
 
   for (const [trait, members] of Object.entries(traitMap)) {
     const bps = traitBreakpoints[trait] || [];
-    if (bps.length < 2 || bps[0] <= 1) continue;
-    if (excludedTraits.includes(trait)) continue;
+
+    if (bps.length < 2 || bps[0] <= 1) {
+continue;
+}
+
+    if (excludedTraits.includes(trait)) {
+continue;
+}
 
     const startSet = new Set(startChamps);
     const available = members.filter(m =>
@@ -489,7 +676,10 @@ function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResu
     for (let bpIdx = bps.length - 1; bpIdx >= 1; bpIdx--) {
       const targetUnits = bps[bpIdx];
       const rating = traitRatings[trait]?.[bpIdx + 1];
-      if (!rating || rating.avgPlace > thresholds.deepVerticalMaxAvg || rating.games < thresholds.phaseMinGames) continue;
+
+      if (!rating || rating.avgPlace > thresholds.deepVerticalMaxAvg || rating.games < thresholds.phaseMinGames) {
+continue;
+}
 
       // Emblems are capped by non-trait champions available to hold them
       // At most (teamSize - traitMembers) champions won't have this trait
@@ -497,7 +687,10 @@ function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResu
       const nonTraitSlots = Math.max(0, teamSize - Math.min(maxTraitMembers, teamSize));
       const emblemCount = Math.min(rawEmblemCount, nonTraitSlots);
       const needed = targetUnits - startMembersInTrait - emblemCount;
-      if (needed <= 0 || available.length < needed) continue;
+
+      if (needed <= 0 || available.length < needed) {
+continue;
+}
 
       // Breakpoint targeting
       for (let a = 0; a < 5; a++) {
@@ -514,7 +707,10 @@ function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResu
         }
       }
     }
-    if (results.size >= maxResults * 8) break;
+
+    if (results.size >= maxResults * 8) {
+break;
+}
   }
 }
 
@@ -535,7 +731,10 @@ function phasePairSynergy({ graph, teamSize, startChamps, context, rng, maxResul
   for (let i = 0; i < strongTraits.length; i++) {
     for (let j = i + 1; j < strongTraits.length; j++) {
       const t1 = strongTraits[i], t2 = strongTraits[j];
-      if (t1.minUnits + t2.minUnits > teamSize) continue;
+
+      if (t1.minUnits + t2.minUnits > teamSize) {
+continue;
+}
 
       const m1 = (traitMap[t1.api] || []).filter(m =>
         !excludedSet.has(m) && (!context.allowedSet || context.allowedSet.has(m))
@@ -543,14 +742,20 @@ function phasePairSynergy({ graph, teamSize, startChamps, context, rng, maxResul
       const m2 = (traitMap[t2.api] || []).filter(m =>
         !excludedSet.has(m) && (!context.allowedSet || context.allowedSet.has(m))
       );
-      if (m1.length < 2 || m2.length < 2) continue;
+
+      if (m1.length < 2 || m2.length < 2) {
+continue;
+}
 
       const s1 = [...m1].sort(() => rng() - 0.5).slice(0, Math.min(t1.minUnits, 3));
       const s2 = [...m2].sort(() => rng() - 0.5).slice(0, Math.min(t2.minUnits, 3));
       const combined = [...new Set([...startChamps, ...s1, ...s2])].slice(0, teamSize);
       addResult(buildOneTeam(graph, teamSize, combined, context, 0.2 + rng() * 0.3, rng));
     }
-    if (results.size >= maxResults * 6) break;
+
+    if (results.size >= maxResults * 6) {
+break;
+}
   }
 }
 
@@ -559,17 +764,26 @@ function phaseCompanionSeeded({ graph, teamSize, startChamps, context, rng, maxR
   const { companions: companionData = {} } = graph.scoringCtx || {};
 
   for (const [, companionList] of Object.entries(companionData)) {
-    if (!companionList) continue;
+    if (!companionList) {
+continue;
+}
+
     const topCompanions = companionList
       .filter(c => c.games >= thresholds.companionMinGames && c.avgPlace <= thresholds.companionMaxAvg && nodes[c.companion])
       .sort((a, b) => a.avgPlace - b.avgPlace);
 
     for (const comp of topCompanions) {
-      if (context.allowedSet && !context.allowedSet.has(comp.companion)) continue;
+      if (context.allowedSet && !context.allowedSet.has(comp.companion)) {
+continue;
+}
+
       const seeds = [...startChamps, comp.companion];
       addResult(buildOneTeam(graph, teamSize, seeds, context, 0.2 + rng() * 0.3, rng));
     }
-    if (results.size >= maxResults * 4) break;
+
+    if (results.size >= maxResults * 4) {
+break;
+}
   }
 }
 
@@ -583,7 +797,9 @@ function phaseCrossover({ graph, teamSize, startChamps, context, rng, maxResults
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(10, results.size));
 
-  if (topTeams.length < 2) return;
+  if (topTeams.length < 2) {
+return;
+}
 
   const lockedSet = new Set(startChamps);
 
@@ -625,14 +841,17 @@ function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, a
     .slice(0, 3);
 
   for (const team of topTeams) {
-    let current = team.champions.map(c => c.apiName);
+    const current = team.champions.map(c => c.apiName);
     let currentScore = team.score;
 
     // Single round of improvement
     for (let round = 0; round < 1; round++) {
       let improved = false;
+
       for (let slot = 0; slot < current.length; slot++) {
-        if (lockedSet.has(current[slot])) continue;
+        if (lockedSet.has(current[slot])) {
+continue;
+}
 
         const removed = current[slot];
         const teamWithout = current.filter((_, i) => i !== slot);
@@ -640,17 +859,28 @@ function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, a
 
         // Collect exclusion conflicts from remaining team
         const conflicts = new Set();
+
         for (const api of teamWithout) {
           const c = exclusionLookup[api];
-          if (c) c.forEach(x => conflicts.add(x));
+
+          if (c) {
+c.forEach(x => conflicts.add(x));
+}
         }
 
         // Collect swap candidates: graph neighbors of remaining team (fast, targeted)
         const swapCandidates = new Set();
+
         for (const member of teamWithout) {
           for (const edge of (graph.adjacency[member] || [])) {
-            if (usedSet.has(edge.champ) || excludedSet.has(edge.champ) || conflicts.has(edge.champ)) continue;
-            if (context.allowedSet && !context.allowedSet.has(edge.champ)) continue;
+            if (usedSet.has(edge.champ) || excludedSet.has(edge.champ) || conflicts.has(edge.champ)) {
+continue;
+}
+
+            if (context.allowedSet && !context.allowedSet.has(edge.champ)) {
+continue;
+}
+
             swapCandidates.add(edge.champ);
           }
         }
@@ -660,9 +890,13 @@ function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, a
         const fiveCount = max5Cost != null ? teamWithout.filter(a => (nodes[a]?.cost || 0) === 5).length : 0;
 
         for (const api of swapCandidates) {
-          if (max5Cost != null && (nodes[api]?.cost || 0) === 5 && fiveCount >= max5Cost) continue;
+          if (max5Cost != null && (nodes[api]?.cost || 0) === 5 && fiveCount >= max5Cost) {
+continue;
+}
+
           const candidate = [...teamWithout, api];
           const score = quickScore(candidate, graph, emblems) - costPenalty(candidate, graph, context.level, context.lockedSet, context.max5Cost);
+
           if (score > bestScore) {
             bestScore = score;
             bestSwap = api;
@@ -675,7 +909,10 @@ function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, a
           improved = true;
         }
       }
-      if (!improved) break;
+
+      if (!improved) {
+break;
+}
     }
 
     addResult(current);
@@ -689,7 +926,10 @@ function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, a
 function phaseMetaCompSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet }) {
   const { nodes } = graph;
   const { metaComps = [] } = graph.scoringCtx || {};
-  if (metaComps.length === 0) return;
+
+  if (metaComps.length === 0) {
+return;
+}
 
   const startSet = new Set(startChamps);
 
@@ -701,12 +941,18 @@ function phaseMetaCompSeeded({ graph, teamSize, startChamps, context, rng, maxRe
     // Meta comps are cohesive archetypes — partial seeds would break their intent.
     if (context.allowedSet) {
       const hasDisallowed = compUnits.some(u => !context.allowedSet.has(u));
-      if (hasDisallowed) continue;
+
+      if (hasDisallowed) {
+continue;
+}
     }
 
     // Check overlap: at least 1 locked champ must be in the meta comp (or no locks)
     const overlap = startChamps.length === 0 || startChamps.some(s => compUnits.includes(s));
-    if (!overlap) continue;
+
+    if (!overlap) {
+continue;
+}
 
     // Seed: locked champs + meta comp members (dedup)
     const seeds = [...new Set([...startChamps, ...compUnits])];
@@ -722,7 +968,10 @@ function phaseMetaCompSeeded({ graph, teamSize, startChamps, context, rng, maxRe
 function phaseFiveCostHeavy({ graph, teamSize, startChamps, context, rng, addResult, excludedSet }) {
   const { nodes } = graph;
   const { max5Cost, allowedSet } = context;
-  if (max5Cost == null || max5Cost < 4) return;
+
+  if (max5Cost == null || max5Cost < 4) {
+return;
+}
 
   const fiveCosts = Object.keys(nodes).filter(api =>
     (nodes[api]?.cost || 0) === 5 &&
@@ -730,13 +979,20 @@ function phaseFiveCostHeavy({ graph, teamSize, startChamps, context, rng, addRes
     (!allowedSet || allowedSet.has(api)) &&
     !startChamps.includes(api)
   );
-  if (fiveCosts.length < 2) return;
+
+  if (fiveCosts.length < 2) {
+return;
+}
 
   const targetCount = Math.min(max5Cost, fiveCosts.length, teamSize - startChamps.length);
-  if (targetCount < 2) return;
+
+  if (targetCount < 2) {
+return;
+}
 
   // Several attempts with different random subsets of 5-costs as seeds.
   const attempts = 8;
+
   for (let i = 0; i < attempts; i++) {
     const shuffled = [...fiveCosts].sort(() => rng() - 0.5);
     const seeds = [...startChamps, ...shuffled.slice(0, targetCount)];
@@ -751,11 +1007,16 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
 
   // Group by dominant trait pair + breakpoint level
   const grouped = new Map();
+
   for (const team of sorted) {
     const traitCounts = {};
+
     for (const c of team.champions) {
-      for (const t of c.traits) traitCounts[t] = (traitCounts[t] || 0) + 1;
+      for (const t of c.traits) {
+traitCounts[t] = (traitCounts[t] || 0) + 1;
+}
     }
+
     const champTraitSets = team.champions.map(c => new Set(c.traits || []));
     applyEmblems(traitCounts, emblems, champTraitSets);
     const groupKey = Object.entries(traitCounts)
@@ -765,13 +1026,21 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
       .map(([t, count]) => {
         const bps = traitBreakpoints[t] || [];
         let lvl = 0;
-        for (let i = bps.length - 1; i >= 0; i--) { if (count >= bps[i]) { lvl = i; break; } }
+
+        for (let i = bps.length - 1; i >= 0; i--) {
+ if (count >= bps[i]) {
+ lvl = i; break; 
+} 
+}
+
         return `${t}@${lvl}`;
       })
       .sort()
       .join('+') || 'flex';
 
-    if (!grouped.has(groupKey)) grouped.set(groupKey, team);
+    if (!grouped.has(groupKey)) {
+grouped.set(groupKey, team);
+}
   }
 
   // Best per group first, then fill with remaining
@@ -780,11 +1049,15 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
 
   for (const t of sorted) {
     const key = t.champions.map(c => c.apiName).sort().join(',');
+
     if (!seenKeys.has(key)) {
       diverse.push(t);
       seenKeys.add(key);
     }
-    if (diverse.length >= maxResults) break;
+
+    if (diverse.length >= maxResults) {
+break;
+}
   }
 
   return diverse.slice(0, maxResults);
@@ -801,14 +1074,21 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
  */
 function buildAllowedSet(graph, level, lockedChamps) {
   // Brak level → wszystko dozwolone (kompatybilność wsteczna).
-  if (!level) return new Set(Object.keys(graph.nodes));
+  if (!level) {
+return new Set(Object.keys(graph.nodes));
+}
 
   const allowed = new Set(lockedChamps || []);
+
   for (const [api, node] of Object.entries(graph.nodes)) {
     const cost = node.cost || 1;
     const minLvl = MIN_LEVEL_BY_COST[cost];
-    if (minLvl != null && level >= minLvl) allowed.add(api);
+
+    if (minLvl != null && level >= minLvl) {
+allowed.add(api);
+}
   }
+
   return allowed;
 }
 
@@ -837,9 +1117,13 @@ export function findTeams(graph, options = {}) {
   // lvl 10: 5-costs are peak board but algorithm should propose variety (max 3).
   // lvl <9: 5-costs hard-filtered by MIN_LEVEL_BY_COST so cap is moot.
   let effectiveMax5Cost = max5Cost;
+
   if (effectiveMax5Cost == null && level != null) {
-    if (level === 9) effectiveMax5Cost = 2;
-    else if (level >= 10) effectiveMax5Cost = 3;
+    if (level === 9) {
+effectiveMax5Cost = 2;
+} else if (level >= 10) {
+effectiveMax5Cost = 3;
+}
   }
 
   const context = {
@@ -852,34 +1136,58 @@ export function findTeams(graph, options = {}) {
 
   // RNG seed — deterministic from inputs, or randomized via options.seed
   let seed = (options.seed || 0) + teamSize * 1000 + startChamps.length * 100 + (level || 0);
+
   for (const s of startChamps) {
-    for (let i = 0; i < s.length; i++) seed = (seed * 31 + s.charCodeAt(i)) | 0;
+    for (let i = 0; i < s.length; i++) {
+seed = (seed * 31 + s.charCodeAt(i)) | 0;
+}
   }
+
   const rng = createRng(seed);
 
   const results = new Map();
 
   function addResult(team) {
-    if (team.length !== teamSize) return;
+    if (team.length !== teamSize) {
+return;
+}
+
     if (effectiveMax5Cost != null) {
       const fiveCount = team.filter(api => (nodes[api]?.cost || 0) === 5).length;
-      if (fiveCount > effectiveMax5Cost) return;
+
+      if (fiveCount > effectiveMax5Cost) {
+return;
+}
     }
+
     // Validate exclusion groups — reject teams with conflicting members
     const teamSet = new Set(team);
+
     for (const api of team) {
       const conflicts = exclusionLookup[api];
+
       if (conflicts) {
         for (const c of conflicts) {
-          if (teamSet.has(c)) return; // conflicting pair found — reject
+          if (teamSet.has(c)) {
+return;
+} // conflicting pair found — reject
         }
       }
     }
+
     const key = [...team].sort().join(',');
-    if (results.has(key)) return;
+
+    if (results.has(key)) {
+return;
+}
+
     const score = quickScore(team, graph, emblems) - costPenalty(team, graph, level, lockedSet, effectiveMax5Cost);
     const champions = team.map(api => nodes[api]).filter(Boolean);
-    if (champions.length !== team.length) return;
+
+    if (champions.length !== team.length) {
+return;
+}
+
     results.set(key, { champions, score });
   }
 

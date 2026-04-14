@@ -1,7 +1,7 @@
+import { Hand, Shield, Swords } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Hand, Shield, Swords } from 'lucide-react';
 import type { ScoredTeam } from '@/workers/scout/types';
 
 import { WhyThisComp } from './WhyThisComp';
@@ -42,7 +42,11 @@ export function ScoutCompCard({ team }: Props) {
         .sort((a, b) => {
             const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
             const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-            if (sb !== sa) return sb - sa;
+
+            if (sb !== sa) {
+return sb - sa;
+}
+
             return b.count - a.count;
         })
         .slice(0, 2);
@@ -124,11 +128,16 @@ export function ScoutCompCard({ team }: Props) {
                     .sort((a, b) => {
                         const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
                         const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-                        if (sb !== sa) return sb - sa;
+
+                        if (sb !== sa) {
+return sb - sa;
+}
+
                         return b.count - a.count;
                     })
                     .map((t) => {
                     const style = t.style ?? 'Bronze';
+
                     return (
                         <Badge
                             key={t.apiName}

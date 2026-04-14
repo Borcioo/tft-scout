@@ -39,7 +39,11 @@ export function LockedChampionsPicker({ champions, locked, onChange }: Props) {
             <div className="flex flex-wrap gap-1.5">
                 {locked.map((apiName) => {
                     const champ = champions.find((c) => c.apiName === apiName);
-                    if (!champ) return null;
+
+                    if (!champ) {
+return null;
+}
+
                     return (
                         <Badge
                             key={apiName}

@@ -13,23 +13,28 @@ export function scopeRunIdSubquery(scope: Scope): {
 } {
     const clauses: string[] = [];
     const params: Record<string, unknown> = {};
+
     if (scope.experimentId) {
         clauses.push('experiment_id = @experimentId');
         params.experimentId = scope.experimentId;
     }
+
     if (scope.tag) {
         clauses.push('tag = @tag');
         params.tag = scope.tag;
     }
+
     if (scope.since) {
         clauses.push('ts >= @since');
         params.since = scope.since;
     }
+
     const where = clauses.length > 0 ? 'WHERE ' + clauses.join(' AND ') : '';
     const limit =
         scope.all || scope.lastN === null
             ? ''
             : ' ORDER BY ts DESC LIMIT ' + Number(scope.lastN);
+
     return {
         sql: `SELECT id FROM runs ${where} ${limit}`,
         params,
@@ -47,6 +52,7 @@ export const STATS: Record<string, StatDef> = {
             'Totals: runs, results, time span, unique experiments, tags, git SHAs',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     WITH scoped AS (${sub.sql})
@@ -68,6 +74,7 @@ export const STATS: Record<string, StatDef> = {
             'Top 20 champions by appearance count in rank-1 within scope',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT api_name, COUNT(*) AS appearances
@@ -85,6 +92,7 @@ export const STATS: Record<string, StatDef> = {
         description: 'Champion x rank count matrix (pivot externally)',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT api_name, rank, COUNT(*) AS appearances
@@ -102,6 +110,7 @@ export const STATS: Record<string, StatDef> = {
             'Champions that appeared in zero top-N results within scope',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT DISTINCT api_name
@@ -120,6 +129,7 @@ export const STATS: Record<string, StatDef> = {
         description: 'Top 20 traits by total appearance count',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT api_name, COUNT(*) AS appearances, AVG(count) AS avgCount
@@ -138,6 +148,7 @@ export const STATS: Record<string, StatDef> = {
             'Per trait: avg count, fraction of scoped results where active',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT api_name,
@@ -158,6 +169,7 @@ export const STATS: Record<string, StatDef> = {
             'Per scoring component: min / max / avg across scoped results',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT component,
@@ -179,6 +191,7 @@ export const STATS: Record<string, StatDef> = {
             'Avg score and result count grouped by (level, minFrontline, minDps)',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT r.level, r.min_frontline AS minFL, r.min_dps AS minDps,
@@ -199,6 +212,7 @@ export const STATS: Record<string, StatDef> = {
         description: 'Fraction of results with a meta match',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT
@@ -215,6 +229,7 @@ export const STATS: Record<string, StatDef> = {
         description: 'Frequency of fl/dps/fighter combos in rank-1 results',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT roles_json, COUNT(*) AS n
@@ -231,6 +246,7 @@ export const STATS: Record<string, StatDef> = {
         description: 'Matrix: (minFrontline, minDps) -> avg result_count',
         build: (scope) => {
             const sub = scopeRunIdSubquery(scope);
+
             return {
                 sql: `
                     SELECT min_frontline AS minFL, min_dps AS minDps,
@@ -252,7 +268,10 @@ export function rowsToMarkdown(
     columns: string[],
     rows: Record<string, unknown>[],
 ): string {
-    if (rows.length === 0) return '_(no rows)_\n';
+    if (rows.length === 0) {
+return '_(no rows)_\n';
+}
+
     const header = '| ' + columns.join(' | ') + ' |';
     const sep = '| ' + columns.map(() => '---').join(' | ') + ' |';
     const body = rows
@@ -261,5 +280,6 @@ export function rowsToMarkdown(
                 '| ' + columns.map((c) => String(r[c] ?? '')).join(' | ') + ' |',
         )
         .join('\n');
+
     return [header, sep, body].join('\n') + '\n';
 }

@@ -56,8 +56,10 @@ function createWorker(): Worker {
         const blobUrl = URL.createObjectURL(
             new Blob([stub], { type: 'application/javascript' }),
         );
+
         return new Worker(blobUrl, { type: 'module' });
     }
+
     return new ScoutWorker();
 }
 
@@ -67,7 +69,11 @@ function getWorker(): Worker {
         sharedWorker.onmessage = (e: MessageEvent<WorkerOutMsg>) => {
             const msg = e.data;
             const handler = pending.get(msg.id);
-            if (!handler) return;
+
+            if (!handler) {
+return;
+}
+
             pending.delete(msg.id);
 
             if ('error' in msg) {
@@ -77,12 +83,15 @@ function getWorker(): Worker {
             }
         };
     }
+
     refCount++;
+
     return sharedWorker;
 }
 
 function releaseWorker() {
     refCount--;
+
     if (refCount <= 0 && sharedWorker) {
         sharedWorker.terminate();
         sharedWorker = null;
@@ -93,6 +102,7 @@ function releaseWorker() {
 
 function sendMessage(type: 'generate', params: ScoutParams) {
     const id = ++msgId;
+
     return new Promise<{ results: ScoredTeam[]; insights: unknown }>(
         (resolve, reject) => {
             pending.set(id, { resolve, reject });
@@ -106,6 +116,7 @@ export function useScoutWorker() {
 
     useEffect(() => {
         workerRef.current = getWorker();
+
         return () => releaseWorker();
     }, []);
 

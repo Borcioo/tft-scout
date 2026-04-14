@@ -1,7 +1,7 @@
-import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
 
 export const DEFAULT_DB_PATH = 'tmp/scout-lab/runs.db';
 export const CURRENT_SCHEMA_VERSION = 1;
@@ -28,6 +28,7 @@ export function openDb(path: string = DEFAULT_DB_PATH, readonly = false): Db {
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');
     db.pragma('foreign_keys = ON');
+
     return db;
 }
 
@@ -38,6 +39,7 @@ export function initSchema(db: Db): void {
     const row = db
         .prepare('SELECT version FROM schema_version LIMIT 1')
         .get() as { version: number } | undefined;
+
     if (!row) {
         db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
             CURRENT_SCHEMA_VERSION,

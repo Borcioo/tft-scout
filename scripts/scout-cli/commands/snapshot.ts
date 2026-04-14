@@ -1,5 +1,5 @@
-import { DEFAULT_SNAPSHOT_PATH, fetchLive, writeSnapshot } from '../context';
 import type { ScoutContext } from '../../../resources/js/workers/scout/types';
+import { DEFAULT_SNAPSHOT_PATH, fetchLive, writeSnapshot } from '../context';
 
 export type SnapshotArgs = {
     inspect: boolean;
@@ -9,21 +9,31 @@ export type SnapshotArgs = {
 export function parseSnapshotArgs(argv: string[]): SnapshotArgs {
     let inspect = false;
     let snapshotPath = DEFAULT_SNAPSHOT_PATH;
+
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === '--inspect') inspect = true;
-        else if (a === '--snapshot') snapshotPath = argv[++i];
-        else throw new Error(`Unknown flag for snapshot: ${a}`);
+
+        if (a === '--inspect') {
+inspect = true;
+} else if (a === '--snapshot') {
+snapshotPath = argv[++i];
+} else {
+throw new Error(`Unknown flag for snapshot: ${a}`);
+}
     }
+
     return { inspect, snapshotPath };
 }
 
 export async function runSnapshot(args: SnapshotArgs): Promise<void> {
     const ctx = await fetchLive();
+
     if (args.inspect) {
         process.stdout.write(JSON.stringify(meta(ctx), null, 2) + '\n');
+
         return;
     }
+
     writeSnapshot(args.snapshotPath, ctx);
     process.stdout.write(
         JSON.stringify(

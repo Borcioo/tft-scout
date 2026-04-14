@@ -7,7 +7,8 @@ import type { ScoutContext } from '../../../resources/js/workers/scout/types';
 import type { Db } from './db';
 import { currentGitSha } from './git';
 import { recordRun } from './ingest';
-import { PRESETS, type Preset } from './presets';
+import { PRESETS  } from './presets';
+import type {Preset} from './presets';
 
 export type ExperimentArgs = {
     preset: string | null;
@@ -32,19 +33,27 @@ export function expandMatrix(
     matrix: Record<string, (string | number | null)[]>,
 ): Record<string, string | number | null>[] {
     const keys = Object.keys(matrix);
-    if (keys.length === 0) return [{}];
+
+    if (keys.length === 0) {
+return [{}];
+}
+
     const combos: Record<string, string | number | null>[] = [{}];
+
     for (const k of keys) {
         const values = matrix[k];
         const next: Record<string, string | number | null>[] = [];
+
         for (const partial of combos) {
             for (const v of values) {
                 next.push({ ...partial, [k]: v });
             }
         }
+
         combos.length = 0;
         combos.push(...next);
     }
+
     return combos;
 }
 
@@ -61,10 +70,13 @@ export async function runExperiment(
 
     if (args.preset) {
         const preset: Preset | undefined = PRESETS[args.preset];
-        if (!preset)
-            throw new Error(
+
+        if (!preset) {
+throw new Error(
                 `Unknown preset: ${args.preset}. Available: ${Object.keys(PRESETS).join(', ')}`,
             );
+}
+
         combos = expandMatrix(preset.matrix);
     } else if (args.matrixJson) {
         const parsed = JSON.parse(args.matrixJson) as Record<
@@ -75,7 +87,10 @@ export async function runExperiment(
     } else if (args.repeat && args.seedRange) {
         const [lo, hi] = args.seedRange;
         combos = [];
-        for (let s = lo; s <= hi; s++) combos.push({ seed: s });
+
+        for (let s = lo; s <= hi; s++) {
+combos.push({ seed: s });
+}
     } else {
         throw new Error(
             'experiment requires one of: --preset, --matrix, or --repeat + --seed-range',
@@ -108,10 +123,12 @@ export async function runExperiment(
                 minDps,
                 max5Cost,
             });
+
             if (seenHashes.has(key)) {
                 dedupSkipped++;
                 continue;
             }
+
             seenHashes.add(key);
         }
 

@@ -15,7 +15,10 @@ let cached: string | null = null;
  * repository or any read fails. Cached per process after the first call.
  */
 export function currentGitSha(): string {
-    if (cached !== null) return cached;
+    if (cached !== null) {
+return cached;
+}
+
     try {
         const gitDir = resolve(process.cwd(), '.git');
         const head = readFileSync(resolve(gitDir, 'HEAD'), 'utf8').trim();
@@ -23,10 +26,12 @@ export function currentGitSha(): string {
         if (!head.startsWith('ref: ')) {
             // Detached HEAD: the file IS the SHA.
             cached = head;
+
             return cached;
         }
 
         const refPath = head.slice(5).trim();
+
         try {
             cached = readFileSync(resolve(gitDir, refPath), 'utf8').trim();
         } catch {
@@ -40,5 +45,6 @@ export function currentGitSha(): string {
     } catch {
         cached = 'unknown';
     }
+
     return cached;
 }
