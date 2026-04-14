@@ -72,6 +72,12 @@ async function main() {
         return;
     }
 
+    if (command === 'lab') {
+        const { runLab } = await import('./scout-cli/commands/lab');
+        await runLab(rest);
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
