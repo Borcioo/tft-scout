@@ -184,6 +184,7 @@ extraSlots += c.slotsUsed - 1;
     excludedChampions: constraints.excludedChampions || [],
     max5Cost: constraints.max5Cost ?? null,
     seed,
+    lockedTraits: traitLocks,
   });
 
   // Enrich results with active traits and re-score with full scorer

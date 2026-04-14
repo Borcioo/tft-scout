@@ -1105,7 +1105,7 @@ export function findTeams(graph, options = {}) {
   const {
     teamSize = 8, startChamps = [], maxResults = 20,
     level = null, emblems = [], excludedTraits = [], excludedChampions = [],
-    max5Cost = null,
+    max5Cost = null, lockedTraits = [],
   } = options;
 
   const { nodes, traitBreakpoints, traitMap, exclusionLookup = {} } = graph;
@@ -1132,6 +1132,7 @@ effectiveMax5Cost = 3;
     lockedChamps: startChamps,
     allowedSet,
     lockedSet,
+    lockedTraits,
   };
 
   // RNG seed — deterministic from inputs, or randomized via options.seed
