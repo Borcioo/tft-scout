@@ -15,24 +15,32 @@
  * @param {object[]} exclusionGroups - [{groupName, championApiName}]
  */
 /**
- * Build exclusion lookup: apiName → Set of apiNames that can't be in team with it.
- * Used both here (for locked filtering) and by engine (during team building).
+ * Build exclusion lookup: apiName → Set of apiNames that can't share a team.
+ * Used both here (for locked filtering) and by engine (during team building
+ * via synergy-graph).
+ *
+ * Input is a list of groups, each group a list of apiNames that are
+ * mutually exclusive (e.g. Miss Fortune + her three variants, or
+ * Galio base + Galio Enhanced). Matches the shape PHP's
+ * ScoutContextBuilder::buildExclusionGroups() emits.
  */
-export function buildExclusionLookup(exclusionGroups: any) {
-  const groupMap: any = {};
-  for (const eg of exclusionGroups) {
-    (groupMap[eg.groupName] ??= []).push(eg.championApiName);
-  }
-  const lookup: any = {};
-  for (const members of Object.values(groupMap)) {
-    for (const m of members as any) {
-      lookup[m] = new Set((members as any).filter((x: any) => x !== m));
+export function buildExclusionLookup(
+  exclusionGroups: string[][],
+): Record<string, Set<string>> {
+  const lookup: Record<string, Set<string>> = {};
+  for (const group of exclusionGroups) {
+    for (const member of group) {
+      lookup[member] = new Set(group.filter(x => x !== member));
     }
   }
   return lookup;
 }
 
-export function filterCandidates(allChampions: any, constraints: any, exclusionGroups = []) {
+export function filterCandidates(
+  allChampions: any,
+  constraints: any,
+  exclusionGroups: string[][] = [],
+) {
   const {
     lockedChampions = [],
     excludedChampions = [],
