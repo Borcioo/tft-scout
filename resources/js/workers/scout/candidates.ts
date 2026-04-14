@@ -81,9 +81,20 @@ relevantTraits.add(emblem);
 }
 
   // Filter and rank candidates
+  //
+  // Hero variants (variant === 'hero') are dropped unconditionally here:
+  // MetaTFT has no affinity/companion data for them, they are not
+  // player-pickable (only appear via specific trait activations), and
+  // leaving them in the pool would starve the scorer of data and let
+  // them drown in post-fix affinity scoring. If the user explicitly
+  // locks a hero variant, it still reaches the team-builder via
+  // getLockedChampions, which bypasses this filter.
+  // TODO: add a dedicated "locked-hero pivot" phase that builds teams
+  // around a locked hero variant with a separate scoring path.
   const candidates = allChampions
     .filter((c: any) => !excludedSet.has(c.apiName))
     .filter((c: any) => !lockedSet.has(c.apiName))
+    .filter((c: any) => c.variant !== 'hero')
     .map((c: any) => ({
       ...c,
       relevance: c.traits.filter((t: any) => relevantTraits.has(t)).length,
