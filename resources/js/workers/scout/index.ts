@@ -75,6 +75,8 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
         topN = 10,
         max5Cost = null,
         roleBalance = null,
+        minFrontline = 0,
+        minDps = 0,
         seed = 0,
     } = p;
 
@@ -86,6 +88,8 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
         emblems,
         max5Cost,
         roleBalance,
+        minFrontline,
+        minDps,
     };
 
     const results = generate({
