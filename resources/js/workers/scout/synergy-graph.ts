@@ -796,6 +796,80 @@ function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, a
   return [...seeds];
 }
 
+/**
+ * Deterministic seed strategy #3 — for each locked trait, pick
+ * minUnits champions with a deliberate cost spread instead of clustering
+ * on the cheapest ones. For pools with enough variety we take the
+ * cheapest, the most expensive, and fill the middle from the
+ * unit-rating-sorted remainder. For small minUnits (<3) we just take
+ * cheapest + most expensive so the strategy degrades gracefully.
+ *
+ * Uses the shared RNG so the cost buckets are shuffled deterministically
+ * per attempt — without it every attempt would pick the same stratified
+ * seed and we'd lose the diversity we're paying for.
+ */
+function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
+  const seeds = new Set();
+
+  for (const lock of lockedTraits) {
+    const candidates = pool.get(lock.apiName) ?? [];
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    const byCost = [...candidates].sort((a, b) => {
+      const ca = graph.nodes[a]?.cost ?? 0;
+      const cb = graph.nodes[b]?.cost ?? 0;
+
+      if (ca !== cb) {
+        return ca - cb;
+      }
+
+      return a.localeCompare(b);
+    });
+
+    const picks = new Set();
+    const minUnits = lock.minUnits;
+
+    picks.add(byCost[0]);
+
+    if (minUnits >= 2) {
+      picks.add(byCost[byCost.length - 1]);
+    }
+
+    if (minUnits >= 3) {
+      const mid = Math.floor(byCost.length / 2);
+      picks.add(byCost[mid]);
+    }
+
+    // Fill remaining slots from a shuffled copy so later attempts
+    // explore different fillers around the anchored endpoints.
+    const remaining = byCost.filter(api => !picks.has(api));
+
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = remaining[i];
+
+      remaining[i] = remaining[j];
+      remaining[j] = tmp;
+    }
+
+    let idx = 0;
+
+    while (picks.size < minUnits && idx < remaining.length) {
+      picks.add(remaining[idx]);
+      idx++;
+    }
+
+    for (const api of picks) {
+      seeds.add(api);
+    }
+  }
+
+  return [...seeds];
+}
+
 // ── Exploration phases ─────────────────────────────
 // Each phase receives phaseCtx and adds results via addResult.
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
