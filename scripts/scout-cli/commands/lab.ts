@@ -20,6 +20,10 @@ export async function runLab(argv: string[]): Promise<void> {
             const { runLabQuery } = await import('./lab/query');
             return runLabQuery(rest);
         }
+        case 'prune': {
+            const { runLabPrune } = await import('./lab/prune');
+            return runLabPrune(rest);
+        }
         default:
             throw new Error(`Unknown lab subcommand: ${sub}`);
     }
