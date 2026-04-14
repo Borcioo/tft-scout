@@ -154,7 +154,13 @@ function pushAffinityHit(team: ScoredTeam, ctx: ScoringContext, out: InsightItem
     const api = lookupApi(champ);
     const rows = ctx.affinity?.[api];
     if (!rows || rows.length === 0) continue;
-    const topN = [...rows]
+    // Filter BEFORE sort — otherwise a 2-game "1.00 avg" noise row
+    // lands in top-3 and pushes real signal out. Hero variants are
+    // especially noise-prone on MetaTFT because their sample pool
+    // is a fraction of a normal champion's.
+    const eligible = rows.filter(r => r.games >= CFG.affinityHit.minGames);
+    if (eligible.length === 0) continue;
+    const topN = eligible
       .sort((a, b) => a.avgPlace - b.avgPlace)
       .slice(0, CFG.affinityHit.topN);
     for (const row of topN) {

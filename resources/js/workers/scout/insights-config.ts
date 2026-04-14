@@ -23,6 +23,7 @@ export const INSIGHTS_CONFIG = {
     },
     affinityHit: {
         maxAvgPlace: 3.8,
+        minGames: 100,
         topN: 3,
     },
     provenPair: {
