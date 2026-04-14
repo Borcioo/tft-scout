@@ -648,6 +648,48 @@ function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
   return pool;
 }
 
+/**
+ * Deterministic seed strategy #1 — sort each trait's pool by the
+ * MetaTFT unitRating score (higher is better) with an apiName
+ * tie-breaker, then slice `minUnits` champs. The attemptIndex
+ * rotates the slice window so attempt 0 takes the top minUnits,
+ * attempt 1 shifts by 1, etc. With 20 attempts on a typical
+ * pool of 6–10 champs this rotates through every realistic
+ * top-K combination without explicit enumeration.
+ */
+function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptIndex) {
+  const seeds = new Set();
+
+  for (const lock of lockedTraits) {
+    const candidates = pool.get(lock.apiName) ?? [];
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    const sorted = [...candidates].sort((a, b) => {
+      const ra = unitRatings?.[a]?.score ?? 0;
+      const rb = unitRatings?.[b]?.score ?? 0;
+
+      if (ra !== rb) {
+        return rb - ra;
+      }
+
+      return a.localeCompare(b);
+    });
+
+    const windowStart = attemptIndex % Math.max(1, sorted.length - lock.minUnits + 1);
+
+    for (let i = 0; i < lock.minUnits; i++) {
+      const pick = sorted[(windowStart + i) % sorted.length];
+
+      seeds.add(pick);
+    }
+  }
+
+  return [...seeds];
+}
+
 // ── Exploration phases ─────────────────────────────
 // Each phase receives phaseCtx and adds results via addResult.
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
