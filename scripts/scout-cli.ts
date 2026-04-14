@@ -78,6 +78,12 @@ async function main() {
         return;
     }
 
+    if (command === 'experiment') {
+        const { runExperimentCommand } = await import('./scout-cli/commands/experiment');
+        await runExperimentCommand(rest);
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
