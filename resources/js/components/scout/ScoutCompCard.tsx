@@ -81,16 +81,16 @@ export function ScoutCompCard({ team }: Props) {
             {team.roles && (
                 <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
                     <span className="flex items-center gap-1 text-blue-400">
-                        <Shield className="size-3.5" />
+                        <Shield className="size-3.5" aria-label="Frontline" />
                         {team.roles.frontline}
                     </span>
                     <span className="flex items-center gap-1 text-red-400">
-                        <Swords className="size-3.5" />
+                        <Swords className="size-3.5" aria-label="DPS" />
                         {team.roles.dps}
                     </span>
                     {team.roles.fighter > 0 && (
                         <span className="flex items-center gap-1 text-yellow-400">
-                            <Hand className="size-3.5" />
+                            <Hand className="size-3.5" aria-label="Fighter" />
                             {team.roles.fighter}
                         </span>
                     )}
