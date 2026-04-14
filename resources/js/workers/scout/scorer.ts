@@ -8,7 +8,7 @@
  * @property {Object<string, {score: number, games: number}>} unitRatings - keyed by apiName
  * @property {Object<string, Object<number, {score: number, games: number}>>} traitRatings - keyed by apiName → breakpointPosition
  * @property {Object<string, number>} styleScores - keyed by style name ('Bronze', 'Gold', etc.)
- * @property {Object<string, Array<{traitApiName: string, breakpointPosition: number, avgPlace: number}>>} affinity - keyed by unitApiName
+ * @property {Object<string, Array<{trait: string, breakpoint: number, avgPlace: number, games: number}>>} affinity - keyed by unitApiName
  */
 
 import { SCORING_CONFIG } from './config';
@@ -164,7 +164,7 @@ export function affinityBonus(champion: any, activeTraitApis: any, ctx: any) {
   // This prevents trait-diverse comps from getting unbounded affinity advantage
   const matches = [];
   for (const aff of affData) {
-    if (activeTraitApis.has(aff.traitApiName) && aff.games >= thresholds.affinityMinGames) {
+    if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
       matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
     }
   }
@@ -235,9 +235,9 @@ export function companionBonus(team: any, ctx: any) {
     const companionList = (ctx.companions as any)[champApi as any];
     if (!companionList) continue;
     for (const comp of companionList) {
-      if (!teamApis.has(comp.companionApiName)) continue;
+      if (!teamApis.has(comp.companion)) continue;
       if (comp.games < thresholds.companionMinGames) continue;
-      const pairKey = [champApi, comp.companionApiName].sort((a: any, b: any) => a.localeCompare(b)).join('+');
+      const pairKey = [champApi, comp.companion].sort((a: any, b: any) => a.localeCompare(b)).join('+');
       if (seen.has(pairKey)) continue;
       seen.add(pairKey);
       bonus += weights.affinityBonus * (1 - comp.avgPlace / 8);

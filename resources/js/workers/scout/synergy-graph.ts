@@ -100,18 +100,18 @@ export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup =
   for (const [unitApi, companionList] of Object.entries(companionData)) {
     if (!nodes[unitApi] || !companionList) continue;
     for (const comp of companionList) {
-      if (!nodes[comp.companionApiName]) continue;
+      if (!nodes[comp.companion]) continue;
       if (comp.games < thresholds.companionMinGames) continue;
       // Only add edge if not already connected via traits
-      const existing = adjacency[unitApi]?.find(e => e.champ === comp.companionApiName);
+      const existing = adjacency[unitApi]?.find(e => e.champ === comp.companion);
       if (!existing) {
         adjacency[unitApi].push({
-          champ: comp.companionApiName,
+          champ: comp.companion,
           sharedTraits: 0,
           traits: [],
           companionScore: comp.avgPlace,
         });
-        adjacency[comp.companionApiName].push({
+        adjacency[comp.companion].push({
           champ: unitApi,
           sharedTraits: 0,
           traits: [],
@@ -235,7 +235,7 @@ function quickScore(champApis, graph, emblems = []) {
     if (affData) {
       const affMatches = [];
       for (const aff of affData) {
-        if (activeTraitApis.has(aff.traitApiName) && aff.games >= thresholds.affinityMinGames) {
+        if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
           affMatches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
         }
       }
@@ -247,7 +247,7 @@ function quickScore(champApis, graph, emblems = []) {
     const compData = companions[lookupApi];
     if (compData) {
       for (const comp of compData) {
-        if (champApiSet.has(comp.companionApiName) && comp.games >= thresholds.companionMinGames) {
+        if (champApiSet.has(comp.companion) && comp.games >= thresholds.companionMinGames) {
           score += weights.affinityBonus * (1 - comp.avgPlace / 8);
         }
       }
@@ -561,12 +561,12 @@ function phaseCompanionSeeded({ graph, teamSize, startChamps, context, rng, maxR
   for (const [, companionList] of Object.entries(companionData)) {
     if (!companionList) continue;
     const topCompanions = companionList
-      .filter(c => c.games >= thresholds.companionMinGames && c.avgPlace <= thresholds.companionMaxAvg && nodes[c.companionApiName])
+      .filter(c => c.games >= thresholds.companionMinGames && c.avgPlace <= thresholds.companionMaxAvg && nodes[c.companion])
       .sort((a, b) => a.avgPlace - b.avgPlace);
 
     for (const comp of topCompanions) {
-      if (context.allowedSet && !context.allowedSet.has(comp.companionApiName)) continue;
-      const seeds = [...startChamps, comp.companionApiName];
+      if (context.allowedSet && !context.allowedSet.has(comp.companion)) continue;
+      const seeds = [...startChamps, comp.companion];
       addResult(buildOneTeam(graph, teamSize, seeds, context, 0.2 + rng() * 0.3, rng));
     }
     if (results.size >= maxResults * 4) break;
