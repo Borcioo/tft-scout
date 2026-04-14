@@ -70,8 +70,19 @@ export function generate(input) {
   const exclusionLookup = buildExclusionLookup(effectiveExclusionGroups);
   const graph = buildGraph(eligibleChampions, traits, scoringCtx, exclusionLookup);
 
-  // Find teams — request extra so diversify has enough candidates
-  const searchMultiplier = (constraints.max5Cost != null ? 5 : 3);
+  // Normalise lockedTraits to {apiName, minUnits} shape. Accept
+  // both the object form and a bare string (legacy). A bare string
+  // means "trait must be active at all", so minUnits = 1.
+  const traitLocks = (constraints.lockedTraits || []).map(t =>
+    typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
+  );
+
+  // Find teams — request extra so diversify has enough candidates.
+  // When trait locks are active, widen the search even more because
+  // the post-generation filter below drops teams that miss the
+  // requirement, and the raw pool needs to be big enough to survive.
+  const searchMultiplier = (constraints.max5Cost != null ? 5 : 3)
+    * (traitLocks.length > 0 ? 3 : 1);
   const rawTeams = findTeams(graph, {
     teamSize: effectiveTeamSize,
     startChamps: locked.map(c => c.apiName),
@@ -113,9 +124,19 @@ export function generate(input) {
     };
   });
 
-  // Filter out comps that exceed slot budget
+  // Filter out comps that exceed slot budget OR that miss any
+  // player-requested trait lock. Trait locks are a hard filter —
+  // every active trait in the locked list must hit at least its
+  // requested minUnits count.
   const maxSlots = level;
-  const validComps = enriched.filter(r => r.slotsUsed <= maxSlots);
+  const validComps = enriched.filter(r => {
+    if (r.slotsUsed > maxSlots) return false;
+    for (const lock of traitLocks) {
+      const active = r.activeTraits.find(t => t.apiName === lock.apiName);
+      if (!active || active.count < lock.minUnits) return false;
+    }
+    return true;
+  });
 
   // Meta-comp match detection — annotate results that match known meta comps
   const metaComps = scoringCtx.metaComps || [];
