@@ -48,9 +48,13 @@ export function summariseCandidates(candidates: any[]): unknown {
 export function summariseGraph(graph: any): unknown {
     const nodes = Object.keys(graph?.nodes ?? {}).length;
     const edges: Array<[string, string]> = [];
-    for (const [from, neighbours] of Object.entries(graph?.adjacency ?? {})) {
-        for (const to of Object.keys(neighbours as object)) {
-            if (from < to) edges.push([from, to]);
+    // adjacency shape: { championApiName: [{ champ, sharedTraits, traits }, ...] }
+    // Each undirected edge is stored on BOTH endpoints, so dedupe by ordering.
+    for (const [from, neighbourList] of Object.entries(graph?.adjacency ?? {})) {
+        if (!Array.isArray(neighbourList)) continue;
+        for (const edge of neighbourList) {
+            const to = edge?.champ;
+            if (typeof to === 'string' && from < to) edges.push([from, to]);
         }
     }
     return {
