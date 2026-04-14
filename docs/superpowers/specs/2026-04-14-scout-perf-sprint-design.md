@@ -401,7 +401,7 @@ numbers only to SEED extra work — one `buildOneTeam` per companion
 hit — instead of using them to RANK pre-built candidates or to steer
 the team builder directly.
 
-**Four candidate redesigns:**
+**Five candidate redesigns:**
 
 - **A — Dedup + global top-K seeds** (cheapest change)
   Aggregate a single flat list of all `(a, b, avgPlace)` pair records
@@ -446,27 +446,91 @@ the team builder directly.
 
 - **D — Skip phase when locked traits are present** (trivial, partial)
   Wrap the phase body in `if (context.lockedTraits.length > 0) return;`.
-  `phaseLockedTraitSeeded` already uses companion data via its
-  `companion-pair` strategy, so the generic phase is redundant on
-  locked runs. Non-lock runs still pay the full cost.
+  Cheap but wrong: locked runs still want filler champions that
+  synergise with the already-mandated core, not just "whatever the
+  lock phase left behind". Rejected — keeping the entry for posterity.
 
-  **Impact**: big win for locked runs only (eliminates the ~12 s span
-  on those scenarios). **Risk**: tiny. **Effort**: ~5 min.
+- **E — Stepped cross-referenced filler with cost weighting** (RECOMMENDED)
+  The core idea, surfaced by the user: stop seeding random
+  companions. Instead use companion data to RANK filler candidates
+  against the champions already in the team, weighted by how much
+  each team member "cares" about its companions (high-cost champs
+  care a lot, low-cost champs are fungible). Algorithm:
 
-**Recommendation**: **A + D combined**. D alone handles locked runs
-(the worst-case scenarios) in literally two lines; A replaces the
-non-lock phase with a dedupe-then-top-40 version that's ~30× faster
-and reuses MetaTFT data more meaningfully. Together they cover both
-the 17 s locked case AND the 2.8 s non-lock case, with combined risk
-still in the "low" column and combined effort ~50 min. B is tempting
-but too big for this sprint — bucket it as a Phase E candidate if
-A+D miss the target. C is an architectural fork we should evaluate
-only if A+D aren't enough.
+  ```
+  anchors = context.lockedChamps          // from explicit locks +
+                                          // tight auto-promote +
+                                          // hero swap
+  if anchors.length == 0:
+    anchors = top-K champs by unitRating  // bootstrap for non-lock path
 
-**Expected gain**: locked runs drop from ~17 s → ~5 s (remove ~12 s
-companionSeeded via D), non-lock from ~2.8 s → ~2.5 s (trim
-~300 ms via A). We still need Fix 2 to close the rest of the locked
-gap.
+  costWeight(c) = [0.2, 0.4, 0.7, 0.9, 1.0][c.cost - 1]
+
+  candidateScore = new Map()
+  for each anchor A in anchors:
+    top_comps = companionData[baseOf(A)]
+                .filter(games >= minGames, avgPlace < maxAvg)
+                .sort asc by avgPlace
+                .take top K (e.g. K=10)
+    for each (comp, avgPlace) in top_comps:
+      if comp in anchors: continue       // already in team
+      if !allowedSet.has(comp): continue // level gate
+      candidateScore[comp] += costWeight(A) * (1 - avgPlace / 8)
+
+  fillerPicks = sort candidateScore desc, take top M (e.g. M=30)
+
+  for filler in fillerPicks:
+    seeds = [...anchors, filler]
+    addResult(buildOneTeam(graph, teamSize, seeds, ...))
+  ```
+
+  Key properties:
+  - **Context-aware**: same user lock set produces the same top
+    fillers (deterministic).
+  - **Data-driven**: a champion that is a top companion for MULTIPLE
+    anchors accumulates score from all of them — natural
+    cross-referencing of the companion lists.
+  - **Cost-weighted**: a 4-cost carry in the anchor set pulls its
+    favourite companions up the ranking harder than a 1-cost
+    frontliner does. Matches the intuition "build around the
+    expensive units, fill around them".
+  - **Scalable seed count**: M is a cap, not a function of pool
+    size. ~30 `buildOneTeam` calls per generate regardless of
+    whether the anchor set has 1 champion or 6.
+  - **Covers locked case**: when `lockedChamps` is non-empty,
+    stepped filler directly runs on those anchors — which is
+    exactly what locked scenarios need (the fix D was trying to
+    address the wrong way).
+  - **Covers non-lock case**: bootstrap from top-unitRating champs
+    gives a reasonable anchor set. Equivalent intent to current
+    `phaseCompanionSeeded` but using ranking instead of seeding.
+
+  **Impact**: locked runs drop companionSeeded from ~12 s → ~150 ms
+  (30 calls × ~5 ms). Non-lock runs drop from ~333 ms → ~150 ms.
+  Both scenarios benefit substantially, and the algorithm makes
+  the phase USEFUL on locked runs instead of redundant.
+  **Risk**: low-medium. The stepped algorithm is new but the
+  operations are straightforward (map + sort + slice + loop). Main
+  risk is the cost-weight constants being wrong on first try —
+  easy to tune post-landing.
+  **Effort**: ~1.5-2 h (build the filler ranker, wire it in,
+  verify it produces diverse outputs, regression check).
+
+**Recommendation**: **E**. Directly addresses the user insight
+("use companion data to rank candidates, not to seed work"),
+produces context-aware filler selection that is actually useful
+on locked runs (unlike D), and trims the phase to a predictable
+budget. A (global dedupe pairs) was a good first pass but E does
+strictly more with the same data at similar cost. B (greedy
+builder) and C (edge baking) remain deferred — E should be
+enough. A is kept as mental fallback if E's ranking turns out to
+produce monotonous seeds in practice (easy regression check via
+scout-cli).
+
+**Expected gain**: locked runs drop from ~17 s → ~5 s (eliminate
+~12 s of companionSeeded). Non-lock from ~2.8 s → ~2.6 s (smaller
+drop because current phase does less work on non-lock). We still
+need Fix 2 to close the rest of the locked gap.
 
 ### Fix 2 — `phaseTemperatureSweep` attempt budget cut
 
@@ -545,7 +609,8 @@ cleanup that isn't strictly required to hit the target.
 
 ### Priority ordering for Phase C
 
-1. **Fix 1 A+D** (companionSeeded dedupe top-K + skip-on-locked)
+1. **Fix 1 E** (phaseCompanionSeeded → stepped cross-referenced filler
+   with cost weighting — the user-proposed design)
 2. **Fix 2 A** (temperatureSweep multiplier + skip-on-locked)
 3. Re-run `scout-cli profile`, compare to baseline
 4. **Fix 5** (constraint mutation cleanup — safe, trivial)
