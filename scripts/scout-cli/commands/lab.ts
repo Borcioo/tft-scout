@@ -24,6 +24,10 @@ export async function runLab(argv: string[]): Promise<void> {
             const { runLabPrune } = await import('./lab/prune');
             return runLabPrune(rest);
         }
+        case 'reset': {
+            const { runLabReset } = await import('./lab/reset');
+            return runLabReset(rest);
+        }
         default:
             throw new Error(`Unknown lab subcommand: ${sub}`);
     }
