@@ -52,8 +52,9 @@ export function generate(input) {
     // (buildActiveTraits, synergy-graph.applyEmblems, phaseDeepVertical)
     // iterates with `for (const e of emblems)` and indexes by `e`, which
     // silently breaks on object-shaped entries and swallows the emblem
-    // entirely. Expand counts by repeating the apiName and pass the flat
-    // array everywhere so every existing consumer keeps working.
+    // entirely. Keep the result in a local instead of mutating the
+    // caller's constraints so memoising callers aren't surprised by
+    // in-place side effects on their input object.
     const normalizedEmblems = [];
 
     for (const e of constraints.emblems || []) {
@@ -68,11 +69,6 @@ export function generate(input) {
         normalizedEmblems.push(e.apiName);
       }
     }
-
-    // Replace the emblems inside constraints so downstream reads stay
-    // simple (`constraints.emblems`) without every consumer having to
-    // renormalise.
-    constraints.emblems = normalizedEmblems;
 
     // Append the hero mutual-exclusion group to whatever PHP gave us.
     // PHP emits base_champion_id variant groups; hero-exclusion is a
@@ -241,7 +237,7 @@ export function generate(input) {
       startChamps: locked.map(c => c.apiName),
       maxResults: SEARCH_BUDGET * searchMultiplier,
       level,
-      emblems: constraints.emblems || [],
+      emblems: normalizedEmblems,
       excludedTraits: constraints.excludedTraits || [],
       excludedChampions: constraints.excludedChampions || [],
       max5Cost: constraints.max5Cost ?? null,
@@ -260,7 +256,7 @@ export function generate(input) {
   }
 
       const _endBAT = startSpan('engine.enrichLoop.buildActiveTraits');
-      const activeTraits = buildActiveTraits(team.champions, traits, constraints.emblems || []);
+      const activeTraits = buildActiveTraits(team.champions, traits, normalizedEmblems);
       _endBAT();
 
       // Re-score with full scorer
