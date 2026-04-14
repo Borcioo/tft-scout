@@ -82,28 +82,26 @@ function buildCliCommand(params: ScoutDebugParams): string {
 export function ScoutDebugPanel({ params, results }: Props) {
     const [copied, setCopied] = useState<'json' | 'cli' | null>(null);
 
+    // Minimal snapshot: params only. The scout-cli command above
+    // reproduces the full results deterministically (worker uses seed
+    // 0 by default), so dumping every team's champions and breakdown
+    // would just bloat what the user has to paste. A one-line "what
+    // you're seeing" header on rank-1 keeps enough context to sanity-
+    // check that the repro lines up with the UI state.
     const payload = useMemo(() => {
-        const compacted = results.slice(0, 5).map((r, idx) => ({
-            rank: idx + 1,
-            score: r.score,
-            slotsUsed: r.slotsUsed,
-            champions: r.champions.map((c) => c.apiName),
-            roles: r.roles ?? null,
-            activeTraits: (r.activeTraits ?? []).map((t) => ({
-                apiName: t.apiName,
-                count: t.count,
-                style: t.style ?? null,
-            })),
-            breakdown: r.breakdown ?? null,
-            metaMatch: r.metaMatch ?? null,
-        }));
+        const top = results[0];
 
         return {
             capturedAt: new Date().toISOString(),
             url: typeof window !== 'undefined' ? window.location.href : null,
-            params,
             resultCount: results.length,
-            topResults: compacted,
+            rank1: top
+                ? {
+                      score: top.score,
+                      champions: top.champions.map((c) => c.apiName),
+                  }
+                : null,
+            params,
         };
     }, [params, results]);
 
@@ -136,7 +134,7 @@ export function ScoutDebugPanel({ params, results }: Props) {
                     <DrawerHeader>
                         <DrawerTitle>Scout debug snapshot</DrawerTitle>
                         <DrawerDescription>
-                            Current filters + top 5 results. Copy either block and paste into a chat to get help on the exact state you&apos;re seeing.
+                            Current filter state + a rank-1 marker so the assistant can repro via the CLI command below. Worker uses a fixed seed so the CLI output matches what you see here.
                         </DrawerDescription>
                     </DrawerHeader>
 
