@@ -125,6 +125,14 @@ export default [
         },
     },
     {
+        // scout-audit dev scripts are one-shot analysis tools, not production
+        // code; @ts-nocheck is intentional to skip strict checking overhead.
+        files: ['scripts/scout-audit/**/*.ts'],
+        rules: {
+            '@typescript-eslint/ban-ts-comment': 'off',
+        },
+    },
+    {
         ignores: [
             'vendor',
             'node_modules',
