@@ -1,6 +1,7 @@
-import { assertDbExists, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
 
 export async function runLabQuery(argv: string[]): Promise<void> {
+    assertLabEnabled();
     let sql: string | null = null;
     let limit = 1000;
     let asCsv = false;

@@ -1,7 +1,8 @@
-import { assertDbExists, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
 import { rowsToMarkdown, STATS, type Scope } from '../../lab/queries';
 
 export async function runLabStats(argv: string[]): Promise<void> {
+    assertLabEnabled();
     let name: string | null = null;
     const scope: Scope = {
         experimentId: null,
