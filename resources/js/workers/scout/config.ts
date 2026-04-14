@@ -15,6 +15,7 @@ export const SCORING_CONFIG = {
     overflowPenalty:  5.0,  // penalty per wasted unit above breakpoint
     affinityBonus:    3.0,  // bonus when champion-trait combo confirmed by affinity data
     orphanPenalty:   20.0,  // penalty for champion with zero active/shared non-unique traits
+    fillerPenalty:   10.0,  // penalty for "filler" champion — one whose removal wouldn't drop any active breakpoint
   } as const,
 
   // Multiplier per breakpoint level (0-indexed)

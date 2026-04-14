@@ -265,6 +265,78 @@ return 1.0;
   return 0.6 + (bestAvg - 1.0) * 0.16;
 }
 
+// ── Filler penalty ──────────────────────────────
+
+/**
+ * Count "filler" champions — units whose removal wouldn't drop any
+ * currently active trait breakpoint. Random boosters that ride along
+ * on already-satisfied traits without carrying their own weight.
+ *
+ * A champion is critical (non-filler) if at least one of its traits is
+ * active in the team AND removing this champion would drop that trait
+ * to a lower breakpoint index. Uses breakpoint index (not just
+ * activation) so overflow past a breakpoint counts as filler — e.g.
+ * a 6th unit on a 5-unit active breakpoint contributes nothing.
+ *
+ * The 8-champion-team loop is O(8 * avgTraits * bpLookup) — negligible
+ * vs the rest of the scorer.
+ */
+export function fillerCount(champions: any, activeTraitsByApi: Record<string, any>) {
+  const traitCounts: Record<string, number> = {};
+
+  for (const c of champions) {
+    for (const t of c.traits) {
+      traitCounts[t] = (traitCounts[t] || 0) + 1;
+    }
+  }
+
+  const activeBpIdx = (trait: any, count: number) => {
+    const bps = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
+
+    for (let i = bps.length - 1; i >= 0; i--) {
+      if (count >= bps[i].minUnits) {
+        return i;
+      }
+    }
+
+    return -1;
+  };
+
+  let filler = 0;
+
+  for (const c of champions) {
+    let critical = false;
+
+    for (const t of c.traits) {
+      const trait = activeTraitsByApi[t];
+
+      if (!trait) {
+        continue;
+      }
+
+      const count = traitCounts[t];
+      const curIdx = activeBpIdx(trait, count);
+
+      if (curIdx < 0) {
+        continue;
+      }
+
+      const withoutIdx = activeBpIdx(trait, count - 1);
+
+      if (withoutIdx < curIdx) {
+        critical = true;
+        break;
+      }
+    }
+
+    if (!critical) {
+      filler++;
+    }
+  }
+
+  return filler;
+}
+
 // ── Companion bonus ─────────────────────────────
 
 export function companionBonus(team: any, ctx: any) {
@@ -394,6 +466,10 @@ return false;
   // Role balance penalty — penalize unrealistic compositions
   score -= roleBalancePenalty(team.champions);
 
+  // Filler penalty — champions riding on already-satisfied breakpoints
+  const activeTraitsByApi = Object.fromEntries(team.activeTraits.map((t: any) => [t.apiName, t]));
+  score -= fillerCount(team.champions, activeTraitsByApi) * weights.fillerPenalty;
+
   return score;
 }
 
@@ -473,7 +549,10 @@ continue;
 
   breakdown.balance = -roleBalancePenalty(team.champions);
 
-  breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance;
+  const activeTraitsByApi = Object.fromEntries(team.activeTraits.map((t: any) => [t.apiName, t]));
+  breakdown.filler = -fillerCount(team.champions, activeTraitsByApi) * weights.fillerPenalty;
+
+  breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance + breakdown.filler;
 
   for (const k of Object.keys(breakdown)) {
 breakdown[k] = Math.round(breakdown[k] * 10) / 10;
