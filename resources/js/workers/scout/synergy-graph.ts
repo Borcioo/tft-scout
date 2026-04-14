@@ -595,6 +595,59 @@ conflicts.forEach(c => excludedSet.add(c));
   return team;
 }
 
+// ── Locked-trait seeded phase ──────────────────────
+//
+// Activates only when the user requested trait locks. Produces seed
+// combinations that actually satisfy every lock and feeds them to
+// buildOneTeam so the lock constraint drives generation instead of
+// being left to the post-filter. Runs first in the pipeline (see
+// findTeams below) so lock-satisfying teams populate the result map
+// before other phases consume their shared early-exit budget.
+
+/**
+ * Collect candidate champions for every locked trait. Returns a map
+ * keyed by trait apiName or null when any lock is impossible given
+ * the current pool (caller should bail without running any attempts).
+ *
+ * Hero variants and user-excluded champions are filtered out; the
+ * allowed-set gate (level-based shop odds) is respected too.
+ */
+function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
+  const pool = new Map();
+
+  for (const lock of lockedTraits) {
+    const candidates = [];
+
+    for (const [api, node] of Object.entries(graph.nodes)) {
+      if (!node || node.variant === 'hero') {
+        continue;
+      }
+
+      if (excludedSet.has(api)) {
+        continue;
+      }
+
+      if (allowedSet && !allowedSet.has(api)) {
+        continue;
+      }
+
+      if (!node.traits || !node.traits.includes(lock.apiName)) {
+        continue;
+      }
+
+      candidates.push(api);
+    }
+
+    if (candidates.length < lock.minUnits) {
+      return null;
+    }
+
+    pool.set(lock.apiName, candidates);
+  }
+
+  return pool;
+}
+
 // ── Exploration phases ─────────────────────────────
 // Each phase receives phaseCtx and adds results via addResult.
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
