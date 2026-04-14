@@ -97,6 +97,7 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
         level,
         topN,
         seed,
+        stale: ctx.stale,
     });
 
     const insights = generateInsights({

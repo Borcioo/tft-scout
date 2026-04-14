@@ -19,6 +19,7 @@ import { buildGraph, findTeams } from './synergy-graph';
 import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
 import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { buildActiveTraits } from './active-traits';
+import { buildTeamInsights } from './team-insights';
 
 /**
  * Generate team compositions.
@@ -36,6 +37,7 @@ export function generate(input) {
     level = 8,
     topN = 10,
     seed = 0,
+    stale = false,
   } = input;
 
   // Filter candidates using exclusion groups
@@ -122,6 +124,23 @@ export function generate(input) {
         }
       }
     }
+  }
+
+  // Compute batch median so the `noMetaMatch` concern rule can
+  // decide which teams look experimental (below median) vs just
+  // variants of a meta build.
+  const scoresAsc = validComps.map(t => t.score).sort((a, b) => a - b);
+  const batchMedianScore = scoresAsc.length === 0
+    ? 0
+    : scoresAsc[Math.floor(scoresAsc.length / 2)];
+
+  // stale lives on ScoutContext, not ScoringContext — fold it in
+  // so the staleData concern rule can read it through the same
+  // object as the rest of the scoring data.
+  const ctxForInsights = { ...scoringCtx, stale };
+
+  for (const team of validComps) {
+    team.insights = buildTeamInsights(team, ctxForInsights, batchMedianScore);
   }
 
   // Sort by final score and return top N
