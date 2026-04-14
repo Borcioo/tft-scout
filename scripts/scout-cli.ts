@@ -66,6 +66,12 @@ async function main() {
         return;
     }
 
+    if (command === 'phase') {
+        const { runPhase } = await import('./scout-cli/commands/phase');
+        await runPhase(rest);
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
