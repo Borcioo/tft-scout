@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Hand, Shield, Swords } from 'lucide-react';
 import type { ScoredTeam } from '@/workers/scout/types';
 
 import { WhyThisComp } from './WhyThisComp';
@@ -76,6 +77,25 @@ export function ScoutCompCard({ team }: Props) {
                     </span>
                 </span>
             </div>
+
+            {team.roles && (
+                <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                    <span className="flex items-center gap-1 text-blue-400">
+                        <Shield className="size-3.5" />
+                        {team.roles.frontline}
+                    </span>
+                    <span className="flex items-center gap-1 text-red-400">
+                        <Swords className="size-3.5" />
+                        {team.roles.dps}
+                    </span>
+                    {team.roles.fighter > 0 && (
+                        <span className="flex items-center gap-1 text-yellow-400">
+                            <Hand className="size-3.5" />
+                            {team.roles.fighter}
+                        </span>
+                    )}
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-1.5">
                 {[...team.champions]
