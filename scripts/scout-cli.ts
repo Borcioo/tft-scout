@@ -18,6 +18,13 @@ Commands:
   context --trait N     Print one trait record from the saved snapshot
   generate [flags]      Run engine.generate end-to-end
   phase <name> [flags]  Run a single phase (candidates|graph|find-teams|score|active-traits|role-balance|insights)
+  experiment [flags]    Bulk runner — --preset <name> | --matrix '<json>' | --repeat N --seed-range A-B
+  lab init              Create tmp/scout-lab/runs.db and apply schema
+  lab doctor            Print DB health, row counts, and SHA-drift warning
+  lab stats [name]      Run a named aggregate query (default scope: last 500 runs)
+  lab query '<sql>'     Run a read-only SQL query against the lab DB
+  lab prune [flags]     Delete runs by --tag, --experiment, --sha, --older-than, or --all --yes
+  lab reset --yes       Wipe the DB and re-initialise the schema
 
 Common flags:
   --level N             Player level (default 8)
@@ -33,9 +40,15 @@ Common flags:
   --team A,B,C          Required by per-team phase commands
   --params file.json    Full ScoutParams JSON (file overrides individual flags)
   --raw-input file.json Per-phase escape hatch (skip auto-build)
+  --record <tag>        Capture this run into tmp/scout-lab/runs.db (requires SCOUT_LAB_ENABLED=1)
   --full                Disable smart summary
   --live                Skip snapshot, fetch /api/scout/context fresh
   --snapshot path.json  Override snapshot path (default tmp/scout-context.json)
+
+Env vars:
+  SCOUT_LAB_ENABLED=1           Enables --record, experiment, and lab ... commands
+  SCOUT_API_BASE=<url>          Override default http://localhost for --live / snapshot
+  NODE_TLS_REJECT_UNAUTHORIZED  Set to 0 when hitting Herd's self-signed cert
 `;
 
 async function main() {
