@@ -157,7 +157,6 @@ function ChampIcon({ api }: { api: string }) {
             src={`/icons/champions/${api}.png`}
             alt=""
             className="inline-block size-4 align-middle"
-            loading="lazy"
         />
     );
 }
@@ -168,7 +167,6 @@ function TraitIcon({ api }: { api: string }) {
             src={`/icons/traits/${api}.png`}
             alt=""
             className="inline-block size-4 align-middle"
-            loading="lazy"
         />
     );
 }
