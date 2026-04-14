@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
 
+import { WhyThisComp } from './WhyThisComp';
+
 const COST_BORDER: Record<number, string> = {
     1: 'border-zinc-500',
     2: 'border-green-500',
@@ -79,6 +81,8 @@ export function ScoutCompCard({ team }: Props) {
                     );
                 })}
             </div>
+
+            <WhyThisComp insights={team.insights} />
         </Card>
     );
 }
