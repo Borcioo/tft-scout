@@ -359,6 +359,217 @@ No automated unit tests for the profiler itself — it is
 observational instrumentation, and the integration checks above
 cover its correctness implicitly.
 
+## Phase B — Concrete fix list
+
+Filled in after Phase A discovery. The two reports
+(`docs/superpowers/research/scout-perf-2026-04-14.md` and
+`scout-code-audit-2026-04-14.md`) identified two dominant hot spots
+and four secondary cleanup opportunities. This section ranks the
+fixes by impact × risk × effort and sequences them for Phase C.
+
+### Headline data recap
+
+| scenario | measured | target B (topN) | gap |
+| --- | ---: | ---: | ---: |
+| No-lock lvl 8 topN=10 | 2 767 ms | 1 500 ms | +1 267 |
+| Tight lock ShieldTank:6 lvl 10 topN=30 | 17 677 ms | 2 000 ms | **+15 677** |
+| Loose lock+emblem lvl 10 topN=30 | 17 865 ms | 2 500 ms | **+15 365** |
+
+| span | total ms (3 scenarios) | notes |
+| --- | ---: | --- |
+| `synergy.phase.companionSeeded` | **23 971** | >65% of locked runtime |
+| `synergy.phase.temperatureSweep` | **12 037** | second biggest |
+| `synergy.phase.traitSeeded` + `deepVertical` | 1 487 | order of magnitude smaller |
+| `engine.enrichLoop` (+ sub-spans) | <100 | NOT a bottleneck — full scorer is fine |
+| `engine.buildGraph` | 9 ms total | trivial |
+
+### Fix 1 — `phaseCompanionSeeded` redesign (PRIMARY, biggest win)
+
+The current phase iterates every champion in `companionData` (~64
+entries) and for each qualifying companion (~20 per champion, filtered
+by `companionMaxAvg` and `companionMinGames`) calls `buildOneTeam` with
+seeds `[...startChamps, comp.companion]`. That's up to ~1 280
+`buildOneTeam` calls per generate, with no inner cap and an outer
+early-exit at `results.size >= maxResults * 4` (= 1 440 on locked runs)
+that essentially never fires. The phase also ignores
+`context.lockedTraits`, so on locked runs it spends its entire budget
+generating teams that the engine-side filter will mostly throw away.
+
+**The core observation (user's intuition)**: MetaTFT already gave us
+empirical pairwise `avgPlace` numbers. We are currently using those
+numbers only to SEED extra work — one `buildOneTeam` per companion
+hit — instead of using them to RANK pre-built candidates or to steer
+the team builder directly.
+
+**Four candidate redesigns:**
+
+- **A — Dedup + global top-K seeds** (cheapest change)
+  Aggregate a single flat list of all `(a, b, avgPlace)` pair records
+  across every champion's companion list, dedupe by sorted `{a, b}`
+  key, sort ascending by `avgPlace`, take the top 40, and call
+  `buildOneTeam` once per surviving pair with seeds
+  `[...startChamps, a, b]`. Attempt count drops from ~1 280 to 40 —
+  expected **~25-30× reduction** in phase wall time. Uses the richer
+  pair seed (2 champs, not 1) so each seed is empirically proven
+  rather than "random companion of random champion".
+
+  **Impact**: very high (removes the primary hot spot). **Risk**: low
+  — shape of seeds change but `buildOneTeam` handles multi-seed
+  already, and we're adding deterministic ordering that only helps
+  reproducibility. **Effort**: ~45 min.
+
+- **B — Greedy companion-driven team builder** (most ambitious)
+  Skip `buildOneTeam` entirely for this phase. Build one (or a few)
+  teams by greedy pairwise average: start with the strongest
+  `startChamps` core, then repeatedly add the champion that most
+  improves the team's average pairwise `avgPlace`, until `teamSize`.
+  Zero `buildOneTeam` calls from this phase — compute is
+  `O(teamSize × |candidates|)` lookups.
+
+  **Impact**: very high (could drop phase to sub-50 ms). **Risk**:
+  medium-high — it's a whole new team builder. Greedy is local-optimal
+  and may produce a monotonous comp. **Effort**: ~3 h. Interacts with
+  `context.allowedSet`, emblem handling, exclusion groups; easy to
+  get wrong.
+
+- **C — Bake companions into the graph edges** (architectural)
+  At `buildGraph` time, add a companion-bonus weight to edges between
+  champs where MetaTFT has a strong pairing. The existing generic
+  phases (`temperatureSweep`, `traitSeeded`, `pairSynergy`) that
+  already walk the graph naturally prefer those edges. Delete
+  `phaseCompanionSeeded` entirely.
+
+  **Impact**: high — removes the phase + lets other phases amortise
+  their graph traversal cost. **Risk**: medium — changes the graph's
+  semantics and will shift non-lock scoring output (different teams
+  may win rank-1). **Effort**: ~4 h plus regression validation.
+
+- **D — Skip phase when locked traits are present** (trivial, partial)
+  Wrap the phase body in `if (context.lockedTraits.length > 0) return;`.
+  `phaseLockedTraitSeeded` already uses companion data via its
+  `companion-pair` strategy, so the generic phase is redundant on
+  locked runs. Non-lock runs still pay the full cost.
+
+  **Impact**: big win for locked runs only (eliminates the ~12 s span
+  on those scenarios). **Risk**: tiny. **Effort**: ~5 min.
+
+**Recommendation**: **A + D combined**. D alone handles locked runs
+(the worst-case scenarios) in literally two lines; A replaces the
+non-lock phase with a dedupe-then-top-40 version that's ~30× faster
+and reuses MetaTFT data more meaningfully. Together they cover both
+the 17 s locked case AND the 2.8 s non-lock case, with combined risk
+still in the "low" column and combined effort ~50 min. B is tempting
+but too big for this sprint — bucket it as a Phase E candidate if
+A+D miss the target. C is an architectural fork we should evaluate
+only if A+D aren't enough.
+
+**Expected gain**: locked runs drop from ~17 s → ~5 s (remove ~12 s
+companionSeeded via D), non-lock from ~2.8 s → ~2.5 s (trim
+~300 ms via A). We still need Fix 2 to close the rest of the locked
+gap.
+
+### Fix 2 — `phaseTemperatureSweep` attempt budget cut
+
+Current: `const attempts = Math.max(maxResults * 3, 60);` — that's
+1 080 iterations per locked run (`maxResults = 360`). Each iteration
+runs one `buildOneTeam`. Early exit at `results.size >= maxResults * 2`
+rarely fires because this phase runs right after
+`phaseLockedTraitSeeded` populates only 15-50 entries; 720 before
+the cap triggers.
+
+**Two candidate fixes:**
+
+- **A — Reduce multiplier + skip when locked**
+  Drop `maxResults * 3` to `maxResults * 1` (= 360 attempts on locked,
+  still plenty for diversity) AND return early when
+  `context.lockedTraits.length > 0` — `phaseLockedTraitSeeded` already
+  seeds the lock-satisfying space. Non-lock runs get 3× fewer
+  iterations.
+
+  **Impact**: locked runs save ~5 s (phase goes to zero), non-lock
+  saves ~900 ms. **Risk**: low on locked (phase was dumping most of
+  its work anyway), low-medium on non-lock (could slightly narrow
+  top-K diversity). **Effort**: ~10 min.
+
+- **B — Dynamic budget based on result growth rate**
+  Track how many unique teams arrived per attempt in a rolling window;
+  bail when the growth rate drops below a threshold. Self-tuning.
+
+  **Impact**: similar to A but data-driven. **Risk**: medium — more
+  logic, harder to test. **Effort**: ~1 h.
+
+**Recommendation**: **A**. Simple, cheap, immediate, easy to tune if
+the numbers drift. **Expected gain**: locked runs drop by ~5 s,
+non-lock by ~900 ms.
+
+### Fix 3 — Extract `findActiveBreakpointIdx` helper
+
+The audit flagged three near-identical copies of a breakpoint-walk
+loop in `scorer.ts` (lines ~240, ~420, ~522) plus a fourth variation
+in the champion-score block (line ~120). Not a perf win — just a
+cleanup to prevent future drift. Do this alongside Fix 1/2 if the
+implementer is already in `scorer.ts`.
+
+**Impact**: near-zero (scorer is already fast). **Risk**: tiny.
+**Effort**: ~20 min. Ship if convenient, defer otherwise.
+
+### Fix 4 — Extract `collectAffinityMatches` shared helper
+
+`scorer.ts::affinityBonus` and `synergy-graph.ts::quickScore`'s
+affinity branch are near-identical. Not a perf win, but both will
+need the same fix next time we tune affinity weights.
+
+**Impact**: near-zero. **Risk**: low-medium — any drift in the two
+copies is now a bug. **Effort**: ~30 min. Defer unless Fix 1 touches
+one of them.
+
+### Fix 5 — `engine.ts::generate` constraint mutation cleanup
+
+The emblem normalisation block at lines 57-75 mutates the caller's
+`constraints.emblems`. Not a bug today (no caller memoises), but
+surprising side-effect. Replace with a local `normalisedEmblems`
+variable and thread it downstream. Audit item #7.
+
+**Impact**: none today, prevents a future footgun. **Risk**: tiny.
+**Effort**: ~15 min.
+
+### Fix 6 — Phase files split (optional)
+
+The audit recommends splitting `synergy-graph.ts` (1 677 lines, 10
+phases inline) into a `synergy-graph/` directory. This is pure
+maintainability — no runtime impact. Recommend deferring to the
+VERY end of Phase C as its own commit, after every perf fix has
+landed and been measured. If time pressure at that point, skip to
+a future cleanup sprint. Memory note: `correctness_first` — defer
+cleanup that isn't strictly required to hit the target.
+
+### Priority ordering for Phase C
+
+1. **Fix 1 A+D** (companionSeeded dedupe top-K + skip-on-locked)
+2. **Fix 2 A** (temperatureSweep multiplier + skip-on-locked)
+3. Re-run `scout-cli profile`, compare to baseline
+4. **Fix 5** (constraint mutation cleanup — safe, trivial)
+5. Evaluate: did we hit target B? If yes, stop. If no, consider Fix 3 + Fix 4 + a second pass at the profile
+6. **Fix 6** (phase split) only if target hit AND time remains
+
+Each fix lands in its own commit, with the profile re-run before
+commit so the span numbers in the commit message show the delta.
+
+### Estimated post-fix wall times
+
+Targets vs expected actuals after Fix 1 + Fix 2:
+
+| scenario | current | after Fix 1+2 (est) | target B |
+| --- | ---: | ---: | ---: |
+| No-lock lvl 8 topN=10 | 2 767 ms | ~1 500 ms | 1 500 ms |
+| Tight lock lvl 10 topN=30 | 17 677 ms | ~2 000 ms | 2 000 ms |
+| Loose lock+emblem lvl 10 topN=30 | 17 865 ms | ~2 500 ms | 2 500 ms |
+
+If the estimates hold, we hit target B exactly on all three scenarios
+with just Fix 1 + Fix 2 + a re-measurement. Stretch targets
+(400-600 ms rank-1) would require Fix 1B (greedy builder) or Fix 1C
+(graph edge baking), which are deferred.
+
 ## Out of scope / follow-ups
 
 - Web Workers pool (Phase E, separate spec if needed)
