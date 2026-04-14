@@ -18,7 +18,6 @@
 
 import { buildActiveTraits } from './active-traits';
 import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
-import { inferHeroTraitLock } from './hero-activation';
 import { buildHeroExclusionGroup } from './hero-exclusion';
 import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { buildGraph, findTeams } from './synergy-graph';
@@ -56,7 +55,38 @@ export function generate(input) {
 
   // Filter candidates using exclusion groups
   const candidates = filterCandidates(champions, constraints, effectiveExclusionGroups);
-  const locked = getLockedChampions(champions, constraints.lockedChampions || []);
+  const rawLocked = getLockedChampions(champions, constraints.lockedChampions || []);
+
+  // Hero variant → base swap. When the user locks a hero variant,
+  // run the whole pipeline on its base champion instead. In TFT17
+  // every hero has identical traits, cost and slot count as its base
+  // — the only real difference is ability power — so graph edges,
+  // affinity lookups (already via baseApiName), companion bonuses and
+  // scorer weights all behave identically. Swap back after generation
+  // so the user sees the hero variant they asked for in the final
+  // comp. This avoids having to force-activate the hero's signature
+  // trait (heroes are strong when built properly but still need a
+  // sensible team composition — forcing tight trait breakpoints like
+  // Stargazer@7 starves the team-builder); instead we let the normal
+  // flow produce a good comp and simply mark which unit in it is the
+  // hero variant.
+  const championByApi = Object.fromEntries(champions.map(c => [c.apiName, c]));
+  const heroSwapBackByBaseApi = new Map();
+  const locked = rawLocked.map(c => {
+    if (c.variant !== 'hero' || !c.baseApiName) {
+      return c;
+    }
+
+    const base = championByApi[c.baseApiName];
+
+    if (!base) {
+      return c;
+    }
+
+    heroSwapBackByBaseApi.set(base.apiName, c);
+
+    return base;
+  });
 
   // Calculate team size from level, accounting for locked enhanced champions
   const baseTeamSize = level;
@@ -81,47 +111,6 @@ extraSlots += c.slotsUsed - 1;
   const traitLocks = (constraints.lockedTraits || []).map(t =>
     typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
   );
-
-  // Auto-inject hero activation trait locks. When the user locks a
-  // hero variant, the intent is "build a comp that actually triggers
-  // this hero's ability". Generic generate otherwise treats the hero
-  // like any other champion and often picks a team where the hero's
-  // signature trait is barely active (e.g. DRX:2 instead of DRX:5 for
-  // Aatrox_hero). We add an implicit trait lock for the rarest of the
-  // hero's traits — empirically that tracks the "origin" trait hero
-  // variants are gated on. If the user already locked any of the
-  // hero's traits explicitly, we leave traitLocks alone.
-  //
-  // The auto-injected locks are tracked in `autoHeroLockedTraits` so
-  // that when the team-builder fails to find any comp satisfying them
-  // (some heroes gate on very tight trait requirements the phases
-  // can't reliably reach), we can fall back to filtering without
-  // them and still return a usable locked-hero comp.
-  const traitLocksByApi = new Set(traitLocks.map(t => t.apiName));
-  const traitsByApi = Object.fromEntries(traits.map(t => [t.apiName, t]));
-  const autoHeroLockedTraits = new Set();
-
-  for (const lockedChamp of locked) {
-    if (lockedChamp.variant !== 'hero') {
-      continue;
-    }
-
-    const alreadyLocked = lockedChamp.traits.some(t => traitLocksByApi.has(t));
-
-    if (alreadyLocked) {
-      continue;
-    }
-
-    const heroLock = inferHeroTraitLock(
-      lockedChamp, champions, traitsByApi, effectiveTeamSize,
-    );
-
-    if (heroLock) {
-      traitLocks.push(heroLock);
-      traitLocksByApi.add(heroLock.apiName);
-      autoHeroLockedTraits.add(heroLock.apiName);
-    }
-  }
 
   // Find teams — request extra so diversify has enough candidates.
   // When trait locks are active, widen the search even more because
@@ -192,12 +181,12 @@ totalSlots += c.slotsUsed || 1;
   const minFrontline = constraints.minFrontline ?? 0;
   const minDps = constraints.minDps ?? 0;
   const applyRoleFilter = minFrontline > 0 || minDps > 0;
-  const filterComps = (effectiveLocks) => enriched.filter(r => {
+  const validComps = enriched.filter(r => {
     if (r.slotsUsed > maxSlots) {
       return false;
     }
 
-    for (const lock of effectiveLocks) {
+    for (const lock of traitLocks) {
       const active = r.activeTraits.find(t => t.apiName === lock.apiName);
 
       if (!active || active.count < lock.minUnits) {
@@ -224,20 +213,6 @@ totalSlots += c.slotsUsed || 1;
 
     return true;
   });
-
-  let validComps = filterComps(traitLocks);
-
-  // Fallback: if the auto-injected hero activation lock starved the
-  // filter (team-builder phases can't always reach tight trait
-  // breakpoints even when they're theoretically achievable), retry
-  // with only the user-explicit locks so the user still gets a
-  // comp containing the locked hero, even if the hero's signature
-  // trait isn't fully activated.
-  if (validComps.length === 0 && autoHeroLockedTraits.size > 0) {
-    const userLocks = traitLocks.filter(t => !autoHeroLockedTraits.has(t.apiName));
-
-    validComps = filterComps(userLocks);
-  }
 
   // Meta-comp match detection — annotate results that match known meta comps
   const metaComps = scoringCtx.metaComps || [];
@@ -284,5 +259,17 @@ totalSlots += c.slotsUsed || 1;
   // Sort by final score and return top N
   validComps.sort((a, b) => b.score - a.score);
 
-  return validComps.slice(0, topN);
+  const finalComps = validComps.slice(0, topN);
+
+  // Swap base champions back to their hero variants for any hero
+  // the caller locked. Traits, cost and slotsUsed are identical so
+  // the rest of the scoring stays correct, and the consumer sees
+  // the hero variant they asked for.
+  if (heroSwapBackByBaseApi.size > 0) {
+    for (const comp of finalComps) {
+      comp.champions = comp.champions.map(c => heroSwapBackByBaseApi.get(c.apiName) ?? c);
+    }
+  }
+
+  return finalComps;
 }
