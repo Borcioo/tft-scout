@@ -18,6 +18,7 @@
 
 import { buildActiveTraits } from './active-traits';
 import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
+import { inferHeroTraitLock } from './hero-activation';
 import { buildHeroExclusionGroup } from './hero-exclusion';
 import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { buildGraph, findTeams } from './synergy-graph';
@@ -80,6 +81,47 @@ extraSlots += c.slotsUsed - 1;
   const traitLocks = (constraints.lockedTraits || []).map(t =>
     typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
   );
+
+  // Auto-inject hero activation trait locks. When the user locks a
+  // hero variant, the intent is "build a comp that actually triggers
+  // this hero's ability". Generic generate otherwise treats the hero
+  // like any other champion and often picks a team where the hero's
+  // signature trait is barely active (e.g. DRX:2 instead of DRX:5 for
+  // Aatrox_hero). We add an implicit trait lock for the rarest of the
+  // hero's traits — empirically that tracks the "origin" trait hero
+  // variants are gated on. If the user already locked any of the
+  // hero's traits explicitly, we leave traitLocks alone.
+  //
+  // The auto-injected locks are tracked in `autoHeroLockedTraits` so
+  // that when the team-builder fails to find any comp satisfying them
+  // (some heroes gate on very tight trait requirements the phases
+  // can't reliably reach), we can fall back to filtering without
+  // them and still return a usable locked-hero comp.
+  const traitLocksByApi = new Set(traitLocks.map(t => t.apiName));
+  const traitsByApi = Object.fromEntries(traits.map(t => [t.apiName, t]));
+  const autoHeroLockedTraits = new Set();
+
+  for (const lockedChamp of locked) {
+    if (lockedChamp.variant !== 'hero') {
+      continue;
+    }
+
+    const alreadyLocked = lockedChamp.traits.some(t => traitLocksByApi.has(t));
+
+    if (alreadyLocked) {
+      continue;
+    }
+
+    const heroLock = inferHeroTraitLock(
+      lockedChamp, champions, traitsByApi, effectiveTeamSize,
+    );
+
+    if (heroLock) {
+      traitLocks.push(heroLock);
+      traitLocksByApi.add(heroLock.apiName);
+      autoHeroLockedTraits.add(heroLock.apiName);
+    }
+  }
 
   // Find teams — request extra so diversify has enough candidates.
   // When trait locks are active, widen the search even more because
@@ -150,38 +192,52 @@ totalSlots += c.slotsUsed || 1;
   const minFrontline = constraints.minFrontline ?? 0;
   const minDps = constraints.minDps ?? 0;
   const applyRoleFilter = minFrontline > 0 || minDps > 0;
-  const validComps = enriched.filter(r => {
+  const filterComps = (effectiveLocks) => enriched.filter(r => {
     if (r.slotsUsed > maxSlots) {
-return false;
-}
+      return false;
+    }
 
-    for (const lock of traitLocks) {
+    for (const lock of effectiveLocks) {
       const active = r.activeTraits.find(t => t.apiName === lock.apiName);
 
       if (!active || active.count < lock.minUnits) {
-return false;
-}
+        return false;
+      }
     }
 
     if (applyRoleFilter) {
       if (!r.roles) {
-return false;
-}
+        return false;
+      }
 
       const fl = r.roles.frontline + 0.5 * r.roles.fighter;
       const dps = r.roles.dps + 0.5 * r.roles.fighter;
 
       if (fl < minFrontline) {
-return false;
-}
+        return false;
+      }
 
       if (dps < minDps) {
-return false;
-}
+        return false;
+      }
     }
 
     return true;
   });
+
+  let validComps = filterComps(traitLocks);
+
+  // Fallback: if the auto-injected hero activation lock starved the
+  // filter (team-builder phases can't always reach tight trait
+  // breakpoints even when they're theoretically achievable), retry
+  // with only the user-explicit locks so the user still gets a
+  // comp containing the locked hero, even if the hero's signature
+  // trait isn't fully activated.
+  if (validComps.length === 0 && autoHeroLockedTraits.size > 0) {
+    const userLocks = traitLocks.filter(t => !autoHeroLockedTraits.has(t.apiName));
+
+    validComps = filterComps(userLocks);
+  }
 
   // Meta-comp match detection — annotate results that match known meta comps
   const metaComps = scoringCtx.metaComps || [];
