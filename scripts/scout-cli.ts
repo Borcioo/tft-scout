@@ -104,6 +104,13 @@ async function main() {
         return;
     }
 
+    if (command === 'profile') {
+        const { runProfile } = await import('./scout-cli/commands/profile');
+        await runProfile(rest);
+
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
