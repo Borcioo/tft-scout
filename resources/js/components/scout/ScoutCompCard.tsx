@@ -78,7 +78,9 @@ export function ScoutCompCard({ team }: Props) {
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-                {team.champions.map((c) => (
+                {[...team.champions]
+                    .sort((a, b) => a.cost - b.cost)
+                    .map((c) => (
                     <div
                         key={c.apiName}
                         className={cn(
@@ -98,7 +100,14 @@ export function ScoutCompCard({ team }: Props) {
             </div>
 
             <div className="flex flex-wrap gap-1">
-                {team.activeTraits.map((t) => {
+                {[...team.activeTraits]
+                    .sort((a, b) => {
+                        const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
+                        const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
+                        if (sb !== sa) return sb - sa;
+                        return b.count - a.count;
+                    })
+                    .map((t) => {
                     const style = t.style ?? 'Bronze';
                     return (
                         <Badge
