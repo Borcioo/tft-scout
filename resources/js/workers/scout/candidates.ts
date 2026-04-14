@@ -12,7 +12,8 @@
  * @param {string[]} constraints.excludedChampions - apiNames to exclude
  * @param {Array<string|{apiName:string, minCount:number}>} constraints.lockedTraits
  * @param {string[]} constraints.emblems - trait apiNames from emblems
- * @param {object[]} exclusionGroups - [{groupName, championApiName}]
+ * @param {string[][]} exclusionGroups - list of groups, each a list of
+ *        mutually-exclusive champion apiNames (per base_champion_id)
  */
 /**
  * Build exclusion lookup: apiName → Set of apiNames that can't share a team.
