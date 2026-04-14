@@ -129,11 +129,21 @@ export function generate(input) {
   // every active trait in the locked list must hit at least its
   // requested minUnits count.
   const maxSlots = level;
+  const minFrontline = constraints.minFrontline ?? 0;
+  const minDps = constraints.minDps ?? 0;
+  const applyRoleFilter = minFrontline > 0 || minDps > 0;
   const validComps = enriched.filter(r => {
     if (r.slotsUsed > maxSlots) return false;
     for (const lock of traitLocks) {
       const active = r.activeTraits.find(t => t.apiName === lock.apiName);
       if (!active || active.count < lock.minUnits) return false;
+    }
+    if (applyRoleFilter) {
+      if (!r.roles) return false;
+      const fl = r.roles.frontline + 0.5 * r.roles.fighter;
+      const dps = r.roles.dps + 0.5 * r.roles.fighter;
+      if (fl < minFrontline) return false;
+      if (dps < minDps) return false;
     }
     return true;
   });
