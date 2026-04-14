@@ -86,19 +86,21 @@ extraSlots += c.slotsUsed - 1;
   // the post-generation filter below drops teams that miss the
   // requirement, and the raw pool needs to be big enough to survive.
   //
-  // Search budget is floored at MIN_SEARCH_BUDGET so the raw pool is
-  // independent of the caller's topN. Phase cutoffs inside findTeams
-  // scale off maxResults (`results.size >= maxResults * N`), so with
-  // a small topN those early exits used to fire before strong comps
-  // had a chance to surface. Keeping a fixed floor means the rank-1
-  // team is deterministic for a given seed regardless of topN.
-  const MIN_SEARCH_BUDGET = 100;
+  // Search budget is CONSTANT — it does not scale with topN. Phase
+  // cutoffs inside findTeams early-exit on `results.size >= maxResults * N`,
+  // so if the budget tracked topN, a small topN would cut phases
+  // short and miss strong comps (rank-1 would then shift as topN
+  // changes for the same seed — not what callers expect). Keeping
+  // the budget constant means rank-k is deterministic for a given
+  // seed regardless of topN, and runtime is predictable. topN only
+  // slices the final sorted list.
+  const SEARCH_BUDGET = 40;
   const searchMultiplier = (constraints.max5Cost != null ? 5 : 3)
     * (traitLocks.length > 0 ? 3 : 1);
   const rawTeams = findTeams(graph, {
     teamSize: effectiveTeamSize,
     startChamps: locked.map(c => c.apiName),
-    maxResults: Math.max(topN, MIN_SEARCH_BUDGET) * searchMultiplier,
+    maxResults: SEARCH_BUDGET * searchMultiplier,
     level,
     emblems: constraints.emblems || [],
     excludedTraits: constraints.excludedTraits || [],
