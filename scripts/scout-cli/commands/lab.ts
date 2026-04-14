@@ -16,6 +16,10 @@ export async function runLab(argv: string[]): Promise<void> {
             const { runLabStats } = await import('./lab/stats');
             return runLabStats(rest);
         }
+        case 'query': {
+            const { runLabQuery } = await import('./lab/query');
+            return runLabQuery(rest);
+        }
         default:
             throw new Error(`Unknown lab subcommand: ${sub}`);
     }
