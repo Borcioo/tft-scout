@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
     Accordion,
     AccordionContent,
@@ -70,7 +71,7 @@ export function WhyThisComp({ insights }: Props) {
     );
 }
 
-function renderInsight(item: InsightItem): React.ReactNode {
+function renderInsight(item: InsightItem): ReactNode {
     switch (item.kind) {
         case 'metaMatch':
             return (
