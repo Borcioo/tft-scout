@@ -11,6 +11,7 @@
  */
 
 import { SCORING_CONFIG, MIN_LEVEL_BY_COST } from './config';
+import { startSpan } from './scout-profiler';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
 
@@ -49,6 +50,9 @@ traitCounts[trait] = (traitCounts[trait] || 0) + usable;
  * @param {object} scoringCtx - { unitRatings, traitRatings, styleScores, affinity }
  */
 export function buildGraph(champions, traits, scoringCtx = {}, exclusionLookup = {}) {
+  const _end = startSpan('synergy.buildGraph');
+
+  try {
   const nodes = {};
 
   for (const c of champions) {
@@ -148,7 +152,10 @@ continue;
     }
   }
 
-  return { nodes, traitMap, adjacency, traitBreakpoints, traitStyles, scoringCtx, exclusionLookup };
+    return { nodes, traitMap, adjacency, traitBreakpoints, traitStyles, scoringCtx, exclusionLookup };
+  } finally {
+    _end();
+  }
 }
 
 // ── Quick synergy scoring (for graph traversal) ─
@@ -1470,6 +1477,9 @@ allowed.add(api);
  * @returns {Array<{champions: object[], score: number}>}
  */
 export function findTeams(graph, options = {}) {
+  const _end = startSpan('synergy.findTeams');
+
+  try {
   const {
     teamSize = 8, startChamps = [], maxResults = 20,
     level = null, emblems = [], excludedTraits = [], excludedChampions = [],
@@ -1575,19 +1585,61 @@ return;
   // the result map with generic high-quickScore comps. We snapshot
   // them here and splice them back in after diversify so the engine
   // post-filter still has something to keep.
-  phaseLockedTraitSeeded(phaseCtx);
+  {
+    const _e = startSpan('synergy.phase.lockedTraitSeeded');
+    phaseLockedTraitSeeded(phaseCtx);
+    _e();
+  }
   const lockedTraitSeedKeys = new Set(results.keys());
-  phaseTemperatureSweep(phaseCtx);
-  phaseTraitSeeded(phaseCtx);
-  phaseDeepVertical(phaseCtx);
-  phasePairSynergy(phaseCtx);
-  phaseCompanionSeeded(phaseCtx);
-  phaseMetaCompSeeded(phaseCtx);
-  phaseFiveCostHeavy(phaseCtx);
-  phaseCrossover(phaseCtx);
-  phaseHillClimb(phaseCtx);
+  {
+    const _e = startSpan('synergy.phase.temperatureSweep');
+    phaseTemperatureSweep(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.traitSeeded');
+    phaseTraitSeeded(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.deepVertical');
+    phaseDeepVertical(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.pairSynergy');
+    phasePairSynergy(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.companionSeeded');
+    phaseCompanionSeeded(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.metaCompSeeded');
+    phaseMetaCompSeeded(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.fiveCostHeavy');
+    phaseFiveCostHeavy(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.crossover');
+    phaseCrossover(phaseCtx);
+    _e();
+  }
+  {
+    const _e = startSpan('synergy.phase.hillClimb');
+    phaseHillClimb(phaseCtx);
+    _e();
+  }
 
-  const diverse = diversifyResults(results, maxResults, traitBreakpoints, emblems);
+    const _endDiversify = startSpan('synergy.diversify');
+    const diverse = diversifyResults(results, maxResults, traitBreakpoints, emblems);
+    _endDiversify();
 
   // Ensure every team the locked-trait phase generated survives the
   // diversifyResults cut. Without this splice the cut drops most of
@@ -1618,5 +1670,8 @@ return;
     }
   }
 
-  return diverse;
+    return diverse;
+  } finally {
+    _end();
+  }
 }
