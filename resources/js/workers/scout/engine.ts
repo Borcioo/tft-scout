@@ -42,6 +42,34 @@ export function generate(input) {
     stale = false,
   } = input;
 
+  // Normalise emblems to a flat string[] of trait apiNames, one entry
+  // per physical emblem unit. Callers pass either legacy string[] or
+  // the newer [{apiName, count}]; most downstream code
+  // (buildActiveTraits, synergy-graph.applyEmblems, phaseDeepVertical)
+  // iterates with `for (const e of emblems)` and indexes by `e`, which
+  // silently breaks on object-shaped entries and swallows the emblem
+  // entirely. Expand counts by repeating the apiName and pass the flat
+  // array everywhere so every existing consumer keeps working.
+  const normalizedEmblems = [];
+
+  for (const e of constraints.emblems || []) {
+    if (typeof e === 'string') {
+      normalizedEmblems.push(e);
+      continue;
+    }
+
+    const count = Math.max(1, Number(e?.count ?? 1));
+
+    for (let i = 0; i < count; i++) {
+      normalizedEmblems.push(e.apiName);
+    }
+  }
+
+  // Replace the emblems inside constraints so downstream reads stay
+  // simple (`constraints.emblems`) without every consumer having to
+  // renormalise.
+  constraints.emblems = normalizedEmblems;
+
   // Append the hero mutual-exclusion group to whatever PHP gave us.
   // PHP emits base_champion_id variant groups; hero-exclusion is a
   // worker-side set rule (see hero-exclusion.ts for the TODO on

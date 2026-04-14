@@ -56,10 +56,19 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
                 out.params.excludedChampions = csv(argv[++i]);
                 break;
             case '--locked-trait':
-                out.params.lockedTraits = parseTraitLocks(argv[++i]);
+                // Append so repeated `--locked-trait` flags stack instead of
+                // the last one clobbering the earlier ones.
+                out.params.lockedTraits = [
+                    ...(out.params.lockedTraits || []),
+                    ...parseTraitLocks(argv[++i]),
+                ];
                 break;
             case '--emblem':
-                out.params.emblems = parseEmblems(argv[++i]);
+                // Append so repeated `--emblem` flags stack.
+                out.params.emblems = [
+                    ...(out.params.emblems || []),
+                    ...parseEmblems(argv[++i]),
+                ];
                 break;
             case '--seed':
                 out.params.seed = Number(argv[++i]);
