@@ -147,6 +147,25 @@ export function generate(input) {
     const excludedSet = new Set(constraints.excludedChampions || []);
     const lockedApiSet = new Set(locked.map(c => c.apiName));
 
+    // Detect mathematically impossible trait locks: when the pool of
+    // champions that could satisfy a lock (plus any emblems boosting
+    // that trait) is strictly smaller than the lock's minUnits, there
+    // is no way to satisfy it. Fix 7's backfill path would otherwise
+    // happily pad the result slate with teams that violate the lock
+    // anyway — the spec explicitly carves out mathematical
+    // impossibility as the ONLY legitimate reason to return fewer than
+    // topN, so we short-circuit the backfill in that case.
+    const anyLockImpossible = traitLocks.some(lock => {
+      const poolSize = champions.filter(c =>
+        c.variant !== 'hero'
+        && !excludedSet.has(c.apiName)
+        && c.traits.includes(lock.apiName),
+      ).length;
+      const emblemBoost = normalizedEmblems.filter(e => e === lock.apiName).length;
+
+      return poolSize + emblemBoost < lock.minUnits;
+    });
+
     const _endTightAutoPromote = startSpan('engine.tightAutoPromote');
 
     for (const lock of traitLocks) {
@@ -315,6 +334,46 @@ export function generate(input) {
       return true;
     });
     _endValidCompsFilter();
+
+    // Fix 7: topN guarantee. The hard filter above drops any team
+    // that misses a trait lock or a role-balance minimum. For
+    // heavy-constraint queries this can leave far fewer than topN
+    // survivors. The spec's topN contract says the user always sees
+    // exactly topN unless constraints are mathematically impossible
+    // — low-scoring variants are acceptable, short slates are not.
+    //
+    // Backfill the gap by pulling the highest-scoring teams from
+    // `enriched` that were rejected by the filter, marking each
+    // with `breakdown.relaxed = 1` so the UI can label them as
+    // closest-fit alternatives. Sorting by score alone is the
+    // simplest reasonable heuristic — iterate later if the
+    // ordering feels wrong.
+    if (validComps.length < topN && !anyLockImpossible) {
+      const validKeys = new Set(validComps.map(t => t.champions.map(c => c.apiName).sort().join(',')));
+      const backfillCandidates = enriched
+        .filter(r => {
+          if (r.slotsUsed > maxSlots) {
+            return false;
+          }
+
+          const key = r.champions.map(c => c.apiName).sort().join(',');
+
+          return !validKeys.has(key);
+        })
+        .sort((a, b) => b.score - a.score);
+
+      for (const team of backfillCandidates) {
+        if (validComps.length >= topN) {
+          break;
+        }
+
+        if (team.breakdown && typeof team.breakdown === 'object') {
+          team.breakdown.relaxed = 1;
+        }
+
+        validComps.push(team);
+      }
+    }
 
     // Meta-comp match detection — annotate results that match known meta comps
     const _endMetaCompMatch = startSpan('engine.metaCompMatch');
