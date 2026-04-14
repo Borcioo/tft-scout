@@ -4,6 +4,7 @@ import { EmblemPicker } from '@/components/scout/EmblemPicker';
 import { LockedChampionsPicker } from '@/components/scout/LockedChampionsPicker';
 import { LockedTraitsPicker } from '@/components/scout/LockedTraitsPicker';
 import { ScoutControls } from '@/components/scout/ScoutControls';
+import { ScoutDebugPanel } from '@/components/scout/ScoutDebugPanel';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
@@ -182,6 +183,20 @@ return;
                     />
                 </aside>
             </div>
+            <ScoutDebugPanel
+                params={{
+                    level,
+                    topN,
+                    max5Cost,
+                    roleBalance,
+                    minFrontline,
+                    minDps,
+                    lockedChampions,
+                    lockedTraits,
+                    emblems,
+                }}
+                results={results}
+            />
         </>
     );
 }
