@@ -88,6 +88,52 @@ export function generate(input) {
     return base;
   });
 
+  // Normalise lockedTraits to {apiName, minUnits} shape. Accept
+  // both the object form and a bare string (legacy). A bare string
+  // means "trait must be active at all", so minUnits = 1.
+  const traitLocks = (constraints.lockedTraits || []).map(t =>
+    typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
+  );
+
+  // Tight-trait-lock auto-promotion: when a requested trait lock
+  // requires exactly as many units as the accessible pool has, every
+  // satisfying champion is mandatory — promote them all into
+  // `locked` so the team-builder seeds from this mandatory core and
+  // only explores filler combinations for the remaining slots.
+  //
+  // Without this, `traitLocks` only runs as a post-filter: phases
+  // build generic teams that ignore the lock, almost none satisfy
+  // it, and the filter throws nearly everything out (ShieldTank:6
+  // with a 6-champion pool produced just 3 unique comps because
+  // the vast majority of raw teams never hit the trait breakpoint).
+  //
+  // For loose locks (pool > minUnits) we leave the filter as-is —
+  // auto-promoting a subset would arbitrarily pin specific champs
+  // over others; that case wants a dedicated trait-seeded phase.
+  const excludedSet = new Set(constraints.excludedChampions || []);
+  const lockedApiSet = new Set(locked.map(c => c.apiName));
+
+  for (const lock of traitLocks) {
+    const poolForTrait = champions.filter(c =>
+      c.variant !== 'hero'
+      && !excludedSet.has(c.apiName)
+      && c.traits.includes(lock.apiName),
+    );
+
+    if (poolForTrait.length !== lock.minUnits) {
+      continue;
+    }
+
+    for (const c of poolForTrait) {
+      if (lockedApiSet.has(c.apiName)) {
+        continue;
+      }
+
+      locked.push(c);
+      lockedApiSet.add(c.apiName);
+    }
+  }
+
   // Calculate team size from level, accounting for locked enhanced champions
   const baseTeamSize = level;
   let extraSlots = 0;
@@ -100,17 +146,17 @@ extraSlots += c.slotsUsed - 1;
 
   const effectiveTeamSize = baseTeamSize - extraSlots;
 
-  // Build graph from eligible champions (locked + candidates)
-  const eligibleChampions = [...locked, ...candidates];
+  // Build graph from eligible champions (locked + candidates).
+  // Auto-promoted tight-lock champions may have been in `candidates`
+  // already; dedupe via apiName to avoid passing the same node twice
+  // into buildGraph (which would inflate its edge count).
+  const lockedApiSetForGraph = new Set(locked.map(c => c.apiName));
+  const eligibleChampions = [
+    ...locked,
+    ...candidates.filter(c => !lockedApiSetForGraph.has(c.apiName)),
+  ];
   const exclusionLookup = buildExclusionLookup(effectiveExclusionGroups);
   const graph = buildGraph(eligibleChampions, traits, scoringCtx, exclusionLookup);
-
-  // Normalise lockedTraits to {apiName, minUnits} shape. Accept
-  // both the object form and a bare string (legacy). A bare string
-  // means "trait must be active at all", so minUnits = 1.
-  const traitLocks = (constraints.lockedTraits || []).map(t =>
-    typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
-  );
 
   // Find teams — request extra so diversify has enough candidates.
   // When trait locks are active, widen the search even more because
