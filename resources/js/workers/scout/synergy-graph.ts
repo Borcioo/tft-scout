@@ -690,6 +690,112 @@ function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptI
   return [...seeds];
 }
 
+/**
+ * Enumerate companion-proven pairs from the locked-trait pool, sorted
+ * by avgPlace ascending. A pair (A, B) qualifies when:
+ *   - A is in some locked trait's pool,
+ *   - B is in a (possibly different) locked trait's pool,
+ *   - ctx.companions[baseOf(A)] contains an entry for baseOf(B),
+ *   - that entry's avgPlace < 4.0 (top-half of placements).
+ *
+ * Returned once per findTeams call — computed lazily and cached by
+ * the caller.
+ */
+function enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, graph) {
+  if (!companions) {
+    return [];
+  }
+
+  const unionPool = new Set();
+
+  for (const lock of lockedTraits) {
+    for (const api of pool.get(lock.apiName) ?? []) {
+      unionPool.add(api);
+    }
+  }
+
+  const baseOf = (api) => graph.nodes[api]?.baseApiName || api;
+  const pairs = [];
+  const seen = new Set();
+
+  for (const a of unionPool) {
+    const entries = companions[baseOf(a)];
+
+    if (!entries) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const b = entry.companion;
+
+      if (!unionPool.has(b) || a === b) {
+        continue;
+      }
+
+      const key = [a, b].sort((x, y) => x.localeCompare(y)).join('+');
+
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+
+      if (typeof entry.avgPlace === 'number' && entry.avgPlace < 4.0) {
+        pairs.push({ a, b, avgPlace: entry.avgPlace });
+      }
+    }
+  }
+
+  pairs.sort((x, y) => x.avgPlace - y.avgPlace);
+
+  return pairs;
+}
+
+/**
+ * Deterministic seed strategy #2 — pick the N-th companion-proven pair
+ * from the pre-sorted list, then fill each trait's minUnits requirement
+ * by drawing from the unit-rating-sorted pool. Falls back to the
+ * top-unit-rating strategy when no pairs exist (no MetaTFT companion
+ * data for the pool or all avgPlaces ≥ 4.0).
+ */
+function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, attemptIndex) {
+  if (pairs.length === 0) {
+    return pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptIndex);
+  }
+
+  const pair = pairs[attemptIndex % pairs.length];
+  const seeds = new Set([pair.a, pair.b]);
+
+  for (const lock of lockedTraits) {
+    const members = (pool.get(lock.apiName) ?? []).filter(api => seeds.has(api));
+
+    if (members.length >= lock.minUnits) {
+      continue;
+    }
+
+    const sorted = [...(pool.get(lock.apiName) ?? [])]
+      .filter(api => !seeds.has(api))
+      .sort((a, b) => {
+        const ra = unitRatings?.[a]?.score ?? 0;
+        const rb = unitRatings?.[b]?.score ?? 0;
+
+        if (ra !== rb) {
+          return rb - ra;
+        }
+
+        return a.localeCompare(b);
+      });
+
+    const needed = lock.minUnits - members.length;
+
+    for (let i = 0; i < needed && i < sorted.length; i++) {
+      seeds.add(sorted[i]);
+    }
+  }
+
+  return [...seeds];
+}
+
 // ── Exploration phases ─────────────────────────────
 // Each phase receives phaseCtx and adds results via addResult.
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
