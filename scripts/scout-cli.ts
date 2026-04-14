@@ -54,6 +54,12 @@ async function main() {
         return;
     }
 
+    if (command === 'context') {
+        const { parseContextArgs, runContext } = await import('./scout-cli/commands/context');
+        await runContext(parseContextArgs(rest));
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
