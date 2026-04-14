@@ -57,6 +57,8 @@ function ScoutIndexInner({ setNumber }: Props) {
     const [topN, setTopN] = useState(10);
     const [max5Cost, setMax5Cost] = useState<number | null>(null);
     const [roleBalance, setRoleBalance] = useState(true);
+    const [minFrontline, setMinFrontline] = useState(0);
+    const [minDps, setMinDps] = useState(0);
     const [lockedChampions, setLockedChampions] = useState<string[]>([]);
     const [lockedTraits, setLockedTraits] = useState<LockedTrait[]>([]);
     const [emblems, setEmblems] = useState<EmblemEntry[]>([]);
@@ -73,6 +75,8 @@ function ScoutIndexInner({ setNumber }: Props) {
             topN,
             max5Cost,
             roleBalance,
+            minFrontline,
+            minDps,
             lockedChampions,
             lockedTraits,
             emblems,
@@ -85,7 +89,7 @@ function ScoutIndexInner({ setNumber }: Props) {
                 setError(err.message);
                 setIsRunning(false);
             });
-    }, [generate, level, topN, max5Cost, roleBalance, lockedChampions, lockedTraits, emblems]);
+    }, [generate, level, topN, max5Cost, roleBalance, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
@@ -96,6 +100,8 @@ function ScoutIndexInner({ setNumber }: Props) {
         topN,
         max5Cost,
         roleBalance,
+        minFrontline,
+        minDps,
         lockedChampions,
         lockedTraits,
         emblems,
@@ -118,11 +124,15 @@ function ScoutIndexInner({ setNumber }: Props) {
                         topN={topN}
                         max5Cost={max5Cost}
                         roleBalance={roleBalance}
+                        minFrontline={minFrontline}
+                        minDps={minDps}
                         isRunning={isRunning}
                         onLevelChange={setLevel}
                         onTopNChange={setTopN}
                         onMax5CostChange={setMax5Cost}
                         onRoleBalanceChange={setRoleBalance}
+                        onMinFrontlineChange={setMinFrontline}
+                        onMinDpsChange={setMinDps}
                         onRun={run}
                     />
                 </aside>
