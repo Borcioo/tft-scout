@@ -265,24 +265,6 @@ return 1.0;
   return 0.6 + (bestAvg - 1.0) * 0.16;
 }
 
-// ── Orphan penalty ──────────────────────────────
-
-/**
- * Penalty for a champion that contributes nothing to team traits.
- * "Orphan" = none of the champion's traits are active in the team.
- * Unique traits (breakpoint at 1 unit) self-activate and ARE in activeTraitApis,
- * so champions like Rhaast/Vex are never orphan.
- */
-export function orphanPenalty(champion: any, activeTraitApis: any) {
-  for (const t of champion.traits) {
-    if (activeTraitApis.has(t)) {
-return 0;
-}
-  }
-
-  return weights.orphanPenalty;
-}
-
 // ── Companion bonus ─────────────────────────────
 
 export function companionBonus(team: any, ctx: any) {
@@ -349,11 +331,6 @@ export function teamScore(team: any, ctx: any) {
   for (const trait of team.activeTraits) {
     const { score: tScore } = traitScore(trait, ctx);
     score += tScore;
-  }
-
-  // Orphan penalty — champion whose traits contribute nothing to the team
-  for (const champ of team.champions) {
-    score -= orphanPenalty(champ, activeTraitApis);
   }
 
   // Affinity bonus — reward champions that are statistically proven with active traits
@@ -438,12 +415,6 @@ export function teamScoreBreakdown(team: any, ctx: any) {
     breakdown.traits += tScore;
   }
 
-  let orphanTotal = 0;
-
-  for (const champ of team.champions) {
-    orphanTotal += orphanPenalty(champ, activeTraitApis);
-  }
-
   for (const champ of team.champions) {
     breakdown.affinity += affinityBonus(champ, activeTraitApis, ctx);
   }
@@ -501,9 +472,8 @@ continue;
   breakdown.proven = provenBonus;
 
   breakdown.balance = -roleBalancePenalty(team.champions);
-  breakdown.orphan = -orphanTotal;
 
-  breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance + breakdown.orphan;
+  breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance;
 
   for (const k of Object.keys(breakdown)) {
 breakdown[k] = Math.round(breakdown[k] * 10) / 10;
