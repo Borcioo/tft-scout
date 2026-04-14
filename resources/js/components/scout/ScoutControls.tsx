@@ -8,11 +8,15 @@ type Props = {
     topN: number;
     max5Cost: number | null;
     roleBalance: boolean;
+    minFrontline: number;
+    minDps: number;
     isRunning: boolean;
     onLevelChange: (value: number) => void;
     onTopNChange: (value: number) => void;
     onMax5CostChange: (value: number | null) => void;
     onRoleBalanceChange: (value: boolean) => void;
+    onMinFrontlineChange: (value: number) => void;
+    onMinDpsChange: (value: number) => void;
     onRun: () => void;
 };
 
@@ -21,11 +25,15 @@ export function ScoutControls({
     topN,
     max5Cost,
     roleBalance,
+    minFrontline,
+    minDps,
     isRunning,
     onLevelChange,
     onTopNChange,
     onMax5CostChange,
     onRoleBalanceChange,
+    onMinFrontlineChange,
+    onMinDpsChange,
     onRun,
 }: Props) {
     return (
@@ -84,6 +92,34 @@ export function ScoutControls({
                     id="role-balance"
                     checked={roleBalance}
                     onCheckedChange={onRoleBalanceChange}
+                />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between">
+                    <Label>Min Frontline</Label>
+                    <span className="font-mono text-sm">{minFrontline}</span>
+                </div>
+                <Slider
+                    value={[minFrontline]}
+                    min={0}
+                    max={6}
+                    step={1}
+                    onValueChange={([v]) => onMinFrontlineChange(v)}
+                />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between">
+                    <Label>Min DPS</Label>
+                    <span className="font-mono text-sm">{minDps}</span>
+                </div>
+                <Slider
+                    value={[minDps]}
+                    min={0}
+                    max={6}
+                    step={1}
+                    onValueChange={([v]) => onMinDpsChange(v)}
                 />
             </div>
 
