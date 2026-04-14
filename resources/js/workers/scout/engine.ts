@@ -20,6 +20,7 @@ import { filterCandidates, getLockedChampions, buildExclusionLookup } from './ca
 import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { buildActiveTraits } from './active-traits';
 import { buildTeamInsights } from './team-insights';
+import { buildHeroExclusionGroup } from './hero-exclusion';
 
 /**
  * Generate team compositions.
@@ -40,8 +41,19 @@ export function generate(input) {
     stale = false,
   } = input;
 
+  // Append the hero mutual-exclusion group to whatever PHP gave us.
+  // PHP emits base_champion_id variant groups; hero-exclusion is a
+  // worker-side set rule (see hero-exclusion.ts for the TODO on
+  // moving this to a proper set-rules hook later). If there are
+  // fewer than 2 non-exempt hero variants, the helper returns [] so
+  // no-op groups never reach buildExclusionLookup.
+  const heroGroup = buildHeroExclusionGroup(champions);
+  const effectiveExclusionGroups = heroGroup.length >= 2
+    ? [...exclusionGroups, heroGroup]
+    : exclusionGroups;
+
   // Filter candidates using exclusion groups
-  const candidates = filterCandidates(champions, constraints, exclusionGroups);
+  const candidates = filterCandidates(champions, constraints, effectiveExclusionGroups);
   const locked = getLockedChampions(champions, constraints.lockedChampions || []);
 
   // Calculate team size from level, accounting for locked enhanced champions
@@ -54,7 +66,7 @@ export function generate(input) {
 
   // Build graph from eligible champions (locked + candidates)
   const eligibleChampions = [...locked, ...candidates];
-  const exclusionLookup = buildExclusionLookup(exclusionGroups);
+  const exclusionLookup = buildExclusionLookup(effectiveExclusionGroups);
   const graph = buildGraph(eligibleChampions, traits, scoringCtx, exclusionLookup);
 
   // Find teams — request extra so diversify has enough candidates
