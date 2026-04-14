@@ -43,6 +43,24 @@ opportunities.
 Cold-start tsx startup (~3 s) is excluded from the measurement —
 we time from the start of `engine.generate` to its return.
 
+**Hard invariant (new as of Phase B refinement):**
+
+The algorithm must return **exactly `topN` results** for every
+generate call, unless the user's constraints make fewer teams
+mathematically impossible (e.g. `DarkStar:9` with a 7-champion
+pool). "Fewer results than requested" is never an acceptable
+outcome just because the remaining candidates score below some
+threshold — low-scoring variants MUST still appear in the slate.
+This is a UX contract: the user asked for 30 proposals and
+expects 30 proposals, even if the 30th is noticeably weaker than
+the 1st.
+
+Implementation implication: every phase and every filter that
+could narrow the candidate set below `topN` must either be
+widened, softened, or followed by a fallback path that backfills
+from the next-best available candidates. Scoring is for ordering,
+not for elimination.
+
 Regression set (all must still pass):
 
 - Non-lock seed 42: rank-1 == 183.8 across topN 5 / 20 / 50
@@ -52,6 +70,13 @@ Regression set (all must still pass):
 - Loose `DarkStar:4`: at least 14 valid
 - Multi-lock `ShieldTank:6 + RangedTrait:4 + emblem :1`: at least
   15 valid with varied flex carriers
+- **TopN contract**: every `--top-n N` generate (where N is
+  within reason, say ≤ 100) returns either `N` results OR the
+  mathematical maximum when N is unreachable given the
+  constraints. Verified by:
+  - `--top-n 30` on the three benchmark scenarios → 30 / 30 / 30
+    (or documented maximum if impossible)
+  - `--top-n 50` on a no-lock call → 50 results
 - `types:check` and `lint:check` green after every implementation
   commit
 
@@ -450,21 +475,32 @@ the team builder directly.
   synergise with the already-mandated core, not just "whatever the
   lock phase left behind". Rejected — keeping the entry for posterity.
 
-- **E — Stepped cross-referenced filler with cost weighting** (RECOMMENDED)
-  The core idea, surfaced by the user: stop seeding random
-  companions. Instead use companion data to RANK filler candidates
-  against the champions already in the team, weighted by how much
-  each team member "cares" about its companions (high-cost champs
-  care a lot, low-cost champs are fungible). Algorithm:
+- **E — Stepped cross-referenced filler with meta-aware weighting**
+  (RECOMMENDED, refined from user feedback)
+
+  The core idea: stop seeding random companions. Use companion
+  data to RANK filler candidates against the champions already
+  in the team, with **meta-aware cost weighting**, **5-cost
+  throttling**, and **diversity-preserving pick decay** so a
+  single "flex filler" (Shen-style champion that appears in
+  every archetype's top companion list) can surface as one
+  option without monopolising the slate.
+
+  Algorithm:
 
   ```
-  anchors = context.lockedChamps          // from explicit locks +
+  anchors = context.lockedChamps          // explicit locks +
                                           // tight auto-promote +
                                           // hero swap
   if anchors.length == 0:
     anchors = top-K champs by unitRating  // bootstrap for non-lock path
 
-  costWeight(c) = [0.2, 0.4, 0.7, 0.9, 1.0][c.cost - 1]
+  // TFT17 meta is 3-4 cost centric. 3 and 4 are top priority,
+  // 5-cost is a power spike but not the core, 1-2 are commodity
+  // frontline / fodder. Weighting reflects that the 3/4-cost
+  // anchors drive filler selection more strongly than anything
+  // else in the team.
+  costWeight(cost) = [0.3, 0.5, 1.0, 0.95, 0.55][cost - 1]
 
   candidateScore = new Map()
   for each anchor A in anchors:
@@ -473,48 +509,97 @@ the team builder directly.
                 .sort asc by avgPlace
                 .take top K (e.g. K=10)
     for each (comp, avgPlace) in top_comps:
-      if comp in anchors: continue       // already in team
-      if !allowedSet.has(comp): continue // level gate
-      candidateScore[comp] += costWeight(A) * (1 - avgPlace / 8)
+      if comp in anchors: continue        // already in team
+      if !allowedSet.has(comp): continue  // level gate
+      candidateScore[comp] += costWeight(A.cost) * (1 - avgPlace / 8)
 
-  fillerPicks = sort candidateScore desc, take top M (e.g. M=30)
+  // Iterative top-with-decay. Each pick halves that candidate's
+  // remaining weight so the next iteration prefers a different
+  // champion. After ~3 picks a given "flex filler" (Shen / Rhaast /
+  // etc.) drops off the top of the list and another candidate
+  // takes over, producing organically varied seed sets.
+  const DECAY = 0.5
+  const MAX_FIVE_COST_SEEDS = min(max5Cost or 2, 3)
+  picks = []
+  fiveCostCount = 0
+  while picks.length < M and candidateScore has entries:
+    best = argmax candidateScore
+    if node[best].cost == 5 and fiveCostCount >= MAX_FIVE_COST_SEEDS:
+      candidateScore.delete(best)         // skip, don't penalise
+      continue
+    picks.push(best)
+    if node[best].cost == 5:
+      fiveCostCount += 1
+    candidateScore[best] *= DECAY         // decay, don't delete
 
-  for filler in fillerPicks:
+  // Ensure picks.length >= desired buffer. If the candidate pool
+  // was too small (very rare — usually only when locks make the
+  // pool tiny), fall back to the top-unitRating champs that haven't
+  // been picked yet so we always produce enough seeds.
+  while picks.length < M:
+    filler = next champion by unitRating not already in picks / anchors
+    if filler is null: break              // truly exhausted pool
+    picks.push(filler)
+
+  for filler in picks:
     seeds = [...anchors, filler]
     addResult(buildOneTeam(graph, teamSize, seeds, ...))
   ```
 
-  Key properties:
-  - **Context-aware**: same user lock set produces the same top
-    fillers (deterministic).
-  - **Data-driven**: a champion that is a top companion for MULTIPLE
-    anchors accumulates score from all of them — natural
-    cross-referencing of the companion lists.
-  - **Cost-weighted**: a 4-cost carry in the anchor set pulls its
-    favourite companions up the ranking harder than a 1-cost
-    frontliner does. Matches the intuition "build around the
-    expensive units, fill around them".
-  - **Scalable seed count**: M is a cap, not a function of pool
-    size. ~30 `buildOneTeam` calls per generate regardless of
-    whether the anchor set has 1 champion or 6.
-  - **Covers locked case**: when `lockedChamps` is non-empty,
-    stepped filler directly runs on those anchors — which is
-    exactly what locked scenarios need (the fix D was trying to
-    address the wrong way).
-  - **Covers non-lock case**: bootstrap from top-unitRating champs
-    gives a reasonable anchor set. Equivalent intent to current
-    `phaseCompanionSeeded` but using ranking instead of seeding.
+  Key properties (REFINED):
 
-  **Impact**: locked runs drop companionSeeded from ~12 s → ~150 ms
-  (30 calls × ~5 ms). Non-lock runs drop from ~333 ms → ~150 ms.
-  Both scenarios benefit substantially, and the algorithm makes
-  the phase USEFUL on locked runs instead of redundant.
-  **Risk**: low-medium. The stepped algorithm is new but the
-  operations are straightforward (map + sort + slice + loop). Main
-  risk is the cost-weight constants being wrong on first try —
-  easy to tune post-landing.
-  **Effort**: ~1.5-2 h (build the filler ranker, wire it in,
-  verify it produces diverse outputs, regression check).
+  - **No 5-cost bias**. Cost weighting caps at 3-cost (1.0) and
+    4-cost (0.95); 5-cost is 0.55. This matches the TFT17 meta
+    observation that 3/4-cost carries (Karma, MF, Samira, Viktor,
+    TahmKench, Nasus) drive comp identity; 5-costs are spike units,
+    not anchors.
+
+  - **5-cost throttle**. `MAX_FIVE_COST_SEEDS` caps how many of the
+    M=30 seeds can have a 5-cost as the filler. Respects the
+    caller-specified `max5Cost` if set (defaults to level-based
+    caps). Prevents the phase from burning all its budget on
+    5-cost-filler variants.
+
+  - **Diversity via pick decay**. A champion like Shen who scores
+    top-1 because he's on multiple anchors' companion lists gets
+    picked first with full weight, then his remaining weight is
+    halved. Second iteration will likely pick someone else (because
+    the next candidate now out-ranks halved-Shen). After 2-3 picks
+    Shen's weight is `0.125×` — well below any fresh candidate.
+    Shen appears as one or two proposals, not twenty. Deterministic
+    (no randomness), context-aware (depends on what's left in the
+    map), cheap.
+
+  - **Always produces M seeds**. The fallback loop fills from
+    unit-rating-sorted candidates if the cross-referenced ranking
+    runs out. This is the insurance policy for the new global
+    invariant (see Success Criteria below): `phaseCompanionSeeded`
+    must contribute enough raw teams that the engine post-filter
+    can still deliver `topN` outputs after diversify.
+
+  - **Cross-referencing is implicit**. A champion appearing as a
+    top companion for multiple anchors accumulates score naturally.
+    No separate "intersection" step.
+
+  - **Context-aware**: lock set changes ⇒ anchor list changes ⇒
+    different top fillers emerge. Locked scenarios get targeted
+    filler for their specific core.
+
+  **Impact**: locked runs drop companionSeeded from ~12 s →
+  ~150 ms (30 calls × ~5 ms). Non-lock from ~333 ms → ~150 ms.
+  Diversity is preserved without sacrificing empirical proof.
+
+  **Risk**: low-medium. The ranker is new but each piece is
+  straightforward (map + sort + argmax loop). Main risks are
+  (a) cost-weight constants being wrong on first try — easy to
+  tune after profiling; (b) DECAY being too aggressive and
+  killing strong fillers prematurely — 0.5 is conservative,
+  iterate if needed; (c) MAX_FIVE_COST_SEEDS default needing
+  tuning — starts at 3 which gives each scenario 3 possible
+  5-cost filler teams.
+
+  **Effort**: ~2-2.5 h (ranker + decay + throttle + fallback
+  + regression check).
 
 **Recommendation**: **E**. Directly addresses the user insight
 ("use companion data to rank candidates, not to seed work"),
@@ -597,6 +682,59 @@ variable and thread it downstream. Audit item #7.
 **Impact**: none today, prevents a future footgun. **Risk**: tiny.
 **Effort**: ~15 min.
 
+### Fix 7 — TopN guarantee / backfill path (NEW, MANDATORY)
+
+Enforces the new hard invariant: every generate call returns
+exactly `topN` results unless constraints make that impossible.
+
+Current behaviour failure modes:
+- `phaseCompanionSeeded` (before Fix 1E) generates lots of teams
+  but many are duplicates or don't satisfy locks → filter drops
+  them → fewer than `topN` survive on locked runs
+- Diversify cap can drop lock-satisfying teams when generic phases
+  flood the result map (already partially addressed by the
+  post-diversify splice in the previous sprint)
+- Filter in `engine.ts::validCompsFilter` is hard — any team
+  failing a trait lock check is dropped, and nothing backfills
+
+Fix:
+1. After `validComps` filter runs, count survivors.
+2. If `validComps.length < topN`:
+   a. Take the remaining teams from `enriched` (teams rejected
+      by the filter) sorted by `score` descending.
+   b. Mark each with a "relaxed" flag in `breakdown` so the UI
+      can label them `(doesn't fully match your filters)`.
+   c. Append to `validComps` until it reaches `topN` or the
+      enriched pool is exhausted.
+3. If `enriched` is also < topN, the constraints are
+   mathematically impossible — return what we have and let the
+   UI show an explicit "only N possible" message.
+
+The relaxed flag is new metadata on the comp object; UI work is
+out of scope for this sprint but the backend produces the
+information so the UI can surface it later.
+
+**Impact**: shifts the user experience contract — instead of
+"here are the comps that pass your filters", it becomes "here
+are your 30 proposals, the first K pass your filters exactly and
+the rest are closest-fit alternatives". Much better UX for
+heavy-constraint queries.
+
+**Risk**: medium. Needs careful thought about which comps count
+as "closest fit" when a lock is missed — simplest heuristic is
+just engine score, but we might want to prefer ones that miss
+the lock by the smallest amount (e.g. DarkStar:4 locked, team
+has DarkStar:3 → closer fit than DarkStar:1). Start with plain
+score ordering and iterate if it feels wrong.
+
+**Effort**: ~1 h. Small piece of code, but the semantic
+implications deserve testing.
+
+**Placement**: ships alongside Fix 1E. The guarantee has no
+value if `phaseCompanionSeeded` is still starving the candidate
+pool — Fix 1E feeds enough raw teams, Fix 7 makes the final
+slate actually land at topN.
+
 ### Fix 6 — Phase files split (optional)
 
 The audit recommends splitting `synergy-graph.ts` (1 677 lines, 10
@@ -610,12 +748,17 @@ cleanup that isn't strictly required to hit the target.
 ### Priority ordering for Phase C
 
 1. **Fix 1 E** (phaseCompanionSeeded → stepped cross-referenced filler
-   with cost weighting — the user-proposed design)
-2. **Fix 2 A** (temperatureSweep multiplier + skip-on-locked)
-3. Re-run `scout-cli profile`, compare to baseline
-4. **Fix 5** (constraint mutation cleanup — safe, trivial)
-5. Evaluate: did we hit target B? If yes, stop. If no, consider Fix 3 + Fix 4 + a second pass at the profile
-6. **Fix 6** (phase split) only if target hit AND time remains
+   with meta-aware cost weighting + 5-cost throttle + decay
+   diversity — refined from user feedback)
+2. **Fix 7** (topN guarantee / backfill path) — ships in the same
+   session as Fix 1E because the new invariant depends on both
+3. **Fix 2 A** (temperatureSweep multiplier + skip-on-locked)
+4. Re-run `scout-cli profile`, compare to baseline
+5. Verify the topN contract manually on the benchmark scenarios
+   (`--top-n 30` must return 30 / 30 / 30 unless impossible)
+6. **Fix 5** (constraint mutation cleanup — safe, trivial)
+7. Evaluate: did we hit target B? If yes, stop. If no, consider Fix 3 + Fix 4 + a second pass at the profile
+8. **Fix 6** (phase split) only if target hit AND time remains
 
 Each fix lands in its own commit, with the profile re-run before
 commit so the span numbers in the commit message show the delta.
