@@ -31,3 +31,4 @@ yarn-error.log
 /.zed
 .claude/
 .worktrees/
+/tmp
