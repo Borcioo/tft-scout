@@ -81,8 +81,25 @@ class MetaTftSync
                 // Per-champion fetches run AFTER bulk inserts so the
                 // outer transaction rolls back affinity/companions on
                 // failure of the bulk block.
+                //
+                // Include variant-parent rows (is_playable=false but
+                // referenced via base_champion_id by playable variants)
+                // so the scorer can look up affinity/companions for
+                // champions like TFT17_MissFortune — MetaTFT publishes
+                // stats under the base apiName, and the scorer's
+                // `baseApiName || apiName` fallback needs those rows
+                // populated or variant champs end up with zero
+                // affinity/companion score.
+                $variantParentIds = Champion::query()
+                    ->where('set_id', $set->id)
+                    ->whereNotNull('base_champion_id')
+                    ->distinct()
+                    ->pluck('base_champion_id')
+                    ->flip()
+                    ->all();
+
                 foreach ($championsByApiName as $apiName => $champion) {
-                    if (! $champion->is_playable) {
+                    if (! $champion->is_playable && ! isset($variantParentIds[$champion->id])) {
                         continue;
                     }
                     $counts['affinity'] += $this->syncAffinityForChampion(
