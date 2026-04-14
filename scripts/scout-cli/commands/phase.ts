@@ -28,6 +28,9 @@ import {
 } from '../format';
 import { findChampions } from '../lookup';
 import { parseCommonArgs, type CommonArgs } from '../params';
+import { assertLabEnabled, openDb } from '../lab/db';
+import { currentGitSha } from '../lab/git';
+import { recordRun } from '../lab/ingest';
 import type { ScoutContext } from '../../../resources/js/workers/scout/types';
 
 const PHASES = [
@@ -57,7 +60,46 @@ export async function runPhase(argv: string[]): Promise<void> {
         return;
     }
 
+    const start = Date.now();
     const result = await runPhaseAutoBuild(phase, ctx, args);
+    const durationMs = Date.now() - start;
+
+    if (args.tag) {
+        assertLabEnabled();
+        const db = openDb();
+        try {
+            const gitSha = currentGitSha();
+            recordRun(
+                db,
+                {
+                    params: {
+                        level: (args.params.level ?? 8) as number,
+                        topN: (args.params.topN ?? 10) as number,
+                        seed: (args.params.seed ?? 0) as number,
+                        minFrontline: args.params.minFrontline ?? 0,
+                        minDps: args.params.minDps ?? 0,
+                        max5Cost: args.params.max5Cost ?? null,
+                        lockedChampions: args.params.lockedChampions ?? [],
+                        excludedChampions: args.params.excludedChampions ?? [],
+                        lockedTraits: args.params.lockedTraits ?? [],
+                        emblems: args.params.emblems ?? [],
+                    },
+                    results: Array.isArray(result) ? result : [result],
+                    filtered: null,
+                },
+                {
+                    source: 'phase',
+                    command: `phase:${phase}`,
+                    tag: args.tag,
+                    gitSha,
+                    durationMs,
+                },
+            );
+        } finally {
+            db.close();
+        }
+    }
+
     print(result, args.full);
 }
 

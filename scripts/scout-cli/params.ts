@@ -14,6 +14,7 @@ export type CommonArgs = {
     live: boolean;
     snapshotPath: string;
     rawInputPath: string | null;
+    tag: string | null;
 };
 
 export function parseCommonArgs(argv: string[]): CommonArgs {
@@ -24,6 +25,7 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
         live: false,
         snapshotPath: DEFAULT_SNAPSHOT_PATH,
         rawInputPath: null,
+        tag: null,
     };
 
     let paramsFile: string | null = null;
@@ -69,6 +71,9 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
                 break;
             case '--raw-input':
                 out.rawInputPath = argv[++i];
+                break;
+            case '--record':
+                out.tag = argv[++i];
                 break;
             case '--full':
                 out.full = true;

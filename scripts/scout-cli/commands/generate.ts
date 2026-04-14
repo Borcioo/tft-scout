@@ -5,6 +5,9 @@ import { generate } from '../../../resources/js/workers/scout/engine';
 import { loadContext } from '../context';
 import { summariseGenerate, type GenerateFilteredCounts } from '../format';
 import { parseCommonArgs } from '../params';
+import { assertLabEnabled, openDb } from '../lab/db';
+import { currentGitSha } from '../lab/git';
+import { recordRun } from '../lab/ingest';
 
 export async function runGenerate(argv: string[]): Promise<void> {
     const args = parseCommonArgs(argv);
@@ -32,6 +35,7 @@ export async function runGenerate(argv: string[]): Promise<void> {
         seed = 0,
     } = args.params;
 
+    const start = Date.now();
     const out = generate({
         champions: ctx.champions,
         traits: ctx.traits,
@@ -53,6 +57,43 @@ export async function runGenerate(argv: string[]): Promise<void> {
         seed,
         stale: ctx.stale,
     });
+    const durationMs = Date.now() - start;
+
+    if (args.tag) {
+        assertLabEnabled();
+        const db = openDb();
+        try {
+            const gitSha = currentGitSha();
+            recordRun(
+                db,
+                {
+                    params: {
+                        level,
+                        topN,
+                        seed,
+                        minFrontline,
+                        minDps,
+                        max5Cost,
+                        lockedChampions,
+                        excludedChampions,
+                        lockedTraits,
+                        emblems,
+                    },
+                    results: out,
+                    filtered: null,
+                },
+                {
+                    source: 'cli',
+                    command: 'generate',
+                    tag: args.tag,
+                    gitSha,
+                    durationMs,
+                },
+            );
+        } finally {
+            db.close();
+        }
+    }
 
     printResults(out, args.full);
 }
