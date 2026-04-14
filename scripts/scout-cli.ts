@@ -41,9 +41,16 @@ Common flags:
 async function main() {
     const argv = process.argv.slice(2);
     const command = argv[0];
+    const rest = argv.slice(1);
 
     if (!command || command === '--help' || command === '-h') {
         process.stdout.write(HELP);
+        return;
+    }
+
+    if (command === 'snapshot') {
+        const { parseSnapshotArgs, runSnapshot } = await import('./scout-cli/commands/snapshot');
+        await runSnapshot(parseSnapshotArgs(rest));
         return;
     }
 
