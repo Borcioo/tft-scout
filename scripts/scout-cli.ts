@@ -60,6 +60,12 @@ async function main() {
         return;
     }
 
+    if (command === 'generate') {
+        const { runGenerate } = await import('./scout-cli/commands/generate');
+        await runGenerate(rest);
+        return;
+    }
+
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(1);
 }
