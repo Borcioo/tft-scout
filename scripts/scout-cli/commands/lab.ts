@@ -3,7 +3,7 @@ export async function runLab(argv: string[]): Promise<void> {
     const rest = argv.slice(1);
 
     if (!sub) {
-throw new Error('lab requires a subcommand: init|doctor|stats|query|prune|reset');
+throw new Error('lab requires a subcommand: init|doctor|stats|query|prune|reset|ingest');
 }
 
     switch (sub) {
@@ -11,6 +11,11 @@ throw new Error('lab requires a subcommand: init|doctor|stats|query|prune|reset'
             const { runLabInit } = await import('./lab/init');
 
             return runLabInit(rest);
+        }
+        case 'ingest': {
+            const { runLabIngest } = await import('./lab/ingest');
+
+            return runLabIngest();
         }
         case 'doctor': {
             const { runLabDoctor } = await import('./lab/doctor');

@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // scout lab ingest is a fire-and-forget POST from the Scout
+        // debug panel; it has no auth surface (gated on env var) and
+        // the worker has no CSRF token to attach, so exempt it.
+        $middleware->validateCsrfTokens(except: ['api/scout/lab/ingest']);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

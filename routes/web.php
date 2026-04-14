@@ -23,6 +23,7 @@ Route::inertia('/', 'welcome', [
 // Scout workflow (public — algorithm runs client-side in a Web Worker)
 Route::get('/scout', [ScoutController::class, 'index'])->name('scout.index');
 Route::get('/api/scout/context', [ScoutController::class, 'context'])->name('scout.context');
+Route::post('/api/scout/lab/ingest', [ScoutController::class, 'labIngest'])->name('scout.lab.ingest');
 
 // Browse data (public read-only)
 Route::get('/champions', [ChampionsController::class, 'index'])

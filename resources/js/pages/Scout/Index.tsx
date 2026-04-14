@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
 import { EmblemPicker } from '@/components/scout/EmblemPicker';
 import { LockedChampionsPicker } from '@/components/scout/LockedChampionsPicker';
@@ -39,6 +39,8 @@ export default function ScoutIndex(props: Props) {
 
 function ScoutIndexInner({ setNumber }: Props) {
     const { generate } = useScoutWorker();
+    const page = usePage<{ scoutLabEnabled?: boolean }>();
+    const labEnabled = page.props.scoutLabEnabled === true;
 
     // Context fetched once from the same /api/scout/context the worker
     // hits — lets the UI render pickers before the first generate call.
@@ -73,7 +75,8 @@ function ScoutIndexInner({ setNumber }: Props) {
     const run = useCallback(() => {
         setIsRunning(true);
         setError(null);
-        generate({
+
+        const params = {
             level,
             topN,
             max5Cost,
@@ -83,16 +86,44 @@ function ScoutIndexInner({ setNumber }: Props) {
             lockedChampions,
             lockedTraits,
             emblems,
-        })
+        };
+        const startedAt = performance.now();
+
+        generate(params)
             .then((out) => {
                 setResults(out.results);
                 setIsRunning(false);
+
+                // Fire-and-forget lab ingest so anything the user sees
+                // in the UI is also queryable from scout-lab alongside
+                // CLI/experiment runs. Backend short-circuits to 204
+                // when SCOUT_LAB_ENABLED is not set, so it's safe to
+                // always call; we still skip the fetch when the flag
+                // is known-off to avoid a pointless roundtrip.
+                if (labEnabled) {
+                    void fetch('/api/scout/lab/ingest', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            params,
+                            results: out.results,
+                            source: 'ui',
+                            command: 'ui-generate',
+                            tag: 'ui-session',
+                            durationMs: Math.round(performance.now() - startedAt),
+                        }),
+                    }).catch(() => {
+                        // Lab ingest failures must not surface in the
+                        // main UX — this is a debug sidecar, not a
+                        // hard dependency.
+                    });
+                }
             })
             .catch((err) => {
                 setError(err.message);
                 setIsRunning(false);
             });
-    }, [generate, level, topN, max5Cost, roleBalance, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
+    }, [generate, labEnabled, level, topN, max5Cost, roleBalance, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
