@@ -31,7 +31,7 @@ Common flags:
   --emblem T:N          Emblem on trait
   --seed N              RNG seed
   --team A,B,C          Required by per-team phase commands
-  --params file.json    Full ScoutParams JSON (overrides individual flags)
+  --params file.json    Full ScoutParams JSON (file overrides individual flags)
   --raw-input file.json Per-phase escape hatch (skip auto-build)
   --full                Disable smart summary
   --live                Skip snapshot, fetch /api/scout/context fresh
