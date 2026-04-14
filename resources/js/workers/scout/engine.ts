@@ -10,7 +10,8 @@
  * @property {object[]} traits - all traits with breakpoints (domain objects)
  * @property {object} scoringCtx - { unitRatings, traitRatings, styleScores, affinity }
  * @property {object} constraints - { lockedChampions, excludedChampions, lockedTraits, emblems, ... }
- * @property {object[]} exclusionGroups - [{ groupName, championApiName }]
+ * @property {string[][]} exclusionGroups - list of groups, each a list of
+ *            mutually-exclusive champion apiNames (per base_champion_id)
  * @property {number} level - player level (5-10)
  * @property {number} topN - max results
  */
