@@ -875,6 +875,61 @@ function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
 //             results, addResult, excludedSet, emblems, excludedTraits }
 
+/**
+ * Phase entry point. Pulls lockedTraits from the shared context and
+ * runs three batches of attempts:
+ *   - 20 × top-unit-rating   (proven individual strength)
+ *   - 20 × companion-pair    (MetaTFT "plays together" data)
+ *   - 10 × cost-stratified   (diversity guard)
+ *
+ * Each attempt passes its seeds to buildOneTeam and writes any
+ * successful team into the shared result map via addResult. Bounded
+ * by a dedicated cap of 50 attempts regardless of maxResults so the
+ * runtime contribution of this phase stays predictable (~250 ms at
+ * ~5 ms per buildOneTeam) and does not eat into the budget for the
+ * other phases that run afterwards.
+ *
+ * Uses the same buildOneTeam signature as every other phase — see
+ * phaseTemperatureSweep for the canonical pattern.
+ */
+function phaseLockedTraitSeeded({ graph, teamSize, context, rng, addResult, excludedSet }) {
+  const lockedTraits = context.lockedTraits ?? [];
+
+  if (lockedTraits.length === 0) {
+    return;
+  }
+
+  const pool = buildLockedTraitPool(lockedTraits, graph, excludedSet, context.allowedSet);
+
+  if (pool === null) {
+    return;
+  }
+
+  const unitRatings = graph.scoringCtx?.unitRatings ?? {};
+  const companions = graph.scoringCtx?.companions ?? null;
+  const pairs = enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, graph);
+
+  const attempt = (seeds) => {
+    if (seeds.length === 0) {
+      return;
+    }
+
+    addResult(buildOneTeam(graph, teamSize, seeds, context, 0.1 + rng() * 0.2, rng));
+  };
+
+  for (let i = 0; i < 20; i++) {
+    attempt(pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, i));
+  }
+
+  for (let i = 0; i < 20; i++) {
+    attempt(pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, i));
+  }
+
+  for (let i = 0; i < 10; i++) {
+    attempt(pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng));
+  }
+}
+
 function phaseTemperatureSweep({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
   const attempts = Math.max(maxResults * 3, 60);
 
