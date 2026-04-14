@@ -1529,6 +1529,7 @@ return;
     results, addResult, excludedSet, emblems, excludedTraits,
   };
 
+  phaseLockedTraitSeeded(phaseCtx);
   phaseTemperatureSweep(phaseCtx);
   phaseTraitSeeded(phaseCtx);
   phaseDeepVertical(phaseCtx);
