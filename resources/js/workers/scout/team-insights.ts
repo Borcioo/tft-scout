@@ -11,6 +11,7 @@
  */
 
 import { INSIGHTS_CONFIG } from './insights-config';
+import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 import type {
   InsightItem,
   MetaCompEntry,
@@ -31,23 +32,6 @@ const CFG = INSIGHTS_CONFIG;
  */
 function lookupApi(champion: { apiName: string; baseApiName: string | null }): string {
   return champion.baseApiName || champion.apiName;
-}
-
-/**
- * Active breakpoint index for a trait given its count. Returns -1
- * if no breakpoint is reached (inactive). Iterates from the top
- * down so the highest satisfied breakpoint wins.
- */
-function activeBreakpointIdx(count: number, breakpoints: { minUnits: number }[]): number {
-  const sorted = [...breakpoints].sort((a, b) => a.minUnits - b.minUnits);
-
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (count >= sorted[i].minUnits) {
-return i;
-}
-  }
-
-  return -1;
 }
 
 /**
@@ -313,7 +297,7 @@ function pushHighBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightI
 continue;
 }
 
-    const idx = activeBreakpointIdx(trait.count, (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? []);
+    const idx = findActiveBreakpointIdx(trait.count, (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? []);
 
     if (idx < 1) {
 continue;
@@ -389,7 +373,7 @@ continue;
 function pushLowBreakpoint(team: ScoredTeam, ctx: ScoringContext, out: InsightItem[]): void {
   for (const trait of team.activeTraits) {
     const bps = (trait as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
-    const idx = activeBreakpointIdx(trait.count, bps);
+    const idx = findActiveBreakpointIdx(trait.count, bps);
 
     if (idx !== 0) {
 continue;
@@ -443,7 +427,7 @@ continue;
 function pushSingleCore(team: ScoredTeam, out: InsightItem[]): void {
   const highBp = team.activeTraits.filter(t => {
     const bps = (t as unknown as { breakpoints: { minUnits: number }[] }).breakpoints ?? [];
-    const idx = activeBreakpointIdx(t.count, bps);
+    const idx = findActiveBreakpointIdx(t.count, bps);
 
     return idx >= 1;
   });
