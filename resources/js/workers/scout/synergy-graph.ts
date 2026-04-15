@@ -32,6 +32,26 @@ import { quickScore } from './synergy-graph/quick-score';
 export { quickScore };
 import { buildOneTeam, costPenalty } from './synergy-graph/shared/team-builder';
 export { buildOneTeam, costPenalty };
+import { phasePairSynergy } from './synergy-graph/phases/pair-synergy';
+export { phasePairSynergy };
+import { phaseHillClimb } from './synergy-graph/phases/hill-climb';
+export { phaseHillClimb };
+import { phaseLockedTraitSeeded } from './synergy-graph/phases/locked-trait-seeded';
+export { phaseLockedTraitSeeded };
+import { phaseDeepVertical } from './synergy-graph/phases/deep-vertical';
+export { phaseDeepVertical };
+import { phaseMetaCompSeeded } from './synergy-graph/phases/meta-comp-seeded';
+export { phaseMetaCompSeeded };
+import { phaseCrossover } from './synergy-graph/phases/crossover';
+export { phaseCrossover };
+import { phaseTraitSeeded } from './synergy-graph/phases/trait-seeded';
+export { phaseTraitSeeded };
+import { phaseTemperatureSweep } from './synergy-graph/phases/temperature-sweep';
+export { phaseTemperatureSweep };
+import { phaseFiveCostHeavy } from './synergy-graph/phases/five-cost-heavy';
+export { phaseFiveCostHeavy };
+import { phaseCompanionSeeded } from './synergy-graph/phases/companion-seeded';
+export { phaseCompanionSeeded };
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
 
@@ -66,7 +86,7 @@ function createRng(seed) {
  * Hero variants and user-excluded champions are filtered out; the
  * allowed-set gate (level-based shop odds) is respected too.
  */
-function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
+export function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
   const pool = new Map();
 
   for (const lock of lockedTraits) {
@@ -111,7 +131,7 @@ function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
  * pool of 6–10 champs this rotates through every realistic
  * top-K combination without explicit enumeration.
  */
-function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptIndex) {
+export function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptIndex) {
   const seeds = new Set();
 
   for (const lock of lockedTraits) {
@@ -155,7 +175,7 @@ function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptI
  * Returned once per findTeams call — computed lazily and cached by
  * the caller.
  */
-function enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, graph) {
+export function enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, graph) {
   if (!companions) {
     return [];
   }
@@ -212,7 +232,7 @@ function enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, grap
  * top-unit-rating strategy when no pairs exist (no MetaTFT companion
  * data for the pool or all avgPlaces ≥ 4.0).
  */
-function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, attemptIndex) {
+export function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, attemptIndex) {
   if (pairs.length === 0) {
     return pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptIndex);
   }
@@ -262,7 +282,7 @@ function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, a
  * per attempt — without it every attempt would pick the same stratified
  * seed and we'd lose the diversity we're paying for.
  */
-function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
+export function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
   const seeds = new Set();
 
   for (const lock of lockedTraits) {
@@ -329,269 +349,10 @@ function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
 // Contract: { graph, teamSize, startChamps, context, rng, maxResults,
 //             results, addResult, excludedSet, emblems, excludedTraits }
 
-/**
- * Phase entry point. Pulls lockedTraits from the shared context and
- * runs three batches of attempts:
- *   - 20 × top-unit-rating   (proven individual strength)
- *   - 20 × companion-pair    (MetaTFT "plays together" data)
- *   - 10 × cost-stratified   (diversity guard)
- *
- * Each attempt passes its seeds to buildOneTeam and writes any
- * successful team into the shared result map via addResult. Bounded
- * by a dedicated cap of 50 attempts regardless of maxResults so the
- * runtime contribution of this phase stays predictable (~250 ms at
- * ~5 ms per buildOneTeam) and does not eat into the budget for the
- * other phases that run afterwards.
- *
- * Uses the same buildOneTeam signature as every other phase — see
- * phaseTemperatureSweep for the canonical pattern.
- */
-function phaseLockedTraitSeeded({ graph, teamSize, context, rng, addResult, excludedSet }) {
-  const rawLockedTraits = context.lockedTraits ?? [];
 
-  if (rawLockedTraits.length === 0) {
-    return;
-  }
 
-  // Subtract emblem count per trait from minUnits so the phase seeds
-  // only the physical champions the team actually needs to buy.
-  // The engine-side filter still checks the emblem-inclusive count
-  // through buildActiveTraits, so a team built with effective minUnits
-  // physical champions + N emblems will pass the post-filter for the
-  // original minUnits target. Without this adjustment the phase seeds
-  // `minUnits` full-Ranged picks and saturates the team slots, leaving
-  // no room for the emblem carrier to diversify across comps.
-  const emblems = context.emblems || [];
-  const lockedTraits = rawLockedTraits.map(lock => {
-    let emblemCount = 0;
 
-    for (const e of emblems) {
-      if (e === lock.apiName) {
-        emblemCount++;
-      }
-    }
 
-    const effectiveMin = Math.max(0, lock.minUnits - emblemCount);
-
-    return { apiName: lock.apiName, minUnits: effectiveMin };
-  }).filter(lock => lock.minUnits > 0);
-
-  if (lockedTraits.length === 0) {
-    return;
-  }
-
-  const pool = buildLockedTraitPool(lockedTraits, graph, excludedSet, context.allowedSet);
-
-  if (pool === null) {
-    return;
-  }
-
-  const unitRatings = graph.scoringCtx?.unitRatings ?? {};
-  const companions = graph.scoringCtx?.companions ?? null;
-  const pairs = enumerateLockedTraitCompanionPairs(pool, lockedTraits, companions, graph);
-
-  // Sweep the temperature across attempts so the flex-slot fillers
-  // buildOneTeam picks behind the seeded core actually vary. With a
-  // narrow 0.1–0.3 window the team-builder converges on the same
-  // top-scoring filler every attempt; that collapses the 50-attempt
-  // budget to a handful of unique comps whenever a trait lock with
-  // an emblem pushes one filler far ahead of the rest (e.g.
-  // ShieldTank:6 + RangedTrait:4 + emblem producing a single comp
-  // because every attempt re-picked the same Morgana).
-  const attempt = (seeds, attemptIdx, total) => {
-    if (seeds.length === 0) {
-      return;
-    }
-
-    const temperature = 0.1 + (attemptIdx / Math.max(1, total - 1)) * 0.8;
-
-    const team = buildOneTeam(graph, teamSize, seeds, context, temperature, rng);
-    addResult(team);
-  };
-
-  for (let i = 0; i < 20; i++) {
-    attempt(pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, i), i, 20);
-  }
-
-  for (let i = 0; i < 20; i++) {
-    attempt(pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, i), i, 20);
-  }
-
-  for (let i = 0; i < 10; i++) {
-    attempt(pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng), i, 10);
-  }
-}
-
-function phaseTemperatureSweep({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
-  // Skip entirely when the caller requested trait locks —
-  // phaseLockedTraitSeeded already populated the lock-satisfying
-  // space with targeted seeds, and temperatureSweep's random walks
-  // almost never satisfy the filter on locked runs. On the Phase A
-  // baseline this phase alone cost ~5 s per locked scenario.
-  if ((context.lockedTraits || []).length > 0) {
-    return;
-  }
-
-  // Budget cut: was maxResults * 3 (1080 attempts on locked runs),
-  // now maxResults * 1 (still plenty for diversity, still triggers
-  // the early-exit when the result map has healthy size).
-  const attempts = Math.max(maxResults, 60);
-
-  for (let i = 0; i < attempts; i++) {
-    const temp = 0.15 + (i / attempts) * 0.85;
-    addResult(buildOneTeam(graph, teamSize, startChamps, context, temp, rng));
-
-    if (results.size >= maxResults * 2) {
-break;
-}
-  }
-}
-
-function phaseTraitSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits }) {
-  const { traitBreakpoints, traitMap } = graph;
-
-  for (const [trait, members] of Object.entries(traitMap)) {
-    const bps = traitBreakpoints[trait] || [];
-
-    if (bps.length === 0 || bps[0] <= 1) {
-continue;
-}
-
-    if (excludedTraits.includes(trait)) {
-continue;
-}
-
-    const available = members.filter(m =>
-      !excludedSet.has(m) &&
-      !startChamps.includes(m) &&
-      (!context.allowedSet || context.allowedSet.has(m))
-    );
-
-    if (available.length < 2) {
-continue;
-}
-
-    for (let a = 0; a < 3; a++) {
-      const shuffled = [...available].sort(() => rng() - 0.5);
-      const seeds = [...startChamps, ...shuffled.slice(0, 2)];
-      addResult(buildOneTeam(graph, teamSize, seeds, context, 0.3 + rng() * 0.5, rng));
-    }
-
-    if (results.size >= maxResults * 3) {
-break;
-}
-  }
-}
-
-function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits, emblems }) {
-  const { traitBreakpoints, traitMap } = graph;
-  const { traitRatings = {} } = graph.scoringCtx || {};
-
-  for (const [trait, members] of Object.entries(traitMap)) {
-    const bps = traitBreakpoints[trait] || [];
-
-    if (bps.length < 2 || bps[0] <= 1) {
-continue;
-}
-
-    if (excludedTraits.includes(trait)) {
-continue;
-}
-
-    const startSet = new Set(startChamps);
-    const available = members.filter(m =>
-      !excludedSet.has(m) &&
-      !startSet.has(m) &&
-      (!context.allowedSet || context.allowedSet.has(m))
-    );
-    const startMembersInTrait = startChamps.filter(s => members.includes(s)).length;
-    const rawEmblemCount = emblems.filter(e => e === trait).length;
-
-    for (let bpIdx = bps.length - 1; bpIdx >= 1; bpIdx--) {
-      const targetUnits = bps[bpIdx];
-      const rating = traitRatings[trait]?.[bpIdx + 1];
-
-      if (!rating || rating.avgPlace > thresholds.deepVerticalMaxAvg || rating.games < thresholds.phaseMinGames) {
-continue;
-}
-
-      // Emblems are capped by non-trait champions available to hold them
-      // At most (teamSize - traitMembers) champions won't have this trait
-      const maxTraitMembers = startMembersInTrait + available.length;
-      const nonTraitSlots = Math.max(0, teamSize - Math.min(maxTraitMembers, teamSize));
-      const emblemCount = Math.min(rawEmblemCount, nonTraitSlots);
-      const needed = targetUnits - startMembersInTrait - emblemCount;
-
-      if (needed <= 0 || available.length < needed) {
-continue;
-}
-
-      // Breakpoint targeting
-      for (let a = 0; a < 5; a++) {
-        const shuffled = [...available].sort(() => rng() - 0.5);
-        const seeds = [...new Set([...startChamps, ...shuffled.slice(0, needed)])];
-        addResult(buildOneTeam(graph, teamSize, seeds, context, 0.1 + rng() * 0.15, rng));
-      }
-
-      // All-in: seed every available member
-      if (available.length > needed && available.length <= teamSize) {
-        for (let a = 0; a < 3; a++) {
-          const allIn = [...new Set([...startChamps, ...available])];
-          addResult(buildOneTeam(graph, teamSize, allIn, context, 0.05 + rng() * 0.1, rng));
-        }
-      }
-    }
-
-    if (results.size >= maxResults * 8) {
-break;
-}
-  }
-}
-
-function phasePairSynergy({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet }) {
-  const { traitBreakpoints, traitMap } = graph;
-  const { traitRatings = {} } = graph.scoringCtx || {};
-
-  const strongTraits = Object.entries(traitRatings)
-    .flatMap(([api, bps]) =>
-      Object.entries(bps)
-        .filter(([, r]) => r.avgPlace <= thresholds.pairSynergyMaxAvg && r.games >= thresholds.phaseMinGames)
-        .map(([pos, r]) => ({ api, position: +pos, avgPlace: r.avgPlace, minUnits: traitBreakpoints[api]?.[pos - 1] || 99 }))
-    )
-    .filter(t => t.minUnits <= teamSize && traitMap[t.api])
-    .sort((a, b) => a.avgPlace - b.avgPlace)
-    .slice(0, 10);
-
-  for (let i = 0; i < strongTraits.length; i++) {
-    for (let j = i + 1; j < strongTraits.length; j++) {
-      const t1 = strongTraits[i], t2 = strongTraits[j];
-
-      if (t1.minUnits + t2.minUnits > teamSize) {
-continue;
-}
-
-      const m1 = (traitMap[t1.api] || []).filter(m =>
-        !excludedSet.has(m) && (!context.allowedSet || context.allowedSet.has(m))
-      );
-      const m2 = (traitMap[t2.api] || []).filter(m =>
-        !excludedSet.has(m) && (!context.allowedSet || context.allowedSet.has(m))
-      );
-
-      if (m1.length < 2 || m2.length < 2) {
-continue;
-}
-
-      const s1 = [...m1].sort(() => rng() - 0.5).slice(0, Math.min(t1.minUnits, 3));
-      const s2 = [...m2].sort(() => rng() - 0.5).slice(0, Math.min(t2.minUnits, 3));
-      const combined = [...new Set([...startChamps, ...s1, ...s2])].slice(0, teamSize);
-      addResult(buildOneTeam(graph, teamSize, combined, context, 0.2 + rng() * 0.3, rng));
-    }
-
-    if (results.size >= maxResults * 6) {
-break;
-}
-  }
-}
 
 // ── Companion filler ranker (Fix 1E) ───────────────
 //
@@ -618,7 +379,7 @@ break;
 //      phase always contributes enough raw teams for the engine's
 //      topN guarantee to hold.
 
-function pickCompanionFillers(graph, context, anchorApis) {
+export function pickCompanionFillers(graph, context, anchorApis) {
   const { nodes } = graph;
   const companionData = graph.scoringCtx?.companions || {};
   const unitRatings = graph.scoringCtx?.unitRatings || {};
@@ -808,228 +569,8 @@ function pickCompanionFillers(graph, context, anchorApis) {
   return picks;
 }
 
-function phaseCompanionSeeded({ graph, teamSize, startChamps, context, rng, addResult }) {
-  const picks = pickCompanionFillers(graph, context, startChamps);
 
-  for (const filler of picks) {
-    const seeds = [...startChamps, filler];
 
-    addResult(buildOneTeam(graph, teamSize, seeds, context, 0.2 + rng() * 0.3, rng));
-  }
-}
-
-// ── Phase 6: Crossover ─────────────────────────────
-// Take top results, breed new teams by combining halves.
-// Parent A contributes some members, parent B contributes others.
-// Child inherits locked champs + mix of both parents' non-locked members.
-
-function phaseCrossover({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
-  const topTeams = [...results.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, Math.min(10, results.size));
-
-  if (topTeams.length < 2) {
-return;
-}
-
-  const lockedSet = new Set(startChamps);
-
-  for (let i = 0; i < topTeams.length; i++) {
-    for (let j = i + 1; j < topTeams.length; j++) {
-      const parentA = topTeams[i].champions.map(c => c.apiName);
-      const parentB = topTeams[j].champions.map(c => c.apiName);
-
-      // Non-locked members from each parent
-      const genesA = parentA.filter(a =>
-        !lockedSet.has(a) && (!context.allowedSet || context.allowedSet.has(a))
-      );
-      const genesB = parentB.filter(a =>
-        !lockedSet.has(a) && (!context.allowedSet || context.allowedSet.has(a))
-      );
-
-      // Split point: take first half from A, second from B
-      const splitA = Math.ceil(genesA.length / 2);
-      const splitB = Math.floor(genesB.length / 2);
-      const childGenes = [...new Set([...genesA.slice(0, splitA), ...genesB.slice(splitB)])];
-      const seeds = [...startChamps, ...childGenes].slice(0, teamSize);
-
-      addResult(buildOneTeam(graph, teamSize, seeds, context, 0.1 + rng() * 0.15, rng));
-    }
-  }
-}
-
-// ── Phase 7: Hill climbing ─────────────────────────
-// Take top results, try swapping each non-locked member for a better candidate.
-// Pure local search: if swap improves quickScore, keep it.
-
-function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, addResult, excludedSet }) {
-  const { nodes, exclusionLookup = {} } = graph;
-  const { emblems = [], max5Cost = null } = context;
-  const lockedSet = new Set(startChamps);
-
-  const topTeams = [...results.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-
-  for (const team of topTeams) {
-    const current = team.champions.map(c => c.apiName);
-    let currentScore = team.score;
-
-    // Single round of improvement
-    for (let round = 0; round < 1; round++) {
-      let improved = false;
-
-      for (let slot = 0; slot < current.length; slot++) {
-        if (lockedSet.has(current[slot])) {
-continue;
-}
-
-        const removed = current[slot];
-        const teamWithout = current.filter((_, i) => i !== slot);
-        const usedSet = new Set(teamWithout);
-
-        // Collect exclusion conflicts from remaining team
-        const conflicts = new Set();
-
-        for (const api of teamWithout) {
-          const c = exclusionLookup[api];
-
-          if (c) {
-c.forEach(x => conflicts.add(x));
-}
-        }
-
-        // Collect swap candidates: graph neighbors of remaining team (fast, targeted)
-        const swapCandidates = new Set();
-
-        for (const member of teamWithout) {
-          for (const edge of (graph.adjacency[member] || [])) {
-            if (usedSet.has(edge.champ) || excludedSet.has(edge.champ) || conflicts.has(edge.champ)) {
-continue;
-}
-
-            if (context.allowedSet && !context.allowedSet.has(edge.champ)) {
-continue;
-}
-
-            swapCandidates.add(edge.champ);
-          }
-        }
-
-        let bestSwap = null;
-        let bestScore = currentScore;
-        const fiveCount = max5Cost != null ? teamWithout.filter(a => (nodes[a]?.cost || 0) === 5).length : 0;
-
-        for (const api of swapCandidates) {
-          if (max5Cost != null && (nodes[api]?.cost || 0) === 5 && fiveCount >= max5Cost) {
-continue;
-}
-
-          const candidate = [...teamWithout, api];
-          const score = quickScore(candidate, graph, emblems) - costPenalty(candidate, graph, context.level, context.lockedSet, context.max5Cost);
-
-          if (score > bestScore) {
-            bestScore = score;
-            bestSwap = api;
-          }
-        }
-
-        if (bestSwap) {
-          current[slot] = bestSwap;
-          currentScore = bestScore;
-          improved = true;
-        }
-      }
-
-      if (!improved) {
-break;
-}
-    }
-
-    addResult(current);
-  }
-}
-
-// ── Phase 8: Meta-comp seeded ──────────────────────
-// Use real meta compositions as exploration seeds.
-// Not served as-is — algorithm builds from them like any other seed.
-
-function phaseMetaCompSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet }) {
-  const { nodes } = graph;
-  const { metaComps = [] } = graph.scoringCtx || {};
-
-  if (metaComps.length === 0) {
-return;
-}
-
-  const startSet = new Set(startChamps);
-
-  for (const comp of metaComps) {
-    // Skip comps that conflict with locked champions
-    const compUnits = comp.units.filter(u => nodes[u] && !excludedSet.has(u));
-
-    // Hard cut: if any meta comp unit is disallowed by level, skip entire comp.
-    // Meta comps are cohesive archetypes — partial seeds would break their intent.
-    if (context.allowedSet) {
-      const hasDisallowed = compUnits.some(u => !context.allowedSet.has(u));
-
-      if (hasDisallowed) {
-continue;
-}
-    }
-
-    // Check overlap: at least 1 locked champ must be in the meta comp (or no locks)
-    const overlap = startChamps.length === 0 || startChamps.some(s => compUnits.includes(s));
-
-    if (!overlap) {
-continue;
-}
-
-    // Seed: locked champs + meta comp members (dedup)
-    const seeds = [...new Set([...startChamps, ...compUnits])];
-    addResult(buildOneTeam(graph, teamSize, seeds, context, 0.1 + rng() * 0.2, rng));
-  }
-}
-
-// ── Phase 9: Five-cost heavy ───────────────────────
-// Only runs when user explicitly raises max5Cost (≥4), signaling they want
-// 5-cost spam compositions. Seeds with subsets of available 5-costs and lets
-// buildOneTeam fill remaining slots via trait synergies.
-
-function phaseFiveCostHeavy({ graph, teamSize, startChamps, context, rng, addResult, excludedSet }) {
-  const { nodes } = graph;
-  const { max5Cost, allowedSet } = context;
-
-  if (max5Cost == null || max5Cost < 4) {
-return;
-}
-
-  const fiveCosts = Object.keys(nodes).filter(api =>
-    (nodes[api]?.cost || 0) === 5 &&
-    !excludedSet.has(api) &&
-    (!allowedSet || allowedSet.has(api)) &&
-    !startChamps.includes(api)
-  );
-
-  if (fiveCosts.length < 2) {
-return;
-}
-
-  const targetCount = Math.min(max5Cost, fiveCosts.length, teamSize - startChamps.length);
-
-  if (targetCount < 2) {
-return;
-}
-
-  // Several attempts with different random subsets of 5-costs as seeds.
-  const attempts = 8;
-
-  for (let i = 0; i < attempts; i++) {
-    const shuffled = [...fiveCosts].sort(() => rng() - 0.5);
-    const seeds = [...startChamps, ...shuffled.slice(0, targetCount)];
-    addResult(buildOneTeam(graph, teamSize, seeds, context, 0.1 + rng() * 0.15, rng));
-  }
-}
 
 // ── Diversification ────────────────────────────────
 
