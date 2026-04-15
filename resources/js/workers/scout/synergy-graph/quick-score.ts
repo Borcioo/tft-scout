@@ -60,6 +60,9 @@ continue;
   // Trait scores
   for (const [trait, count] of Object.entries(traitCounts)) {
     const bps = traitBreakpoints[trait] || [];
+    // NOTE: intentionally not using findActiveBreakpointIdx here —
+    // traitBreakpoints stores raw number[] (minUnits values directly),
+    // not {minUnits: number}[] objects. The helper expects the object form.
     let activeIdx = -1;
 
     for (let i = bps.length - 1; i >= 0; i--) {

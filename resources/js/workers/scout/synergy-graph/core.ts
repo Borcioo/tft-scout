@@ -100,6 +100,9 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
       .slice(0, 2)
       .map(([t, count]) => {
         const bps = traitBreakpoints[t] || [];
+        // NOTE: intentionally not using findActiveBreakpointIdx here —
+        // traitBreakpoints stores raw number[] (minUnits values directly),
+        // not {minUnits: number}[] objects. The helper expects the object form.
         let lvl = 0;
 
         for (let i = bps.length - 1; i >= 0; i--) {
