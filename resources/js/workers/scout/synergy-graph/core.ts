@@ -285,6 +285,11 @@ return;
   // the result map with generic high-quickScore comps. We snapshot
   // them here and splice them back in after diversify so the engine
   // post-filter still has something to keep.
+  //
+  // Null until lockedTraitSeeded runs inside the dispatch loop (it
+  // has no skipWhen today, but using null-by-default instead of
+  // pre-computing keeps us safe if a future skipWhen is added or
+  // the phase is reordered out of first position).
   let lockedTraitSeedKeys: Set<string> | null = null;
 
   for (const { name, phase, skipWhen } of PHASES) {
