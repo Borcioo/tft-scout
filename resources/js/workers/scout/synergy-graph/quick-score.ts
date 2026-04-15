@@ -4,38 +4,14 @@
 // seeding. Subset of the full scorer; intentional divergence from
 // scorer.ts (different aggregation strategy for affinity so the
 // pre-filter is fast and doesn't dominate budget).
-//
-// NOTE: applyEmblems is duplicated here from the monolith as a local
-// private helper. Task 3 (6c) will consolidate both copies into an
-// emblems module and remove the duplication.
 
 // @ts-nocheck
 
 import type { Graph } from './types';
 import { SCORING_CONFIG } from '../config';
+import { applyEmblems } from './shared/emblems';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
-
-// ── Emblem helpers (local copy; Task 3 will extract to emblems.ts) ─
-
-function applyEmblems(traitCounts, emblems, champTraitSets) {
-  // champTraitSets: array of Sets, one per champion (their natural traits)
-  // For each emblem trait, count how many champions DON'T have it → max usable
-  const emblemsByTrait = {};
-
-  for (const e of emblems) {
-emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
-}
-
-  for (const [trait, count] of Object.entries(emblemsByTrait)) {
-    const holders = champTraitSets.filter(ts => !ts.has(trait)).length;
-    const usable = Math.min(count, holders);
-
-    if (usable > 0) {
-traitCounts[trait] = (traitCounts[trait] || 0) + usable;
-}
-  }
-}
 
 // ── Quick synergy scoring (for graph traversal) ─
 

@@ -12,6 +12,15 @@
 
 import { SCORING_CONFIG, MIN_LEVEL_BY_COST } from './config';
 import { startSpan } from './scout-profiler';
+import { applyEmblems } from './synergy-graph/shared/emblems';
+import {
+  FILLER_COST_WEIGHTS,
+  FILLER_PICK_DECAY,
+  FILLER_TOP_K_PER_ANCHOR,
+  FILLER_MAX_PICKS,
+  FILLER_BOOTSTRAP_ANCHORS,
+  FILLER_DEFAULT_FIVE_COST_CAP,
+} from './synergy-graph/shared/const';
 
 export { buildGraph } from './synergy-graph/graph';
 // import-then-export (not bare `export { X } from`) below because this
@@ -25,32 +34,6 @@ import { buildOneTeam, costPenalty } from './synergy-graph/shared/team-builder';
 export { buildOneTeam, costPenalty };
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
-
-// ── Emblem helpers ─────────────────────────────
-
-/**
- * Apply emblems to trait counts, respecting the constraint that each emblem
- * must go on a champion who doesn't already have that trait.
- * Mutates traitCounts in place.
- */
-function applyEmblems(traitCounts, emblems, champTraitSets) {
-  // champTraitSets: array of Sets, one per champion (their natural traits)
-  // For each emblem trait, count how many champions DON'T have it → max usable
-  const emblemsByTrait = {};
-
-  for (const e of emblems) {
-emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
-}
-
-  for (const [trait, count] of Object.entries(emblemsByTrait)) {
-    const holders = champTraitSets.filter(ts => !ts.has(trait)).length;
-    const usable = Math.min(count, holders);
-
-    if (usable > 0) {
-traitCounts[trait] = (traitCounts[trait] || 0) + usable;
-}
-  }
-}
 
 // ── RNG ─────────────────────────────────────────
 
@@ -634,13 +617,6 @@ break;
 //      ranking runs out (e.g. very tight candidate pool) so the
 //      phase always contributes enough raw teams for the engine's
 //      topN guarantee to hold.
-
-const FILLER_COST_WEIGHTS = [0.3, 0.5, 1.0, 0.95, 0.55];
-const FILLER_PICK_DECAY = 0.5;
-const FILLER_TOP_K_PER_ANCHOR = 10;
-const FILLER_MAX_PICKS = 30;
-const FILLER_BOOTSTRAP_ANCHORS = 6;
-const FILLER_DEFAULT_FIVE_COST_CAP = 3;
 
 function pickCompanionFillers(graph, context, anchorApis) {
   const { nodes } = graph;
