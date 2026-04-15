@@ -28,7 +28,7 @@ class ScoutController extends Controller
     public function index(): Response
     {
         return Inertia::render('Scout/Index', [
-            'setNumber' => 17,
+            'setNumber' => (int) config('services.tft.set', 17),
         ]);
     }
 
@@ -40,7 +40,7 @@ class ScoutController extends Controller
      */
     public function context(): JsonResponse
     {
-        $setNumber = 17;
+        $setNumber = (int) config('services.tft.set', 17);
         $context = $this->builder->build($setNumber);
 
         if ($context['stale']) {

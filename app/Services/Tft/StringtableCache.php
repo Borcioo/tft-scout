@@ -41,8 +41,9 @@ class StringtableCache
      *
      * @return array<string, string> RST hash key (wrapped) => translated text
      */
-    public function entries(string $channel = 'pbe', string $locale = 'en_us'): array
+    public function entries(?string $channel = null, string $locale = 'en_us'): array
     {
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         $cacheKey = "{$channel}:{$locale}";
         if (isset($this->loaded[$cacheKey])) {
             return $this->loaded[$cacheKey];
@@ -69,8 +70,9 @@ class StringtableCache
      * Force re-download next time entries() is called. Use after detecting
      * a new patch to invalidate cached translations.
      */
-    public function refresh(string $channel = 'pbe', string $locale = 'en_us'): void
+    public function refresh(?string $channel = null, string $locale = 'en_us'): void
     {
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         unset($this->loaded["{$channel}:{$locale}"]);
         $path = $this->diskPath($channel, $locale);
         if (Storage::exists($path)) {

@@ -48,8 +48,9 @@ class CharacterBinInspector
      *
      * @param  string  $channel  'pbe' or 'latest' — PBE for unreleased content
      */
-    public function inspect(string $apiName, string $channel = 'pbe'): array
+    public function inspect(string $apiName, ?string $channel = null): array
     {
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         $cacheKey = "{$channel}:{$apiName}";
         if (isset($this->reportCache[$cacheKey])) {
             return $this->reportCache[$cacheKey];

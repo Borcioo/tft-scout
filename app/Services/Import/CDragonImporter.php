@@ -39,11 +39,11 @@ use RuntimeException;
  */
 class CDragonImporter
 {
-    private const CDRAGON_BASE = 'https://raw.communitydragon.org/pbe';
+    private readonly string $cdragonBase;
 
-    private const DATA_URL = self::CDRAGON_BASE.'/cdragon/tft/en_us.json';
+    private readonly string $dataUrl;
 
-    private const PLANNER_URL = self::CDRAGON_BASE.'/plugins/rcp-be-lol-game-data/global/default/v1/tftchampions-teamplanner.json';
+    private readonly string $plannerUrl;
 
     /**
      * Set number → array of PostImportHook class names, in execution order.
@@ -99,7 +99,13 @@ class CDragonImporter
     /** @var array<int, array{string, string}>  emblem_id → [c1_apiName, c2_apiName] */
     private array $pendingEmblemComponents = [];
 
-    public function __construct(private readonly ConsoleKernel $console) {}
+    public function __construct(private readonly ConsoleKernel $console)
+    {
+        $channel = (string) config('services.cdragon.channel', 'latest');
+        $this->cdragonBase = 'https://raw.communitydragon.org/'.$channel;
+        $this->dataUrl = $this->cdragonBase.'/cdragon/tft/en_us.json';
+        $this->plannerUrl = $this->cdragonBase.'/plugins/rcp-be-lol-game-data/global/default/v1/tftchampions-teamplanner.json';
+    }
 
     /**
      * Main entry point. Runs the full import flow for a set.
@@ -119,12 +125,21 @@ class CDragonImporter
 
         $set = DB::transaction(function () use ($setNumber, $setData, $data, $plannerCodes) {
             $set = $this->upsertSet($setNumber, $setData);
+
+            // MetaTFT aggregates are FK'd to champions/traits with cascadeOnDelete.
+            // A re-import within the same set (refreshing abilities, stats, icons)
+            // should not force a MetaTFT re-sync — api_names are stable. Snapshot
+            // by api_name before the wipe and replay once the new rows are in.
+            $metaSnapshot = $this->snapshotMetaTftData($set);
+
             $this->clearSetData($set);
 
             $traitMap = $this->importTraits($set, $setData['traits'] ?? []);
             $this->importChampions($set, $setData['champions'] ?? [], $traitMap, $plannerCodes, $setNumber);
             $this->importItems($data['items'] ?? [], $setNumber, $set);
             $this->resolveItemComponents();
+
+            $this->restoreMetaTftData($set, $metaSnapshot);
 
             $this->runHooks($set);
 
@@ -148,7 +163,7 @@ class CDragonImporter
 
     private function fetchData(): array
     {
-        $response = Http::timeout(60)->get(self::DATA_URL);
+        $response = Http::timeout(60)->get($this->dataUrl);
 
         if ($response->failed()) {
             throw new RuntimeException('CDragon data fetch failed: HTTP '.$response->status());
@@ -163,7 +178,7 @@ class CDragonImporter
      */
     private function fetchPlannerCodes(int $setNumber): array
     {
-        $response = Http::timeout(30)->get(self::PLANNER_URL);
+        $response = Http::timeout(30)->get($this->plannerUrl);
 
         if ($response->failed()) {
             return []; // Planner codes are optional; import continues without them
@@ -229,6 +244,217 @@ class CDragonImporter
             ->where('api_name', 'not like', $current.'%')
             ->where('api_name', 'not like', 'TFT5_Item_%Radiant')
             ->delete();
+    }
+
+    // ── MetaTFT snapshot / restore ──────────────────────────
+
+    /**
+     * Capture all MetaTFT aggregates keyed by api_name so a CDragon
+     * re-import can replay them onto the new champion/trait ids.
+     * Returns arrays of stdClass rows; restore() resolves api_names
+     * to new FKs and re-inserts whatever champions/traits still exist.
+     *
+     * @return array<string, array<int, \stdClass>>
+     */
+    private function snapshotMetaTftData(Set $set): array
+    {
+        return [
+            'championRatings' => DB::table('champion_ratings')
+                ->join('champions', 'champions.id', '=', 'champion_ratings.champion_id')
+                ->where('champion_ratings.set_id', $set->id)
+                ->get([
+                    'champions.api_name',
+                    'champion_ratings.patch',
+                    'champion_ratings.avg_place',
+                    'champion_ratings.win_rate',
+                    'champion_ratings.top4_rate',
+                    'champion_ratings.games',
+                    'champion_ratings.score',
+                    'champion_ratings.updated_at',
+                ])
+                ->all(),
+
+            'traitRatings' => DB::table('trait_ratings')
+                ->join('traits', 'traits.id', '=', 'trait_ratings.trait_id')
+                ->where('trait_ratings.set_id', $set->id)
+                ->get([
+                    'traits.api_name',
+                    'trait_ratings.breakpoint_position',
+                    'trait_ratings.avg_place',
+                    'trait_ratings.win_rate',
+                    'trait_ratings.top4_rate',
+                    'trait_ratings.games',
+                    'trait_ratings.score',
+                    'trait_ratings.updated_at',
+                ])
+                ->all(),
+
+            'affinity' => DB::table('champion_trait_affinity as a')
+                ->join('champions', 'champions.id', '=', 'a.champion_id')
+                ->join('traits', 'traits.id', '=', 'a.trait_id')
+                ->where('a.set_id', $set->id)
+                ->get([
+                    'champions.api_name as champion_api_name',
+                    'traits.api_name as trait_api_name',
+                    'a.breakpoint_position',
+                    'a.avg_place',
+                    'a.games',
+                    'a.frequency',
+                    'a.updated_at',
+                ])
+                ->all(),
+
+            'companions' => DB::table('champion_companions as cc')
+                ->join('champions as c1', 'c1.id', '=', 'cc.champion_id')
+                ->join('champions as c2', 'c2.id', '=', 'cc.companion_champion_id')
+                ->where('cc.set_id', $set->id)
+                ->get([
+                    'c1.api_name as champion_api_name',
+                    'c2.api_name as companion_api_name',
+                    'cc.avg_place',
+                    'cc.games',
+                    'cc.frequency',
+                    'cc.updated_at',
+                ])
+                ->all(),
+
+            'metaCompChampions' => DB::table('meta_comp_champions as mcc')
+                ->join('champions', 'champions.id', '=', 'mcc.champion_id')
+                ->join('meta_comps', 'meta_comps.id', '=', 'mcc.meta_comp_id')
+                ->where('meta_comps.set_id', $set->id)
+                ->get([
+                    'mcc.meta_comp_id',
+                    'champions.api_name',
+                    'mcc.star_level',
+                    'mcc.is_carry',
+                ])
+                ->all(),
+        ];
+    }
+
+    /**
+     * Replay the pre-import MetaTFT snapshot onto the new FK ids.
+     * Rows for api_names that no longer exist in the set are dropped
+     * (e.g. a champion removed from CDragon) — that's desired: stale
+     * aggregates would just be dead weight.
+     *
+     * @param  array<string, array<int, \stdClass>>  $snapshot
+     */
+    private function restoreMetaTftData(Set $set, array $snapshot): void
+    {
+        $championIdByApi = Champion::query()
+            ->where('set_id', $set->id)
+            ->pluck('id', 'api_name')
+            ->all();
+
+        $traitIdByApi = TftTrait::query()
+            ->where('set_id', $set->id)
+            ->pluck('id', 'api_name')
+            ->all();
+
+        $championRatings = [];
+        foreach ($snapshot['championRatings'] as $row) {
+            $championId = $championIdByApi[$row->api_name] ?? null;
+            if ($championId === null) {
+                continue;
+            }
+            $championRatings[] = [
+                'champion_id' => $championId,
+                'set_id' => $set->id,
+                'patch' => $row->patch,
+                'avg_place' => $row->avg_place,
+                'win_rate' => $row->win_rate,
+                'top4_rate' => $row->top4_rate,
+                'games' => $row->games,
+                'score' => $row->score,
+                'updated_at' => $row->updated_at,
+            ];
+        }
+        if ($championRatings !== []) {
+            DB::table('champion_ratings')->insert($championRatings);
+        }
+
+        $traitRatings = [];
+        foreach ($snapshot['traitRatings'] as $row) {
+            $traitId = $traitIdByApi[$row->api_name] ?? null;
+            if ($traitId === null) {
+                continue;
+            }
+            $traitRatings[] = [
+                'trait_id' => $traitId,
+                'breakpoint_position' => $row->breakpoint_position,
+                'set_id' => $set->id,
+                'avg_place' => $row->avg_place,
+                'win_rate' => $row->win_rate,
+                'top4_rate' => $row->top4_rate,
+                'games' => $row->games,
+                'score' => $row->score,
+                'updated_at' => $row->updated_at,
+            ];
+        }
+        if ($traitRatings !== []) {
+            DB::table('trait_ratings')->insert($traitRatings);
+        }
+
+        $affinity = [];
+        foreach ($snapshot['affinity'] as $row) {
+            $championId = $championIdByApi[$row->champion_api_name] ?? null;
+            $traitId = $traitIdByApi[$row->trait_api_name] ?? null;
+            if ($championId === null || $traitId === null) {
+                continue;
+            }
+            $affinity[] = [
+                'champion_id' => $championId,
+                'trait_id' => $traitId,
+                'breakpoint_position' => $row->breakpoint_position,
+                'set_id' => $set->id,
+                'avg_place' => $row->avg_place,
+                'games' => $row->games,
+                'frequency' => $row->frequency,
+                'updated_at' => $row->updated_at,
+            ];
+        }
+        if ($affinity !== []) {
+            DB::table('champion_trait_affinity')->insert($affinity);
+        }
+
+        $companions = [];
+        foreach ($snapshot['companions'] as $row) {
+            $aId = $championIdByApi[$row->champion_api_name] ?? null;
+            $bId = $championIdByApi[$row->companion_api_name] ?? null;
+            if ($aId === null || $bId === null) {
+                continue;
+            }
+            $companions[] = [
+                'champion_id' => $aId,
+                'companion_champion_id' => $bId,
+                'set_id' => $set->id,
+                'avg_place' => $row->avg_place,
+                'games' => $row->games,
+                'frequency' => $row->frequency,
+                'updated_at' => $row->updated_at,
+            ];
+        }
+        if ($companions !== []) {
+            DB::table('champion_companions')->insert($companions);
+        }
+
+        $metaCompChampions = [];
+        foreach ($snapshot['metaCompChampions'] as $row) {
+            $championId = $championIdByApi[$row->api_name] ?? null;
+            if ($championId === null) {
+                continue;
+            }
+            $metaCompChampions[] = [
+                'meta_comp_id' => $row->meta_comp_id,
+                'champion_id' => $championId,
+                'star_level' => $row->star_level,
+                'is_carry' => $row->is_carry,
+            ];
+        }
+        if ($metaCompChampions !== []) {
+            DB::table('meta_comp_champions')->insert($metaCompChampions);
+        }
     }
 
     // ── Traits import ───────────────────────────────────────
@@ -1018,7 +1244,7 @@ class CDragonImporter
     {
         $lower = strtolower(str_replace('.tex', '.png', $texPath));
 
-        return self::CDRAGON_BASE.'/game/'.$lower;
+        return $this->cdragonBase.'/game/'.$lower;
     }
 
     private function downloadIconIfMissing(string $url, string $destPath): bool

@@ -16,13 +16,13 @@ use Throwable;
 class ImportCDragon extends Command
 {
     protected $signature = 'tft:import
-        {--set=17 : Set number to import (default: 17)}';
+        {--set= : Set number to import; defaults to TFT_SET env}';
 
     protected $description = 'Import TFT data (champions, traits, items, augments) from CommunityDragon';
 
     public function handle(CDragonImporter $importer): int
     {
-        $setNumber = (int) $this->option('set');
+        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 17));
 
         $this->info("Importing TFT Set {$setNumber} from CommunityDragon...");
         $this->newLine();

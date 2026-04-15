@@ -38,9 +38,10 @@ class TraitDescriptionResolver
     public function resolve(
         ?string $description,
         array $breakpoints,
-        string $channel = 'pbe',
+        ?string $channel = null,
         string $locale = 'en_us',
     ): array {
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         if ($description === null || $description === '') {
             return [
                 'base' => null,

@@ -24,7 +24,7 @@ class InspectCharacterBin extends Command
 {
     protected $signature = 'tft:inspect-character
         {apiName : Champion API name, e.g. TFT17_MissFortune}
-        {--channel=pbe : CDragon channel (pbe or latest)}
+        {--channel= : CDragon channel (pbe or latest); defaults to CDRAGON_CHANNEL env}
         {--star=2 : Star level to render ability descriptions at (0-6)}
         {--json : Output raw JSON instead of formatted tables}';
 
@@ -36,7 +36,7 @@ class InspectCharacterBin extends Command
         AbilityDescriptionResolver $abilityResolver,
     ): int {
         $apiName = $this->argument('apiName');
-        $channel = $this->option('channel');
+        $channel = $this->option('channel') ?? (string) config('services.cdragon.channel', 'latest');
         $starLevel = (int) $this->option('star');
 
         $this->info("Fetching {$apiName} from CDragon (channel: {$channel})...");

@@ -35,16 +35,19 @@ class MetaTftClient
     private const COMPS_BASE_URL = 'https://api-hc.metatft.com/tft-comps-api';
     private const EXPLORER_BASE_URL = 'https://api-hc.metatft.com/tft-explorer-api';
 
-    // PBE while Set 17 is in the PBE test cycle. The API silently
-    // returns Set 16 data when `queue=RANKED` is passed for Set 17 —
-    // flip this constant to 'RANKED' only after Set 17 hits retail.
-    private const QUEUE = 'PBE';
+    // PBE vs RANKED — sourced from METATFT_QUEUE env (see config/services.php).
+    // API silently returns previous-set data if the queue doesn't match the
+    // set's release state, so this MUST flip from 'PBE' to 'RANKED' when a
+    // new set hits retail.
+    private readonly string $queue;
 
     private const DEFAULT_TTL = 3600;
 
     public function __construct(
         private readonly HttpFactory $http,
-    ) {}
+    ) {
+        $this->queue = (string) config('services.metatft.queue', 'PBE');
+    }
 
     /**
      * Fetch per-champion placement histograms and aggregate to ratings.
@@ -259,7 +262,7 @@ class MetaTftClient
             self::COMPS_BASE_URL,
             'comps_data',
             [
-                'queue' => self::QUEUE,
+                'queue' => $this->queue,
                 'region_hint' => 'eun1',
             ],
         );
@@ -298,7 +301,7 @@ class MetaTftClient
     {
         return [
             'set' => (string) $setNumber,
-            'queue' => self::QUEUE,
+            'queue' => $this->queue,
             'patch' => 'current',
             'days' => '3',
             'permit_filter_adjustment' => 'true',
@@ -314,7 +317,7 @@ class MetaTftClient
             'unit_unique' => $championApiName.'-1',
             'formatnoarray' => 'true',
             'compact' => 'true',
-            'queue' => self::QUEUE,
+            'queue' => $this->queue,
             'patch' => 'current',
             'days' => '1',
             'permit_filter_adjustment' => 'true',

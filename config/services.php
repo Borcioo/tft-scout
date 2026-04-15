@@ -28,6 +28,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'tft' => [
+        'set' => (int) env('TFT_SET', 17),
+    ],
+
+    'cdragon' => [
+        'channel' => env('CDRAGON_CHANNEL', 'latest'),
+    ],
+
+    'metatft' => [
+        'queue' => env('METATFT_QUEUE', 'PBE'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

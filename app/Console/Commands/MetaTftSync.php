@@ -7,13 +7,13 @@ use Illuminate\Console\Command;
 
 class MetaTftSync extends Command
 {
-    protected $signature = 'metatft:sync {--set=17 : Set number to sync}';
+    protected $signature = 'metatft:sync {--set= : Set number to sync; defaults to TFT_SET env}';
 
     protected $description = 'Fetch MetaTFT aggregates and populate scout rating tables';
 
     public function handle(MetaTftSyncService $sync): int
     {
-        $setNumber = (int) $this->option('set');
+        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 17));
 
         $this->info("Syncing MetaTFT data for set {$setNumber}...");
         $start = microtime(true);

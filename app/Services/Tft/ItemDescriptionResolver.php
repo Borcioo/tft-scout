@@ -32,13 +32,14 @@ class ItemDescriptionResolver
     public function resolve(
         ?string $description,
         array $effects,
-        string $channel = 'pbe',
+        ?string $channel = null,
         string $locale = 'en_us',
     ): ?string {
         if ($description === null || $description === '') {
             return null;
         }
 
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         $entries = $this->stringtable->entries($channel, $locale);
 
         $template = $this->expandKeywordTokens($description, $entries);

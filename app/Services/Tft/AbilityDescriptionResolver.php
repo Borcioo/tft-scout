@@ -131,11 +131,12 @@ class AbilityDescriptionResolver
         array $locKeys,
         array $dataValues,
         int $starLevel = 2,
-        string $channel = 'pbe',
+        ?string $channel = null,
         string $locale = 'en_us',
         array $calculations = [],
         array $championStats = [],
     ): array {
+        $channel ??= (string) config('services.cdragon.channel', 'latest');
         $entries = $this->stringtable->entries($channel, $locale);
 
         $name = $this->lookup($entries, $locKeys['key_name'] ?? null);
