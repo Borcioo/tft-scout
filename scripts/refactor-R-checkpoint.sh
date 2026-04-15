@@ -7,11 +7,26 @@ set -e
 
 BASELINE_DIR="tmp/refactor-R-baseline"
 CURRENT_DIR="tmp/refactor-R-current"
+
+if [ ! -d "$BASELINE_DIR" ] || [ -z "$(ls -A "$BASELINE_DIR" 2>/dev/null)" ]; then
+  echo "ERROR: baseline not found at $BASELINE_DIR" >&2
+  echo "Run the Task 0 baseline capture commands first (see plan)." >&2
+  exit 1
+fi
+
 mkdir -p "$CURRENT_DIR"
 
 run() {
   local name="$1"; shift
-  npm run --silent scout -- generate --full "$@" 2>/dev/null > "$CURRENT_DIR/$name.json"
+  local errfile
+  errfile=$(mktemp)
+  if ! npm run --silent scout -- generate --full "$@" 2>"$errfile" > "$CURRENT_DIR/$name.json"; then
+    echo "CLI ERROR $name:" >&2
+    cat "$errfile" >&2
+    rm -f "$errfile"
+    exit 1
+  fi
+  rm -f "$errfile"
   if diff -q "$BASELINE_DIR/$name.json" "$CURRENT_DIR/$name.json" > /dev/null; then
     echo "OK   $name"
   else
