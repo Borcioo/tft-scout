@@ -14,6 +14,11 @@ import { SCORING_CONFIG, MIN_LEVEL_BY_COST } from './config';
 import { startSpan } from './scout-profiler';
 
 export { buildGraph } from './synergy-graph/graph';
+// import-then-export (not bare `export { X } from`) below because this
+// file also CALLS these names in its phase bodies — bare re-export
+// would not create a local binding, so the inline callers would fail
+// to resolve. Once all phases move out (Task 14), this block simplifies
+// to bare re-exports.
 import { quickScore } from './synergy-graph/quick-score';
 export { quickScore };
 import { buildOneTeam, costPenalty } from './synergy-graph/shared/team-builder';
