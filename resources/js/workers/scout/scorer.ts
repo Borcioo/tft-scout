@@ -13,6 +13,7 @@
 
 import { SCORING_CONFIG } from './config';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
+import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
 
@@ -184,22 +185,16 @@ adjust = nearBreakpointBonus;
 // ── Affinity bonus ──────────────────────────────
 
 export function affinityBonus(champion: any, activeTraitApis: any, ctx: any) {
-  const lookupApi = champion.baseApiName || champion.apiName;
-  const affData = ctx.affinity?.[lookupApi];
-
-  if (!affData || affData.length === 0) {
-return 0;
-}
-
-  // Collect matching affinities, keep only the strongest few per champion
-  // This prevents trait-diverse comps from getting unbounded affinity advantage
-  const matches = [];
-
-  for (const aff of affData) {
-    if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
-      matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
-    }
-  }
+  // Collection delegated to shared helper (lookup key + filter + weight).
+  // Aggregation (cap + sort + sum) stays here — scorer's defence against
+  // trait-diverse comps getting unbounded affinity advantage is caller-specific.
+  const matches = collectAffinityMatches(
+    champion,
+    activeTraitApis,
+    ctx.affinity ?? {},
+    { affinityMinGames: thresholds.affinityMinGames },
+    { affinityBonus: weights.affinityBonus },
+  );
 
   if (matches.length === 0) {
 return 0;
