@@ -16,9 +16,8 @@ use App\Models\TraitStyle;
 /**
  * Assembles the JSON payload that the scout Web Worker consumes.
  *
- * Shape mirrors legacy `ctx` object from
- * `legacy/tft-generator/client/src/workers/scout.worker.js` so the port
- * can consume it 1:1 with minimal changes. See the spec for full field
+ * Shape matches the `ctx` object expected by
+ * `resources/js/workers/scout/engine.ts`. See the spec for full field
  * definitions.
  */
 class ScoutContextBuilder
@@ -111,7 +110,7 @@ class ScoutContextBuilder
     }
 
     /**
-     * Convert `base_champion_id` self-FK into the shape the legacy
+     * Convert `base_champion_id` self-FK into the shape the scout
      * algorithm expects: a list of mutually-exclusive apiName groups.
      * Each group holds champions that cannot appear together in a team
      * (MF Conduit/Challenger/Replicator, Galio/Galio Enhanced, etc.).
@@ -274,9 +273,8 @@ class ScoutContextBuilder
             ->map(fn (MetaComp $comp) => [
                 'id' => $comp->external_id,
                 'name' => $comp->name,
-                // Worker (`engine.ts`) reads this as `meta.units` —
-                // legacy port expected the `units` key. Keep the
-                // shape matching the worker to avoid another crash.
+                // Worker (`engine.ts`) reads this as `meta.units`.
+                // Keep the key name in sync with the worker.
                 'units' => $comp->champions->pluck('api_name')->all(),
                 'avgPlace' => (float) $comp->avg_place,
                 'games' => (int) $comp->games,

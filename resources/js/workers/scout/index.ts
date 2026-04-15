@@ -1,8 +1,7 @@
 /// <reference lib="webworker" />
-// Scout Web Worker. Ported from
-// legacy/tft-generator/client/src/workers/scout.worker.js.
-// Fetches /api/scout/context on first message, then runs the generate
-// / roadTo pipelines from the ported algorithm modules.
+// Scout Web Worker. Fetches /api/scout/context on first message, then
+// runs the generate / roadTo pipelines from the scout algorithm
+// modules in this folder.
 
 import { generate } from './engine';
 import { generateInsights } from './insights';
