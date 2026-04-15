@@ -29,7 +29,6 @@ export function phaseHillClimb(ctx: PhaseContext): void {
 continue;
 }
 
-        const removed = current[slot];
         const teamWithout = current.filter((_, i) => i !== slot);
         const usedSet = new Set(teamWithout);
 

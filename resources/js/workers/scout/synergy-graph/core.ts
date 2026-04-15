@@ -88,8 +88,8 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
 
     for (const c of team.champions) {
       for (const t of c.traits) {
-traitCounts[t] = (traitCounts[t] || 0) + 1;
-}
+        traitCounts[t] = (traitCounts[t] || 0) + 1;
+      }
     }
 
     const champTraitSets = team.champions.map(c => new Set(c.traits || []));
@@ -103,10 +103,10 @@ traitCounts[t] = (traitCounts[t] || 0) + 1;
         let lvl = 0;
 
         for (let i = bps.length - 1; i >= 0; i--) {
- if (count >= bps[i]) {
- lvl = i; break;
-}
-}
+          if (count >= bps[i]) {
+            lvl = i; break;
+          }
+        }
 
         return `${t}@${lvl}`;
       })
@@ -114,8 +114,8 @@ traitCounts[t] = (traitCounts[t] || 0) + 1;
       .join('+') || 'flex';
 
     if (!grouped.has(groupKey)) {
-grouped.set(groupKey, team);
-}
+      grouped.set(groupKey, team);
+    }
   }
 
   // Best per group first, then fill with remaining
@@ -131,8 +131,8 @@ grouped.set(groupKey, team);
     }
 
     if (diverse.length >= maxResults) {
-break;
-}
+      break;
+    }
   }
 
   return diverse.slice(0, maxResults);
@@ -306,9 +306,9 @@ return;
     }
   }
 
-    const _endDiversify = startSpan('synergy.diversify');
-    const diverse = diversifyResults(results, maxResults, traitBreakpoints, emblems);
-    _endDiversify();
+  const _endDiversify = startSpan('synergy.diversify');
+  const diverse = diversifyResults(results, maxResults, traitBreakpoints, emblems);
+  _endDiversify();
 
   // Ensure every team the locked-trait phase generated survives the
   // diversifyResults cut. Without this splice the cut drops most of
@@ -339,7 +339,7 @@ return;
     }
   }
 
-    return diverse;
+  return diverse;
   } finally {
     _end();
   }

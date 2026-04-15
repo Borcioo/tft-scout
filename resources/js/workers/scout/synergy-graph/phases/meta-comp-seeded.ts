@@ -14,8 +14,6 @@ export function phaseMetaCompSeeded(ctx: PhaseContext): void {
 return;
 }
 
-  const startSet = new Set(startChamps);
-
   for (const comp of metaComps) {
     // Skip comps that conflict with locked champions
     const compUnits = comp.units.filter(u => nodes[u] && !excludedSet.has(u));
