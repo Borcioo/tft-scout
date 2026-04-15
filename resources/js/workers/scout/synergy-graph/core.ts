@@ -150,8 +150,8 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
 function buildAllowedSet(graph, level, lockedChamps) {
   // Brak level → wszystko dozwolone (kompatybilność wsteczna).
   if (!level) {
-return new Set(Object.keys(graph.nodes));
-}
+    return new Set(Object.keys(graph.nodes));
+  }
 
   const allowed = new Set(lockedChamps || []);
 
@@ -160,8 +160,8 @@ return new Set(Object.keys(graph.nodes));
     const minLvl = MIN_LEVEL_BY_COST[cost];
 
     if (minLvl != null && level >= minLvl) {
-allowed.add(api);
-}
+      allowed.add(api);
+    }
   }
 
   return allowed;
@@ -198,10 +198,10 @@ export function findTeams(graph, options = {}) {
 
   if (effectiveMax5Cost == null && level != null) {
     if (level === 9) {
-effectiveMax5Cost = 2;
-} else if (level >= 10) {
-effectiveMax5Cost = 3;
-}
+      effectiveMax5Cost = 2;
+    } else if (level >= 10) {
+      effectiveMax5Cost = 3;
+    }
   }
 
   const context = {
