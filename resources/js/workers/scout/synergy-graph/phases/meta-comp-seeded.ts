@@ -3,8 +3,10 @@
 // @ts-nocheck
 
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseMetaCompSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet }) {
+export function phaseMetaCompSeeded(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet } = ctx;
   const { nodes } = graph;
   const { metaComps = [] } = graph.scoringCtx || {};
 

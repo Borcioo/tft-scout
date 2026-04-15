@@ -17,5 +17,29 @@ export type Graph = {
   exclusionLookup: Record<string, Set<string>>;
 };
 
-// Placeholder for Task 14. Phase/PhaseContext are added when core.ts
-// is written. Do not add them here yet — keeps Task 1 minimal.
+// Phase contract. All phases implement this signature post-Task 14.
+// Every phase takes the single `ctx` bag and destructures what it
+// needs at the top of its body. The field list is the union of
+// parameters the 10 phase bodies destructure — add to it only if
+// a new phase needs a field none of the existing phases read.
+export type PhaseContext = {
+  graph: Graph;
+  teamSize: number;
+  startChamps: any[];
+  context: any;
+  rng: any;
+  maxResults: number;
+  results: any;
+  addResult: (team: any) => void;
+  excludedSet: Set<string>;
+  excludedTraits: string[];
+  emblems: string[];
+};
+
+export type Phase = (ctx: PhaseContext) => void;
+
+export type PhaseEntry = {
+  name: string;
+  phase: Phase;
+  skipWhen?: (ctx: PhaseContext) => boolean;
+};

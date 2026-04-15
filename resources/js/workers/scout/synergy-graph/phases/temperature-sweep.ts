@@ -3,16 +3,15 @@
 // @ts-nocheck
 
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseTemperatureSweep({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
-  // Skip entirely when the caller requested trait locks —
+export function phaseTemperatureSweep(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, maxResults, results, addResult } = ctx;
+  // Skip-on-locked moved to core.ts registry `skipWhen` predicate —
   // phaseLockedTraitSeeded already populated the lock-satisfying
   // space with targeted seeds, and temperatureSweep's random walks
   // almost never satisfy the filter on locked runs. On the Phase A
   // baseline this phase alone cost ~5 s per locked scenario.
-  if ((context.lockedTraits || []).length > 0) {
-    return;
-  }
 
   // Budget cut: was maxResults * 3 (1080 attempts on locked runs),
   // now maxResults * 1 (still plenty for diversity, still triggers

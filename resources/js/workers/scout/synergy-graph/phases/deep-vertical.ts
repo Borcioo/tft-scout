@@ -4,10 +4,12 @@
 
 import { SCORING_CONFIG } from '../../config';
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
 const { thresholds } = SCORING_CONFIG;
 
-export function phaseDeepVertical({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits, emblems }) {
+export function phaseDeepVertical(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits, emblems } = ctx;
   const { traitBreakpoints, traitMap } = graph;
   const { traitRatings = {} } = graph.scoringCtx || {};
 

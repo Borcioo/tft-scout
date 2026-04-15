@@ -7,8 +7,10 @@
 // @ts-nocheck
 
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseCrossover({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult }) {
+export function phaseCrossover(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, maxResults, results, addResult } = ctx;
   const topTeams = [...results.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(10, results.size));

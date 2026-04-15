@@ -7,8 +7,10 @@
 // @ts-nocheck
 
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseFiveCostHeavy({ graph, teamSize, startChamps, context, rng, addResult, excludedSet }) {
+export function phaseFiveCostHeavy(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, addResult, excludedSet } = ctx;
   const { nodes } = graph;
   const { max5Cost, allowedSet } = context;
 

@@ -2,12 +2,10 @@
 //
 // Public entry point for the synergy-graph folder.
 // Re-exports the names engine.ts imports: buildGraph, findTeams.
-// As phases/core move into the folder, this file grows re-exports.
-// After Task 14 it is the only public surface of the folder.
+// Post-Task 14: the legacy synergy-graph.ts monolith is deleted;
+// findTeams lives in ./core and buildGraph in ./graph. engine.ts's
+// `import from './synergy-graph'` resolves here automatically via
+// folder/index.ts resolution.
 
 export { buildGraph } from './graph';
-
-// findTeams still lives in the legacy synergy-graph.ts monolith
-// during Tasks 1-13. Task 14 moves it to ./core and this line
-// changes to `export { findTeams } from './core';`.
-export { findTeams } from '../synergy-graph';
+export { findTeams } from './core';

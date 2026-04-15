@@ -4,8 +4,10 @@
 
 import { quickScore } from '../quick-score';
 import { costPenalty } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseHillClimb({ graph, teamSize, startChamps, context, rng, results, addResult, excludedSet }) {
+export function phaseHillClimb(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, results, addResult, excludedSet } = ctx;
   const { nodes, exclusionLookup = {} } = graph;
   const { emblems = [], max5Cost = null } = context;
   const lockedSet = new Set(startChamps);

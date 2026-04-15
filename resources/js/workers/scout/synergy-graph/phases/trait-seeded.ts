@@ -3,8 +3,10 @@
 // @ts-nocheck
 
 import { buildOneTeam } from '../shared/team-builder';
+import type { PhaseContext } from '../types';
 
-export function phaseTraitSeeded({ graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits }) {
+export function phaseTraitSeeded(ctx: PhaseContext): void {
+  const { graph, teamSize, startChamps, context, rng, maxResults, results, addResult, excludedSet, excludedTraits } = ctx;
   const { traitBreakpoints, traitMap } = graph;
 
   for (const [trait, members] of Object.entries(traitMap)) {
