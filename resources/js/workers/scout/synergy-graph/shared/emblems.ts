@@ -1,9 +1,9 @@
 // resources/js/workers/scout/synergy-graph/shared/emblems.ts
 //
-// Emblem application helpers. Pure — operate on trait count maps
-// and return new maps, never mutate inputs. Consumed by graph
-// building (edge computation) and phases that explore emblem
-// placements (deepVertical).
+// Emblem application helpers. Consumed by graph building
+// (edge computation) and phases that explore emblem placements
+// (deepVertical). applyEmblems mutates traitCounts in place;
+// emblems and champTraitSets are read-only.
 
 // @ts-nocheck
 
