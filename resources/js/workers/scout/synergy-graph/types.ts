@@ -14,7 +14,7 @@ export type Graph = {
   traitBreakpoints: Record<string, number[]>;
   traitStyles: Record<string, Record<number, string>>;
   scoringCtx: any;
-  exclusionLookup: Record<string, string[]>;
+  exclusionLookup: Record<string, Set<string>>;
 };
 
 // Placeholder for Task 14. Phase/PhaseContext are added when core.ts
