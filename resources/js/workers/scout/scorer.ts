@@ -12,6 +12,7 @@
  */
 
 import { SCORING_CONFIG } from './config';
+import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
 
@@ -116,18 +117,9 @@ return { score: 0, near: null };
   const sorted = [...breakpoints].sort((a: any, b: any) => a.minUnits - b.minUnits);
 
   // Find active breakpoint
-  let activeBp = null;
-  let activeIdx = -1;
-  let nextBp = null;
-
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (count >= sorted[i].minUnits) {
-      activeBp = sorted[i];
-      activeIdx = i;
-      nextBp = sorted[i + 1] || null;
-      break;
-    }
-  }
+  const activeIdx = findActiveBreakpointIdx(count, sorted);
+  const activeBp = activeIdx >= 0 ? sorted[activeIdx] : null;
+  const nextBp = activeIdx >= 0 ? (sorted[activeIdx + 1] || null) : null;
 
   // Near-breakpoint detection
   let near = null;
@@ -237,13 +229,7 @@ function dominantTraitDampen(activeTraits: any, ctx: any) {
 
   for (const trait of activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    let activeIdx = -1;
-
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) {
- activeIdx = i; break; 
-}
-    }
+    const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
 
     if (activeIdx < 0) {
 continue;
@@ -292,14 +278,7 @@ export function fillerCount(champions: any, activeTraitsByApi: Record<string, an
 
   const activeBpIdx = (trait: any, count: number) => {
     const bps = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
-
-    for (let i = bps.length - 1; i >= 0; i--) {
-      if (count >= bps[i].minUnits) {
-        return i;
-      }
-    }
-
-    return -1;
+    return findActiveBreakpointIdx(count, bps);
   };
 
   let filler = 0;
@@ -417,13 +396,7 @@ export function teamScore(team: any, ctx: any) {
   // the team gets a direct bonus reflecting that the composition "works" as a whole
   for (const trait of team.activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    let activeIdx = -1;
-
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) {
- activeIdx = i; break; 
-}
-    }
+    const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
 
     if (activeIdx < 0) {
 continue;
@@ -451,14 +424,7 @@ continue;
 return false;
 }
 
-    let activeIdx = 0;
-
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (t.count >= sorted[i].minUnits) {
- activeIdx = i; break; 
-}
-    }
-
+    const activeIdx = findActiveBreakpointIdx(t.count, sorted);
     return activeIdx >= 1;
   });
   score += highBreakpoints.length * weights.synergyBonus;
@@ -502,14 +468,7 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 return false;
 }
 
-    let activeIdx = 0;
-
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (t.count >= sorted[i].minUnits) {
- activeIdx = i; break; 
-}
-    }
-
+    const activeIdx = findActiveBreakpointIdx(t.count, sorted);
     return activeIdx >= 1;
   });
   breakdown.companions = companionBonus(team, ctx);
@@ -520,13 +479,7 @@ return false;
 
   for (const trait of team.activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
-    let activeIdx = -1;
-
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (trait.count >= sorted[i].minUnits) {
- activeIdx = i; break; 
-}
-    }
+    const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
 
     if (activeIdx < 0) {
 continue;
