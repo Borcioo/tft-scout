@@ -10,6 +10,7 @@
 import type { Graph } from './types';
 import { SCORING_CONFIG } from '../config';
 import { applyEmblems } from './shared/emblems';
+import { collectAffinityMatches } from './shared/affinity';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
 
@@ -169,17 +170,15 @@ continue;
 
     // Affinity: does this champion statistically win with active traits?
     // Cap at top 3 matches per champion to avoid diversity bias
-    const affData = affinity[lookupApi];
+    const affMatches = collectAffinityMatches(
+      { apiName: api, baseApiName: node.baseApiName },
+      activeTraitApis,
+      affinity,
+      { affinityMinGames: thresholds.affinityMinGames },
+      { affinityBonus: weights.affinityBonus },
+    );
 
-    if (affData) {
-      const affMatches = [];
-
-      for (const aff of affData) {
-        if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
-          affMatches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
-        }
-      }
-
+    if (affMatches.length > 0) {
       affMatches.sort((a, b) => b - a);
 
       for (let i = 0; i < Math.min(affMatches.length, 3); i++) {
