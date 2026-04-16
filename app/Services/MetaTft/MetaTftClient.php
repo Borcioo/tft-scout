@@ -4,6 +4,8 @@ namespace App\Services\MetaTft;
 
 use App\Services\MetaTft\Dto\AffinityDto;
 use App\Services\MetaTft\Dto\CompanionDto;
+use App\Services\MetaTft\Dto\ItemBuildDto;
+use App\Services\MetaTft\Dto\ItemStatDto;
 use App\Services\MetaTft\Dto\MetaCompDto;
 use App\Services\MetaTft\Dto\TraitRatingDto;
 use App\Services\MetaTft\Dto\UnitRatingDto;
@@ -239,6 +241,191 @@ class MetaTftClient
         }
 
         return $out;
+    }
+
+    /**
+     * Fetch total champion games used as denominator for `frequency`.
+     *
+     * Explorer /total returns `{data: [{total_games, placement_count, avg_placement}]}`.
+     * `total_games` can be `null` — fallback to summing placement_count.
+     */
+    public function fetchTotalGames(string $championApiName): int
+    {
+        $payload = $this->getWithCache(
+            self::EXPLORER_BASE_URL,
+            'total',
+            $this->explorerUnitParams($championApiName),
+        );
+
+        $row = $payload['data'][0] ?? null;
+        if (! is_array($row)) {
+            return 0;
+        }
+
+        $direct = $row['total_games'] ?? null;
+        if (is_numeric($direct)) {
+            return (int) $direct;
+        }
+
+        return self::sumPlaces($row['placement_count'] ?? []);
+    }
+
+    /**
+     * Fetch single-item stats for one champion from `/unit_items_unique/{api}-1`.
+     *
+     * Key format: `"{unitApi}-{star}&{itemApi}-{slot}"`. We strip the unit
+     * and slot parts and fold all (star, slot) variants into a single row
+     * per itemApi, because our tier is computed per champion×item regardless
+     * of star level or inventory slot.
+     *
+     * @return list<ItemStatDto>
+     */
+    public function fetchItemStats(string $championApiName): array
+    {
+        $payload = $this->getWithCache(
+            self::EXPLORER_BASE_URL,
+            'unit_items_unique/'.$championApiName.'-1',
+            $this->explorerUnitParams($championApiName),
+        );
+
+        $rows = $payload['data'] ?? [];
+        $totalGames = $this->fetchTotalGames($championApiName);
+
+        /** @var array<string, array{games:int, placeSum:int, top4:int, wins:int}> $folded */
+        $folded = [];
+        foreach ($rows as $row) {
+            $key = $row['unit_items_unique'] ?? null;
+            if ($key === null) {
+                continue;
+            }
+            $itemApi = self::parseItemFromUnitItemKey((string) $key);
+            if ($itemApi === null) {
+                continue;
+            }
+
+            $places = $row['placement_count'] ?? [];
+            $games = self::sumPlaces($places);
+            if ($games === 0) {
+                continue;
+            }
+
+            if (! isset($folded[$itemApi])) {
+                $folded[$itemApi] = ['games' => 0, 'placeSum' => 0, 'top4' => 0, 'wins' => 0];
+            }
+            $folded[$itemApi]['games'] += $games;
+            $folded[$itemApi]['placeSum'] += self::placeSum($places);
+            for ($i = 0; $i < 4; $i++) {
+                $folded[$itemApi]['top4'] += (int) ($places[$i] ?? 0);
+            }
+            $folded[$itemApi]['wins'] += (int) ($places[0] ?? 0);
+        }
+
+        $out = [];
+        foreach ($folded as $itemApi => $agg) {
+            $out[] = new ItemStatDto(
+                championApiName: $championApiName,
+                itemApiName: $itemApi,
+                avgPlace: $agg['placeSum'] / $agg['games'],
+                winRate: $agg['wins'] / $agg['games'],
+                top4Rate: $agg['top4'] / $agg['games'],
+                games: $agg['games'],
+                frequency: $totalGames > 0 ? $agg['games'] / $totalGames : 0.0,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fetch 3-item build stats for one champion from `/unit_builds/{api}`.
+     *
+     * Key format: `"{unitApi}&{item1}|{item2}|{item3}"`. Build may have
+     * fewer than 3 items when the key contains fewer `|` separators
+     * (ThiefsGloves and emblem items appear solo). We pass the raw list
+     * through — the sync layer dedups by sorting alphabetically.
+     *
+     * @return list<ItemBuildDto>
+     */
+    public function fetchItemBuilds(string $championApiName): array
+    {
+        $payload = $this->getWithCache(
+            self::EXPLORER_BASE_URL,
+            'unit_builds/'.$championApiName,
+            $this->explorerUnitParams($championApiName),
+        );
+
+        $rows = $payload['data'] ?? [];
+        $totalGames = $this->fetchTotalGames($championApiName);
+        $out = [];
+
+        foreach ($rows as $row) {
+            $key = $row['unit_builds'] ?? null;
+            if ($key === null) {
+                continue;
+            }
+            $items = self::parseItemsFromBuildKey((string) $key);
+            if (empty($items)) {
+                continue;
+            }
+
+            $places = $row['placement_count'] ?? [];
+            $agg = self::aggregatePlaces($places);
+            if ($agg['games'] === 0) {
+                continue;
+            }
+
+            $out[] = new ItemBuildDto(
+                championApiName: $championApiName,
+                itemApiNames: $items,
+                avgPlace: $agg['avgPlace'],
+                winRate: $agg['winRate'],
+                top4Rate: $agg['top4Rate'],
+                games: $agg['games'],
+                frequency: $totalGames > 0 ? $agg['games'] / $totalGames : 0.0,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * Parse `"TFT17_Aatrox-2&TFT_Item_GuinsoosRageblade-1"` → item api_name.
+     * Returns null for malformed keys.
+     */
+    private static function parseItemFromUnitItemKey(string $key): ?string
+    {
+        $parts = explode('&', $key, 2);
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        $itemWithSlot = $parts[1];
+        $item = preg_replace('/-\d+$/', '', $itemWithSlot);
+
+        return ($item === '' || $item === null) ? null : $item;
+    }
+
+    /**
+     * Parse `"TFT17_Aatrox&TFT_Item_BloodThirster|TFT_Item_Sterak|TFT_Item_Titan"`
+     * → `["TFT_Item_BloodThirster","TFT_Item_Sterak","TFT_Item_Titan"]`.
+     *
+     * Also handles keys with 1 or 2 items (ThiefsGloves, emblems).
+     *
+     * @return list<string>
+     */
+    private static function parseItemsFromBuildKey(string $key): array
+    {
+        $parts = explode('&', $key, 2);
+        if (count($parts) !== 2) {
+            return [];
+        }
+
+        $items = explode('|', $parts[1]);
+
+        return array_values(array_filter(
+            array_map(fn (string $s) => trim($s), $items),
+            fn (string $s) => $s !== '',
+        ));
     }
 
     /**
