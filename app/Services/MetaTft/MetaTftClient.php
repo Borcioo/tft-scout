@@ -43,7 +43,11 @@ class MetaTftClient
     // returns empty data on /tft-explorer-api (sample_size=0, no error).
     private readonly string $queue;
 
-    private const DEFAULT_RANK = 'IRON,BRONZE,SILVER,GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
+    // GOLD+ — excludes IRON/BRONZE/SILVER where players often misplay
+    // comps, which skews avgPlace data. Still wide enough for sample
+    // size (GOLD is ~30% of playerbase). Matches MetaTFT UI "PLATINUM+"
+    // default conceptually while being one tier more permissive.
+    private const DEFAULT_RANK = 'GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
 
     private const DEFAULT_TTL = 3600;
 
@@ -492,6 +496,11 @@ class MetaTftClient
             'queue' => $this->queue,
             'patch' => 'current',
             'days' => '3',
+            // Apply rank filter to bulk units/traits stats too — without
+            // this we were averaging across all ranks including low elo,
+            // which biased avgPlace high on skill-demanding comps like
+            // Meta1 (SummonTrait+Viktor) vs easy stack comps.
+            'rank' => self::DEFAULT_RANK,
             'permit_filter_adjustment' => 'true',
         ];
     }
