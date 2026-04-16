@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ItemIconStack } from './ItemIconStack';
-import { PlaceChangeBadge } from './PlaceChangeBadge';
 import type { Tier } from './ItemTierBadge';
+import { PlaceChangeBadge } from './PlaceChangeBadge';
 
 export type TopPickRow = {
     items: string[];         // 1..3 api_names
@@ -77,9 +77,16 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
 }
 
 function joinNames(names: string[]): string {
-    if (names.length === 0) return '—';
-    if (names.length === 1) return names[0];
+    if (names.length === 0) {
+return '—';
+}
+
+    if (names.length === 1) {
+return names[0];
+}
+
     const head = names.slice(0, -1).join(', ');
+
     return `${head} and ${names[names.length - 1]}`;
 }
 

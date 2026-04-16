@@ -31,13 +31,18 @@ export function collectAffinityMatches(
 ): number[] {
   const lookupApi = champion.baseApiName ?? champion.apiName;
   const data = affinity[lookupApi];
-  if (!data) return [];
+
+  if (!data) {
+return [];
+}
 
   const matches: number[] = [];
+
   for (const aff of data) {
     if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
       matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
     }
   }
+
   return matches;
 }

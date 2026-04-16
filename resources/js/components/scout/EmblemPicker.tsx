@@ -25,12 +25,14 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
         .sort((a, b) => {
             const aActive = activeSet.has(a.apiName) ? 0 : 1;
             const bActive = activeSet.has(b.apiName) ? 0 : 1;
+
             return aActive - bActive;
         });
 
     const setCount = (apiName: string, count: number) => {
         if (count <= 0) {
             onChange(emblems.filter((e) => e.apiName !== apiName));
+
             return;
         }
 

@@ -32,8 +32,15 @@ export function LockedChampionsPicker({ champions, locked, onChange }: Props) {
         .sort((a, b) => {
             const aLocked = lockedSet.has(a.apiName) ? 0 : 1;
             const bLocked = lockedSet.has(b.apiName) ? 0 : 1;
-            if (aLocked !== bLocked) return aLocked - bLocked;
-            if (a.cost !== b.cost) return a.cost - b.cost;
+
+            if (aLocked !== bLocked) {
+return aLocked - bLocked;
+}
+
+            if (a.cost !== b.cost) {
+return a.cost - b.cost;
+}
+
             return a.name.localeCompare(b.name);
         });
 

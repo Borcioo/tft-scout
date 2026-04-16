@@ -8,9 +8,9 @@
 // file is a pure code move with zero semantic change. Strict typing
 // is a separate sub-project.
 
-import type { Graph } from './types';
 import { SCORING_CONFIG } from '../config';
 import { startSpan } from '../scout-profiler';
+import type { Graph } from './types';
 
 const { thresholds } = SCORING_CONFIG;
 

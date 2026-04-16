@@ -3,7 +3,6 @@
 // @ts-nocheck
 
 import { SCORING_CONFIG } from '../../config';
-import { buildOneTeam } from '../shared/team-builder';
 import {
   FILLER_COST_WEIGHTS,
   FILLER_PICK_DECAY,
@@ -12,6 +11,7 @@ import {
   FILLER_BOOTSTRAP_ANCHORS,
   FILLER_DEFAULT_FIVE_COST_CAP,
 } from '../shared/const';
+import { buildOneTeam } from '../shared/team-builder';
 import type { PhaseContext } from '../types';
 
 const { thresholds } = SCORING_CONFIG;

@@ -7,10 +7,10 @@
 
 // @ts-nocheck
 
-import type { Graph } from './types';
 import { SCORING_CONFIG } from '../config';
-import { applyEmblems } from './shared/emblems';
 import { collectAffinityMatches } from './shared/affinity';
+import { applyEmblems } from './shared/emblems';
+import type { Graph } from './types';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, thresholds } = SCORING_CONFIG;
 

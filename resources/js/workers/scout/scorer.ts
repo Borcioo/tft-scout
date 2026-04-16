@@ -12,8 +12,8 @@
  */
 
 import { SCORING_CONFIG } from './config';
-import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
+import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 
 const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
 
@@ -273,6 +273,7 @@ export function fillerCount(champions: any, activeTraitsByApi: Record<string, an
 
   const activeBpIdx = (trait: any, count: number) => {
     const bps = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
+
     return findActiveBreakpointIdx(count, bps);
   };
 
@@ -420,6 +421,7 @@ return false;
 }
 
     const activeIdx = findActiveBreakpointIdx(t.count, sorted);
+
     return activeIdx >= 1;
   });
   score += highBreakpoints.length * weights.synergyBonus;
@@ -464,6 +466,7 @@ return false;
 }
 
     const activeIdx = findActiveBreakpointIdx(t.count, sorted);
+
     return activeIdx >= 1;
   });
   breakdown.companions = companionBonus(team, ctx);

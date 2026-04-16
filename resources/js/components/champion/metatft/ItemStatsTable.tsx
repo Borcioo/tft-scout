@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ItemIconStack } from './ItemIconStack';
-import { ItemTierBadge, type Tier } from './ItemTierBadge';
+import { ItemTierBadge  } from './ItemTierBadge';
+import type {Tier} from './ItemTierBadge';
 import { PlaceChangeBadge } from './PlaceChangeBadge';
 
 type Row = {

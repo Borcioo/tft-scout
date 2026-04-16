@@ -20,6 +20,7 @@ export function findActiveBreakpointIdx(
   breakpoints: readonly { minUnits: number }[],
 ): number {
   let idx = -1;
+
   for (let i = 0; i < breakpoints.length; i++) {
     if (count >= breakpoints[i].minUnits) {
       idx = i;
@@ -27,5 +28,6 @@ export function findActiveBreakpointIdx(
       break;
     }
   }
+
   return idx;
 }

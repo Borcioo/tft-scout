@@ -130,6 +130,7 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
     // Prod blob workers have no origin — accept it via postMessage.
     if (msg.type === '__init__') {
         (self as unknown as { __API_BASE__?: string }).__API_BASE__ = msg.origin ?? '';
+
         return;
     }
 
