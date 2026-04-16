@@ -383,11 +383,13 @@ export function generate(input) {
         for (const meta of metaComps) {
           const overlap = meta.units.filter(u => teamApis.has(u)).length;
 
-          // Match if ≥90% of meta comp units are in the team —
-          // strict threshold so only near-identical comps get the
-          // "Meta" badge. Below 90% still counted by insights
-          // (minOverlapPct 0.7) for "similar to X meta" concern rules.
-          if (overlap >= Math.ceil(meta.units.length * 0.9)) {
+          // Match if ≥85% of meta comp units are in the team. For
+          // 8-unit comps this means 7/8 (87.5%) counts as "Meta"
+          // — one substitution is still the same archetype. 90%
+          // would require 100% for 8-unit comps (granularity issue).
+          // Below 85% still counted by insights (minOverlapPct 0.7)
+          // for "similar to X meta" concern rules.
+          if (overlap / meta.units.length >= 0.85) {
             comp.metaMatch = {
               name: meta.name,
               avgPlace: meta.avgPlace,
