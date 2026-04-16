@@ -902,7 +902,9 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                     {/* Col 3: Recommended Builds (top 5 3-item builds) */}
                     <TopPickCard
                         title="Recommended Builds"
-                        rows={metatft.items_builds.slice(0, 5)}
+                        rows={metatft.items_builds
+                            .filter((r) => !r.is_tactician.some((f) => f))
+                            .slice(0, 5)}
                         championName={champion.name}
                         emptyHint="Builds appear after MetaTFT sync."
                     />
@@ -910,15 +912,18 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                     {/* Col 4: Top Items (top 5 single items) */}
                     <TopPickCard
                         title="Top Items"
-                        rows={metatft.items_single.slice(0, 5).map((r) => ({
-                            items: [r.api_name],
-                            names: [r.name],
-                            icons: [r.icon],
-                            avg_place: r.avg_place,
-                            place_change: r.place_change,
-                            frequency: r.frequency,
-                            tier: r.tier,
-                        }))}
+                        rows={metatft.items_single
+                            .filter((r) => !r.is_tactician)
+                            .slice(0, 5)
+                            .map((r) => ({
+                                items: [r.api_name],
+                                names: [r.name],
+                                icons: [r.icon],
+                                avg_place: r.avg_place,
+                                place_change: r.place_change,
+                                frequency: r.frequency,
+                                tier: r.tier,
+                            }))}
                         championName={champion.name}
                         emptyHint="Items appear after MetaTFT sync."
                     />
