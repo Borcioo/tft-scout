@@ -27,13 +27,28 @@ class ChampionItemSet extends Model
         'set_id',
         'avg_place',
         'games',
+        'frequency',
+        'win_rate',
+        'top4_rate',
+        'place_change',
+        'prev_avg_place',
+        'tier',
+        'item_count',
+        'synced_at',
     ];
 
     protected $casts = [
         'item_api_names' => PostgresArray::class,
         'avg_place' => 'float',
         'games' => 'integer',
+        'frequency' => 'float',
+        'win_rate' => 'float',
+        'top4_rate' => 'float',
+        'place_change' => 'float',
+        'prev_avg_place' => 'float',
+        'item_count' => 'integer',
         'updated_at' => 'datetime',
+        'synced_at' => 'datetime',
     ];
 
     public function champion(): BelongsTo

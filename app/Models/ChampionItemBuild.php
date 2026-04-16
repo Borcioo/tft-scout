@@ -25,13 +25,24 @@ class ChampionItemBuild extends Model
         'avg_place',
         'games',
         'frequency',
+        'win_rate',
+        'top4_rate',
+        'place_change',
+        'prev_avg_place',
+        'tier',
+        'synced_at',
     ];
 
     protected $casts = [
         'avg_place' => 'float',
         'games' => 'integer',
         'frequency' => 'float',
+        'win_rate' => 'float',
+        'top4_rate' => 'float',
+        'place_change' => 'float',
+        'prev_avg_place' => 'float',
         'updated_at' => 'datetime',
+        'synced_at' => 'datetime',
     ];
 
     public function champion(): BelongsTo
