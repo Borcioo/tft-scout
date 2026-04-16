@@ -149,7 +149,13 @@ export type ScoredTeam = {
     level: number;
     slotsUsed: number;
     roles: Record<string, number> | null;
-    metaMatch: { id: string; name: string; similarity: number } | null;
+    metaMatch: {
+        name: string;
+        avgPlace: number;
+        games: number;
+        overlap: number;
+        total: number;
+    } | null;
     insights: TeamInsights | null;
 };
 

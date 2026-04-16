@@ -1,4 +1,4 @@
-import { Hand, Shield, Swords } from 'lucide-react';
+import { Hand, Shield, Sparkles, Swords } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -74,12 +74,24 @@ return sb - sa;
                         </span>
                     ))}
                 </div>
-                <span className="shrink-0 font-mono text-sm text-muted-foreground">
-                    Score{' '}
-                    <span className="text-lg font-bold text-amber-300">
-                        {team.score.toFixed(1)}
+                <div className="flex shrink-0 items-center gap-3">
+                    {team.metaMatch && (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 border-emerald-500/60 bg-emerald-950/40 text-emerald-300"
+                            title={`Matches ${team.metaMatch.overlap}/${team.metaMatch.total} units of "${team.metaMatch.name}" meta comp (${team.metaMatch.games.toLocaleString()} games)`}
+                        >
+                            <Sparkles className="size-3" />
+                            Meta · avg {team.metaMatch.avgPlace.toFixed(2)}
+                        </Badge>
+                    )}
+                    <span className="font-mono text-sm text-muted-foreground">
+                        Score{' '}
+                        <span className="text-lg font-bold text-amber-300">
+                            {team.score.toFixed(1)}
+                        </span>
                     </span>
-                </span>
+                </div>
             </div>
 
             {team.roles && (
