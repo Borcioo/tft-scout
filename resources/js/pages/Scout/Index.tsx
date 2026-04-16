@@ -58,7 +58,7 @@ function ScoutIndexInner({ setNumber }: Props) {
             });
     }, []);
 
-    const [level, setLevel] = useState(8);
+    const [level, setLevel] = useState(9);
     const [topN, setTopN] = useState(10);
     const [max5Cost, setMax5Cost] = useState<number | null>(null);
     const [minFrontline, setMinFrontline] = useState(0);
