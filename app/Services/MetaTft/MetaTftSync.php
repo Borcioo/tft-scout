@@ -37,9 +37,31 @@ class MetaTftSync
     /** @var array<int, true> Champion IDs whose item fetch failed this run. */
     private array $itemFetchFailedChampions = [];
 
+    /** @var (\Closure(string): void)|null Optional progress reporter. */
+    private ?\Closure $progress = null;
+
     public function __construct(
         private readonly MetaTftClient $client,
     ) {}
+
+    /**
+     * Attach a progress callback. Called with human-readable status
+     * strings as the sync progresses through each phase and per-champion
+     * batch. Use from the Artisan command to stream updates to the user.
+     */
+    public function onProgress(\Closure $cb): self
+    {
+        $this->progress = $cb;
+
+        return $this;
+    }
+
+    private function log(string $msg): void
+    {
+        if ($this->progress) {
+            ($this->progress)($msg);
+        }
+    }
 
     public function run(int $setNumber): MetaSync
     {
@@ -85,9 +107,17 @@ class MetaTftSync
             DB::transaction(function () use (
                 $set, $championsByApiName, $traitsByApiName, &$counts, $runStartedAt,
             ) {
+                $this->log('Fetching bulk unit ratings...');
                 $counts['units'] = $this->syncUnitRatings($set, $championsByApiName);
+                $this->log("  → {$counts['units']} unit ratings upserted");
+
+                $this->log('Fetching bulk trait ratings...');
                 $counts['traits'] = $this->syncTraitRatings($set, $traitsByApiName);
+                $this->log("  → {$counts['traits']} trait ratings upserted");
+
+                $this->log('Fetching meta comps (cluster data)...');
                 $counts['meta_comps'] = $this->syncMetaComps($set, $championsByApiName, $traitsByApiName);
+                $this->log("  → {$counts['meta_comps']} meta comps upserted");
 
                 // Per-champion fetches run AFTER bulk inserts so the
                 // outer transaction rolls back affinity/companions on
@@ -109,10 +139,20 @@ class MetaTftSync
                     ->flip()
                     ->all();
 
+                $toSync = [];
                 foreach ($championsByApiName as $apiName => $champion) {
                     if (! $champion->is_playable && ! isset($variantParentIds[$champion->id])) {
                         continue;
                     }
+                    $toSync[] = [$apiName, $champion];
+                }
+                $total = count($toSync);
+                $this->log("Fetching per-champion data (affinity + companions + items) for {$total} champions...");
+
+                $i = 0;
+                foreach ($toSync as [$apiName, $champion]) {
+                    $i++;
+                    $this->log("  [{$i}/{$total}] {$apiName}");
                     $counts['affinity'] += $this->syncAffinityForChampion(
                         $champion, $set, $traitsByApiName,
                     );

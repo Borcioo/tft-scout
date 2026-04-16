@@ -18,7 +18,9 @@ class MetaTftSync extends Command
         $this->info("Syncing MetaTFT data for set {$setNumber}...");
         $start = microtime(true);
 
-        $record = $sync->run($setNumber);
+        $record = $sync
+            ->onProgress(fn (string $msg) => $this->line($msg))
+            ->run($setNumber);
 
         $elapsed = round(microtime(true) - $start, 2);
 
