@@ -28,7 +28,7 @@ export function ItemIconStack({
             {apiNames.map((api, i) => (
                 <img
                     key={api + i}
-                    src={icons[i] ? `/${icons[i]}` : `/icons/items/${api}.png`}
+                    src={`/icons/items/${api}.png`}
                     alt={names[i] ?? api}
                     title={names[i] ?? api}
                     className={cn(dim, 'rounded border border-border/60 object-cover')}
