@@ -1,0 +1,96 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Prepare deploy archive
+        run: |
+          tar czf /tmp/deploy.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='storage/logs/*.log' \
+            --exclude='storage/framework/cache/data/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='tmp' \
+            --exclude='legacy' \
+            --exclude='rawData' \
+            --exclude='tests' \
+            --exclude='.github' \
+            --exclude='.claude' \
+            .
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MIKRUS_SSH_KEY }}" > ~/.ssh/mikrus
+          chmod 600 ~/.ssh/mikrus
+          ssh-keyscan -p ${{ secrets.MIKRUS_PORT }} ${{ secrets.MIKRUS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload archive
+        run: |
+          scp -i ~/.ssh/mikrus -P ${{ secrets.MIKRUS_PORT }} \
+            /tmp/deploy.tar.gz \
+            root@${{ secrets.MIKRUS_HOST }}:/tmp/deploy.tar.gz
+
+      - name: Deploy on server
+        run: |
+          ssh -i ~/.ssh/mikrus -p ${{ secrets.MIKRUS_PORT }} \
+            root@${{ secrets.MIKRUS_HOST }} 'bash -s' << 'DEPLOY'
+          set -e
+          cd /var/www/tft-scout
+
+          # Extract new code (preserve .env, storage)
+          tar xzf /tmp/deploy.tar.gz --no-same-owner
+          rm /tmp/deploy.tar.gz
+
+          # Fix ownership
+          chown -R www-data:www-data /var/www/tft-scout
+          chmod -R 775 storage bootstrap/cache
+
+          # Laravel production steps
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+          # Restart services
+          systemctl restart php8.4-fpm
+          supervisorctl reread
+          supervisorctl update
+          supervisorctl restart all
+
+          echo "Deploy complete: $(date)"
+          DEPLOY

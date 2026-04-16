@@ -35,11 +35,13 @@ class MetaTftClient
     private const COMPS_BASE_URL = 'https://api-hc.metatft.com/tft-comps-api';
     private const EXPLORER_BASE_URL = 'https://api-hc.metatft.com/tft-explorer-api';
 
-    // PBE vs RANKED — sourced from METATFT_QUEUE env (see config/services.php).
-    // API silently returns previous-set data if the queue doesn't match the
-    // set's release state, so this MUST flip from 'PBE' to 'RANKED' when a
-    // new set hits retail.
+    // Queue ID per MetaTFT's frontend QueueMapping: 1100=Ranked, 1090=Normal,
+    // 1130=HyperRoll, 1160=DoubleUp. MUST be the integer ID — the string
+    // alias "RANKED" works on /tft-stat-api and /tft-comps-api but silently
+    // returns empty data on /tft-explorer-api (sample_size=0, no error).
     private readonly string $queue;
+
+    private const DEFAULT_RANK = 'IRON,BRONZE,SILVER,GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
 
     private const DEFAULT_TTL = 3600;
 
@@ -300,7 +302,6 @@ class MetaTftClient
     private function statsBulkParams(int $setNumber): array
     {
         return [
-            'set' => (string) $setNumber,
             'queue' => $this->queue,
             'patch' => 'current',
             'days' => '3',
@@ -320,8 +321,8 @@ class MetaTftClient
             'queue' => $this->queue,
             'patch' => 'current',
             'days' => '1',
+            'rank' => self::DEFAULT_RANK,
             'permit_filter_adjustment' => 'true',
-            'region_hint' => 'eun1',
         ];
     }
 
