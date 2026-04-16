@@ -15,7 +15,7 @@ import { SCORING_CONFIG } from './config';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 
-const { weights, breakpointMultiplier, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
+const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
 
 const ROLE_CATEGORY = {
   ADCarry: 'dps', APCarry: 'dps', ADCaster: 'dps', APCaster: 'dps',
@@ -155,7 +155,7 @@ return { score: 0, near };
   let basePts;
 
   if (rating && rating.games >= minGamesForReliable) {
-    const breakEven = activeIdx >= 3 ? 0.20 : activeIdx >= 1 ? 0.40 : 0.25;
+    const breakEven = breakEvenByTier[Math.min(activeIdx, breakEvenByTier.length - 1)] ?? 0.40;
     basePts = (rating.score - breakEven) * weights.traitRating * bpMult;
 
     if (basePts < -5) {
