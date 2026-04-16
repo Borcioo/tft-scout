@@ -57,6 +57,11 @@ return [
     ],
     'metatft' => [
         'min_games_gate' => 15,
+        // Minimum games to appear in per-champion tables/cards. Rows below
+        // this threshold are noise (e.g. a 1.0 avg over 3 games is luck,
+        // not signal). Distinct from `min_games_gate` which only gates
+        // tier assignment — this gate hides the row entirely.
+        'min_games_display' => 50,
         'tier_thresholds' => [
             // avg_place upper bound (inclusive) per tier
             'SS' => 3.5,

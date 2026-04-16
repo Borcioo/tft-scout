@@ -99,14 +99,20 @@ class ChampionsController extends Controller
             $forms->push($variant);
         }
 
+        // Hide low-sample rows — a 1.0 avg over 3 games is luck, not signal.
+        // Configurable via config('tft.metatft.min_games_display').
+        $minGames = (int) config('tft.metatft.min_games_display', 50);
+
         $itemSingleRows = ChampionItemBuild::query()
             ->with('item:id,api_name,name,icon_path')
             ->where('champion_id', $champion->id)
+            ->where('games', '>=', $minGames)
             ->orderBy('avg_place')
             ->get();
 
         $itemSetRows = ChampionItemSet::query()
             ->where('champion_id', $champion->id)
+            ->where('games', '>=', $minGames)
             ->orderBy('avg_place')
             ->get();
 
