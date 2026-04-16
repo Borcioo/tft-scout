@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
 
+import { ChampionItemBuildsAccordion, type ItemBuildsMap } from './ChampionItemBuildsAccordion';
 import { WhyThisComp } from './WhyThisComp';
 
 const COST_BORDER: Record<number, string> = {
@@ -34,9 +35,10 @@ const STYLE_RANK: Record<string, number> = {
 
 type Props = {
     team: ScoredTeam;
+    itemBuilds: ItemBuildsMap;
 };
 
-export function ScoutCompCard({ team }: Props) {
+export function ScoutCompCard({ team, itemBuilds }: Props) {
     const titleTraits = [...team.activeTraits]
         .filter((t) => (t.style ?? 'Bronze') !== 'Unique')
         .sort((a, b) => {
@@ -173,6 +175,11 @@ return sb - sa;
             </div>
 
             <WhyThisComp insights={team.insights} />
+
+            <ChampionItemBuildsAccordion
+                champions={team.champions as any}
+                itemBuilds={itemBuilds}
+            />
         </Card>
     );
 }

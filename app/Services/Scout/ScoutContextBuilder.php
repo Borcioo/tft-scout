@@ -4,6 +4,7 @@ namespace App\Services\Scout;
 
 use App\Models\Champion;
 use App\Models\ChampionCompanion;
+use App\Models\ChampionItemSet;
 use App\Models\ChampionRating;
 use App\Models\ChampionTraitAffinity;
 use App\Models\MetaComp;
@@ -49,6 +50,105 @@ class ScoutContextBuilder
             'syncedAt' => $syncedAt,
             'stale' => $stale,
         ];
+    }
+
+    /**
+     * Build a map of championApiName → top 5 3-item builds for that
+     * champion, sorted by avgPlace ascending. Only includes builds with
+     * item_count=3 and games >= 50 to avoid noise. Each build carries
+     * enough detail for the UI (item apiNames + names + icons + tier +
+     * stats) so the frontend can render accordion rows without fetching.
+     *
+     * Tactician items filtered out — they're hatbox-wide stats not
+     * relevant to combat BIS selection.
+     */
+    /**
+     * Public entry point used by ScoutController to embed item builds
+     * in the Inertia props (no separate fetch needed on frontend).
+     */
+    public function buildItemBuildsForInertia(int $setNumber): array
+    {
+        $set = Set::query()->where('number', $setNumber)->firstOrFail();
+
+        return $this->buildItemBuilds($set);
+    }
+
+    private function buildItemBuilds(Set $set): array
+    {
+        $rows = ChampionItemSet::query()
+            ->join('champions', 'champions.id', '=', 'champion_item_sets.champion_id')
+            ->where('champions.set_id', $set->id)
+            ->where('champion_item_sets.item_count', 3)
+            ->where('champion_item_sets.games', '>=', 50)
+            ->orderBy('champions.api_name')
+            ->orderBy('champion_item_sets.avg_place')
+            ->get([
+                'champions.api_name as champ_api',
+                'champion_item_sets.item_api_names',
+                'champion_item_sets.avg_place',
+                'champion_item_sets.games',
+                'champion_item_sets.tier',
+                'champion_item_sets.frequency',
+                'champion_item_sets.place_change',
+            ]);
+
+        // Item lookup for names + icons
+        $allItemApis = $rows
+            ->flatMap(fn ($r) => $r->item_api_names ?? [])
+            ->unique()
+            ->values();
+
+        $itemsByApi = \App\Models\Item::query()
+            ->whereIn('api_name', $allItemApis)
+            ->get()
+            ->keyBy('api_name');
+
+        $isTactician = fn (string $api) => str_contains($api, 'Tacticians')
+            || str_contains($api, 'ForceOfNature');
+
+        $map = [];
+        foreach ($rows as $row) {
+            $apiNames = $row->item_api_names ?? [];
+
+            // Skip builds containing any tactician item
+            if (array_filter($apiNames, $isTactician)) {
+                continue;
+            }
+
+            // Skip builds referencing items not in DB (cross-set legacy)
+            $allKnown = true;
+            foreach ($apiNames as $api) {
+                if (! $itemsByApi->has($api)) {
+                    $allKnown = false;
+                    break;
+                }
+            }
+            if (! $allKnown) {
+                continue;
+            }
+
+            $map[$row->champ_api] ??= [];
+
+            // Cap at top 5 per champion
+            if (count($map[$row->champ_api]) >= 5) {
+                continue;
+            }
+
+            $map[$row->champ_api][] = [
+                'items' => $apiNames,
+                'names' => array_map(
+                    fn ($api) => $itemsByApi->get($api)?->name ?? $api,
+                    $apiNames,
+                ),
+                'avgPlace' => (float) $row->avg_place,
+                'games' => (int) $row->games,
+                'tier' => $row->tier,
+                'frequency' => (float) $row->frequency,
+                'placeChange' => $row->place_change !== null ? (float) $row->place_change : null,
+            ];
+        }
+
+        return $map;
     }
 
     private function buildChampions(Set $set): array

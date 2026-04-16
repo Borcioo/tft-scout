@@ -27,8 +27,15 @@ class ScoutController extends Controller
      */
     public function index(): Response
     {
+        $setNumber = (int) config('services.tft.set', 17);
+
+        // Prefetch top 3-item builds per champion directly in Inertia
+        // props — UI accordion can render without a separate fetch.
+        $itemBuilds = $this->builder->buildItemBuildsForInertia($setNumber);
+
         return Inertia::render('Scout/Index', [
-            'setNumber' => (int) config('services.tft.set', 17),
+            'setNumber' => $setNumber,
+            'itemBuilds' => $itemBuilds,
         ]);
     }
 

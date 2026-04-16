@@ -6,6 +6,7 @@ import { LockedTraitsPicker } from '@/components/scout/LockedTraitsPicker';
 import { ScoutControls } from '@/components/scout/ScoutControls';
 import { ScoutDebugPanel } from '@/components/scout/ScoutDebugPanel';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
+import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
 import AppLayout from '@/layouts/app-layout';
@@ -13,6 +14,7 @@ import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/
 
 type Props = {
     setNumber: number;
+    itemBuilds: ItemBuildsMap;
 };
 
 type EmblemEntry = { apiName: string; count: number };
@@ -37,7 +39,7 @@ export default function ScoutIndex(props: Props) {
     );
 }
 
-function ScoutIndexInner({ setNumber }: Props) {
+function ScoutIndexInner({ setNumber, itemBuilds }: Props) {
     const { generate } = useScoutWorker();
     const page = usePage<{ scoutLabEnabled?: boolean }>();
     const labEnabled = page.props.scoutLabEnabled === true;
@@ -187,6 +189,7 @@ return;
                             teams={results}
                             isRunning={isRunning}
                             error={error}
+                            itemBuilds={itemBuilds}
                         />
                     </div>
                 </main>
