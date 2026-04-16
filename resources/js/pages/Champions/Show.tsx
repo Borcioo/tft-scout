@@ -1,6 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Info, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { MetaTftPerformanceSection  } from '@/components/champion/metatft/MetaTftPerformanceSection';
+import type {MetaTftData} from '@/components/champion/metatft/MetaTftPerformanceSection';
+import { TopPickCard } from '@/components/champion/metatft/TopPickCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +65,7 @@ type Props = {
     champion: Champion;
     variants: Champion[];
     rating: null; // Phase B placeholder — will become { score, tier, avg_place, ... }
+    metatft: MetaTftData;
 };
 
 /** Cost colors matching in-game TFT unit borders */
@@ -720,7 +724,7 @@ return Math.round(val * 100) + '%';
     return val.toFixed(1);
 }
 
-export default function ChampionShow({ champion, variants, rating }: Props) {
+export default function ChampionShow({ champion, variants, metatft }: Props) {
     const [starLevel, setStarLevel] = useState(1);
 
     const style = COST_STYLES[Math.min(Math.max(champion.cost, 1), 5)];
@@ -779,7 +783,7 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                 </Link>
 
                 {/* ── Hero section ──────────────────────── */}
-                <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+                <div className="grid gap-6 md:grid-cols-[320px_1fr] lg:grid-cols-[320px_1fr_1.5fr_1.5fr]">
                     {/* Splash + star selector */}
                     <div className="flex flex-col gap-3">
                         <div
@@ -894,6 +898,30 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                             />
                         )}
                     </div>
+
+                    {/* Col 3: Recommended Builds (top 5 3-item builds) */}
+                    <TopPickCard
+                        title="Recommended Builds"
+                        rows={metatft.items_builds.slice(0, 5)}
+                        championName={champion.name}
+                        emptyHint="Builds appear after MetaTFT sync."
+                    />
+
+                    {/* Col 4: Top Items (top 5 single items) */}
+                    <TopPickCard
+                        title="Top Items"
+                        rows={metatft.items_single.slice(0, 5).map((r) => ({
+                            items: [r.api_name],
+                            names: [r.name],
+                            icons: [r.icon],
+                            avg_place: r.avg_place,
+                            place_change: r.place_change,
+                            frequency: r.frequency,
+                            tier: r.tier,
+                        }))}
+                        championName={champion.name}
+                        emptyHint="Items appear after MetaTFT sync."
+                    />
                 </div>
 
                 {/* ── Stats ──────────────────────────────── */}
@@ -1078,39 +1106,8 @@ export default function ChampionShow({ champion, variants, rating }: Props) {
                     </CardContent>
                 </Card>
 
-                {/* ── MetaTFT Performance (placeholder) ───── */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            MetaTFT Performance
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {rating ? (
-                            // When rating is populated from Phase B:
-                            // Display score, tier, win rate, avg place, games, trend arrow
-                            <p>Rating display TBD</p>
-                        ) : (
-                            <div className="flex flex-col gap-3 text-sm">
-                                <div className="inline-flex w-fit items-center gap-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-400">
-                                    <Info className="size-3" />
-                                    MetaTFT integration coming soon
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 text-muted-foreground sm:grid-cols-4">
-                                    <StatCell label="Score" value="—" />
-                                    <StatCell label="Tier" value="—" />
-                                    <StatCell label="Avg Place" value="—" />
-                                    <StatCell label="Games" value="—" />
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Win rates, tier placement and trend
-                                    indicators will appear here once live
-                                    MetaTFT data is integrated.
-                                </p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                {/* ── MetaTFT Performance ────────────────── */}
+                <MetaTftPerformanceSection data={metatft} />
             </div>
         </>
     );
