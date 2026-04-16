@@ -5,6 +5,7 @@ namespace App\Services\MetaTft;
 use App\Models\Champion;
 use App\Models\ChampionCompanion;
 use App\Models\ChampionItemBuild;
+use App\Models\ChampionItemSet;
 use App\Models\ChampionRating;
 use App\Models\ChampionTraitAffinity;
 use App\Models\Item;
@@ -75,6 +76,7 @@ class MetaTftSync
             'companions' => 0,
             'meta_comps' => 0,
             'item_stats' => 0,
+            'item_builds' => 0,
         ];
         $this->itemFetchFailedChampions = [];
         $runStartedAt = CarbonImmutable::now();
@@ -120,6 +122,9 @@ class MetaTftSync
                     $counts['item_stats'] += $this->syncItemStatsForChampion(
                         $champion, $set, $runStartedAt,
                     );
+                    $counts['item_builds'] += $this->syncItemBuildsForChampion(
+                        $champion, $set, $runStartedAt,
+                    );
                 }
             });
         } catch (Throwable $e) {
@@ -141,6 +146,7 @@ class MetaTftSync
             'companions_count' => $counts['companions'],
             'meta_comps_count' => $counts['meta_comps'],
             'item_stats_count' => $counts['item_stats'],
+            'item_builds_count' => $counts['item_builds'],
             'failed_item_champions' => count($this->itemFetchFailedChampions),
             'status' => $status,
             'notes' => $notes,
@@ -218,6 +224,83 @@ class MetaTftSync
 
         if (! isset($this->itemFetchFailedChampions[$champion->id])) {
             ChampionItemBuild::query()
+                ->where('champion_id', $champion->id)
+                ->where(function ($q) use ($runStartedAt) {
+                    $q->whereNull('synced_at')->orWhere('synced_at', '<', $runStartedAt);
+                })
+                ->delete();
+        }
+
+        return $count;
+    }
+
+    /**
+     * Sync 3-item (or 1/2-item) build combinations for one champion.
+     *
+     * Uses `champion_item_sets` (legacy name — stores item combos as
+     * Postgres text[]). Builds are identified by the sorted `item_api_names`
+     * array so `(BT, IE, Sterak)` dedups against `(IE, Sterak, BT)`.
+     */
+    private function syncItemBuildsForChampion(
+        Champion $champion,
+        Set $set,
+        CarbonImmutable $runStartedAt,
+    ): int {
+        try {
+            $dtos = $this->client->fetchItemBuilds($champion->api_name);
+        } catch (Throwable $e) {
+            Log::warning("fetchItemBuilds failed for {$champion->api_name}: ".$e->getMessage());
+            $this->itemFetchFailedChampions[$champion->id] = true;
+
+            return 0;
+        }
+
+        if (empty($dtos)) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($dtos as $dto) {
+            $sortedItems = $dto->itemApiNames;
+            sort($sortedItems);
+            $itemCount = count($sortedItems);
+
+            $existing = ChampionItemSet::query()
+                ->where('champion_id', $champion->id)
+                ->whereRaw('item_api_names = ?::text[]', [
+                    '{'.implode(',', $sortedItems).'}',
+                ])
+                ->first();
+
+            $prevAvg = $existing?->avg_place;
+            $placeChange = $prevAvg !== null ? $dto->avgPlace - $prevAvg : null;
+            $tier = TierCalculator::compute($dto->avgPlace, $dto->games);
+
+            $attributes = [
+                'set_id' => $set->id,
+                'item_api_names' => $sortedItems,
+                'avg_place' => $dto->avgPlace,
+                'games' => $dto->games,
+                'frequency' => $dto->frequency,
+                'win_rate' => $dto->winRate,
+                'top4_rate' => $dto->top4Rate,
+                'item_count' => $itemCount,
+                'prev_avg_place' => $prevAvg,
+                'place_change' => $placeChange,
+                'tier' => $tier,
+                'synced_at' => $runStartedAt,
+            ];
+
+            if ($existing) {
+                $existing->update($attributes);
+            } else {
+                ChampionItemSet::create(['champion_id' => $champion->id] + $attributes);
+            }
+            $count++;
+        }
+
+        if (! isset($this->itemFetchFailedChampions[$champion->id])) {
+            ChampionItemSet::query()
                 ->where('champion_id', $champion->id)
                 ->where(function ($q) use ($runStartedAt) {
                     $q->whereNull('synced_at')->orWhere('synced_at', '<', $runStartedAt);
