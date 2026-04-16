@@ -772,7 +772,7 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
         <>
             <Head title={`${champion.name} — TFT Scout`} />
 
-            <div className="flex flex-col gap-6 p-6">
+            <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
                 {/* Back link */}
                 <Link
                     href="/champions"
@@ -924,7 +924,8 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                     />
                 </div>
 
-                {/* ── Stats ──────────────────────────────── */}
+                {/* ── Stats + Ability side by side on lg ── */}
+                <div className="grid gap-6 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base">
@@ -1105,6 +1106,7 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                         )}
                     </CardContent>
                 </Card>
+                </div>
 
                 {/* ── MetaTFT Performance ────────────────── */}
                 <MetaTftPerformanceSection data={metatft} />

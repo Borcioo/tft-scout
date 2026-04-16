@@ -1,5 +1,6 @@
 import { Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ItemStatsTable } from './ItemStatsTable';
 import type { Tier } from './ItemTierBadge';
 
@@ -80,26 +81,36 @@ export function MetaTftPerformanceSection({ data }: Props) {
             )}
 
             {hasData && (
-                <>
-                    <ItemStatsTable
-                        title="All item builds"
-                        rows={data.items_builds}
-                        emptyHint="No builds logged yet."
-                    />
-                    <ItemStatsTable
-                        title="All single items"
-                        rows={singleRows}
-                        emptyHint="No items logged yet."
-                    />
+                <Tabs defaultValue="builds">
+                    <TabsList>
+                        <TabsTrigger value="builds">
+                            Builds ({data.items_builds.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="singles">
+                            Single items ({singleRows.length})
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="builds">
+                        <ItemStatsTable
+                            title="All item builds"
+                            rows={data.items_builds}
+                            emptyHint="No builds logged yet."
+                        />
+                    </TabsContent>
+                    <TabsContent value="singles">
+                        <ItemStatsTable
+                            title="All single items"
+                            rows={singleRows}
+                            emptyHint="No items logged yet."
+                        />
+                    </TabsContent>
                     <p className="text-xs text-muted-foreground">
                         {data.synced_at && (
-                            <>
-                                Last updated {new Date(data.synced_at).toLocaleString()}.{' '}
-                            </>
+                            <>Last updated {new Date(data.synced_at).toLocaleString()}. </>
                         )}
                         Items with fewer than 15 games are shown without a tier. Data from MetaTFT.
                     </p>
-                </>
+                </Tabs>
             )}
         </div>
     );
