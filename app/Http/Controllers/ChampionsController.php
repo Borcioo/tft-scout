@@ -103,15 +103,21 @@ class ChampionsController extends Controller
         // Configurable via config('tft.metatft.min_games_display').
         $minGames = (int) config('tft.metatft.min_games_display', 50);
 
+        // MetaTFT publishes stats under the base apiName (e.g. TFT17_MissFortune),
+        // not per-variant (_conduit/_challenger/_replicator). Same applies to
+        // Mecha Enhanced and any future variant mechanic. Fall back to the
+        // base champion's rows when the current champion is a variant.
+        $statsChampionId = $champion->base_champion_id ?? $champion->id;
+
         $itemSingleRows = ChampionItemBuild::query()
             ->with('item:id,api_name,name,icon_path')
-            ->where('champion_id', $champion->id)
+            ->where('champion_id', $statsChampionId)
             ->where('games', '>=', $minGames)
             ->orderBy('avg_place')
             ->get();
 
         $itemSetRows = ChampionItemSet::query()
-            ->where('champion_id', $champion->id)
+            ->where('champion_id', $statsChampionId)
             ->where('games', '>=', $minGames)
             ->orderBy('avg_place')
             ->get();
