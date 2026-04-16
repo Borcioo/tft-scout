@@ -142,11 +142,11 @@ class ChampionsController extends Controller
                 return [
                     'items' => $apiNames,
                     'names' => array_map(
-                        fn ($api) => $itemsByApi[$api]?->name ?? $api,
+                        fn ($api) => $itemsByApi->get($api)?->name ?? $api,
                         $apiNames,
                     ),
                     'icons' => array_map(
-                        fn ($api) => $itemsByApi[$api]?->icon_path,
+                        fn ($api) => $itemsByApi->get($api)?->icon_path,
                         $apiNames,
                     ),
                     'games' => $row->games,
