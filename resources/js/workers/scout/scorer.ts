@@ -182,6 +182,46 @@ adjust = nearBreakpointBonus;
   return { score: basePts + adjust, near };
 }
 
+/**
+ * Apply diminishing-returns stacking to Bronze (activeIdx === 0) trait
+ * scores. Non-Bronze entries are returned unchanged.
+ *
+ * Given per-trait results [{apiName, activeIdx, rawScore, near}], returns
+ * the same shape with `score` set (rawScore for non-Bronze, multiplied
+ * for Bronze). Order preserved.
+ */
+export function applyBronzeStacking(
+  results: Array<{ apiName: string; activeIdx: number; rawScore: number; near: boolean }>,
+): Array<{ apiName: string; activeIdx: number; score: number; near: boolean }> {
+  // 1. Collect Bronze with positions. Negative-score Bronze are excluded
+  //    from the stacking queue — they shouldn't "take a slot" that
+  //    attenuates later positive Bronze.
+  const bronzeValues: Array<{ idx: number; rawScore: number }> = [];
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].activeIdx === 0 && results[i].rawScore > 0) {
+      bronzeValues.push({ idx: i, rawScore: results[i].rawScore });
+    }
+  }
+
+  // 2. Sort descending by rawScore, apply factor^k
+  bronzeValues.sort((a, b) => b.rawScore - a.rawScore);
+
+  const scaledByOriginalIdx: Record<number, number> = {};
+  for (let k = 0; k < bronzeValues.length; k++) {
+    const { idx, rawScore } = bronzeValues[k];
+    scaledByOriginalIdx[idx] = rawScore * Math.pow(bronzeStackFactor, k);
+  }
+
+  // 3. Emit in original order — scaled for Bronze-positive, raw for everything else
+  return results.map((r, i) => ({
+    apiName: r.apiName,
+    activeIdx: r.activeIdx,
+    near: r.near,
+    score: scaledByOriginalIdx[i] ?? r.rawScore,
+  }));
+}
+
 // ── Affinity bonus ──────────────────────────────
 
 export function affinityBonus(champion: any, activeTraitApis: any, ctx: any) {
