@@ -137,19 +137,24 @@ class ChampionsController extends Controller
             ?? $itemSetRows->first()?->synced_at;
 
         $metaTft = [
-            'items_single' => $itemSingleRows->map(fn ($row) => [
-                'api_name' => $row->item?->api_name ?? '',
-                'name' => $row->item?->name ?? $row->item?->api_name ?? '',
-                'icon' => $row->item?->icon_path,
+            // Filter out rows pointing at items we don't have in the items table
+            // (e.g. TFT4_Item_OrnnTheCollector — legacy Set 4 artifact that
+            // MetaTFT still returns because some players run it via portals
+            // but we never imported). The UI can't render them meaningfully
+            // without name/icon lookup.
+            'items_single' => $itemSingleRows
+                ->filter(fn ($row) => $row->item !== null)
+                ->map(fn ($row) => [
+                'api_name' => $row->item->api_name,
+                'name' => $row->item->name ?? $row->item->api_name,
+                'icon' => $row->item->icon_path,
                 // `type` is the canonical class (base/craftable/radiant/artifact/
                 // support/trait_item). `is_tactician` is a separate axis — some
                 // craftables are Tactician's hatbox items (TacticiansRing/Scepter/
                 // ForceOfNature) that players may want to filter independently.
-                'type' => $row->item?->type,
-                'is_tactician' => $row->item
-                    ? str_contains($row->item->api_name, 'Tacticians')
-                        || str_contains($row->item->api_name, 'ForceOfNature')
-                    : false,
+                'type' => $row->item->type,
+                'is_tactician' => str_contains($row->item->api_name, 'Tacticians')
+                    || str_contains($row->item->api_name, 'ForceOfNature'),
                 'games' => $row->games,
                 'avg_place' => $row->avg_place,
                 'place_change' => $row->place_change,
@@ -158,7 +163,19 @@ class ChampionsController extends Controller
                 'frequency' => $row->frequency,
                 'tier' => $row->tier,
             ])->values()->all(),
-            'items_builds' => $itemSetRows->map(function ($row) use ($itemsByApi) {
+            // Same filter as items_single — skip builds containing any item
+            // we don't have in the items table.
+            'items_builds' => $itemSetRows
+                ->filter(function ($row) use ($itemsByApi) {
+                    $apiNames = $row->item_api_names ?? [];
+                    foreach ($apiNames as $api) {
+                        if (! $itemsByApi->has($api)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                ->map(function ($row) use ($itemsByApi) {
                 $apiNames = $row->item_api_names ?? [];
 
                 return [
