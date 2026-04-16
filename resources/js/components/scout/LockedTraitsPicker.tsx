@@ -17,8 +17,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
 
     const filtered = traits
         .filter((t) => t.category === 'public')
-        .filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 15);
+        .filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
 
     const setMinUnits = (apiName: string, minUnits: number) => {
         const existing = locked.find((l) => l.apiName === apiName);
@@ -37,7 +36,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
     };
 
     return (
-        <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border bg-card p-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Locked traits ({locked.length})
             </Label>
@@ -47,7 +46,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search traits…"
             />
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
                 {filtered.map((trait) => {
                     const lockedEntry = locked.find(
                         (l) => l.apiName === trait.apiName,

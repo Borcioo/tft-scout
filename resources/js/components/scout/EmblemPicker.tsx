@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Trait } from '@/workers/scout/types';
 
@@ -11,11 +12,25 @@ type Props = {
     onChange: (emblems: EmblemEntry[]) => void;
 };
 
+const COUNTS = [0, 1, 2, 3, 4, 5];
+
 export function EmblemPicker({ traits, emblems, onChange }: Props) {
+    const [query, setQuery] = useState('');
+
+    const activeSet = new Set(emblems.map((e) => e.apiName));
+
+    const filtered = traits
+        .filter((t) => t.category === 'public')
+        .filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+        .sort((a, b) => {
+            const aActive = activeSet.has(a.apiName) ? 0 : 1;
+            const bActive = activeSet.has(b.apiName) ? 0 : 1;
+            return aActive - bActive;
+        });
+
     const setCount = (apiName: string, count: number) => {
         if (count <= 0) {
             onChange(emblems.filter((e) => e.apiName !== apiName));
-
             return;
         }
 
@@ -33,74 +48,55 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
     };
 
     return (
-        <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border bg-card p-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Emblems ({emblems.reduce((n, e) => n + e.count, 0)})
             </Label>
-            <div className="flex flex-wrap gap-1.5">
-                {emblems.map((entry) => {
-                    const trait = traits.find(
-                        (t) => t.apiName === entry.apiName,
+            <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search emblems…"
+            />
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+                {filtered.map((trait) => {
+                    const entry = emblems.find(
+                        (e) => e.apiName === trait.apiName,
                     );
-
-                    if (!trait) {
-return null;
-}
+                    const current = entry?.count ?? 0;
 
                     return (
-                        <Badge
-                            key={entry.apiName}
-                            variant="default"
-                            className="gap-1"
+                        <div
+                            key={trait.apiName}
+                            className="flex flex-col gap-1.5 rounded border p-2 text-sm"
                         >
-                            <img
-                                src={trait.icon}
-                                alt=""
-                                className="size-4"
-                            />
-                            {trait.name} ×{entry.count}
-                            <button
-                                type="button"
-                                className="ml-1 opacity-70"
-                                onClick={() =>
-                                    setCount(entry.apiName, entry.count - 1)
-                                }
-                            >
-                                −
-                            </button>
-                            <button
-                                type="button"
-                                className="opacity-70"
-                                onClick={() =>
-                                    setCount(entry.apiName, entry.count + 1)
-                                }
-                            >
-                                +
-                            </button>
-                        </Badge>
+                            <span className="flex items-center gap-2">
+                                <img
+                                    src={trait.icon}
+                                    alt=""
+                                    className="size-5"
+                                />
+                                {trait.name}
+                            </span>
+                            <div className="flex gap-1">
+                                {COUNTS.map((n) => (
+                                    <Badge
+                                        key={n}
+                                        variant={
+                                            current === n && n > 0
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                        className="cursor-pointer"
+                                        onClick={() => setCount(trait.apiName, n)}
+                                    >
+                                        {n}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
                     );
                 })}
-            </div>
-            <div className="flex flex-wrap gap-1">
-                {traits
-                    .filter((t) => t.category === 'public')
-                    .slice(0, 20)
-                    .map((trait) => (
-                        <Button
-                            key={trait.apiName}
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1 px-2 text-xs"
-                            onClick={() => setCount(trait.apiName, 1)}
-                        >
-                            <img
-                                src={trait.icon}
-                                alt=""
-                                className="size-4"
-                            />
-                            {trait.name}
-                        </Button>
-                    ))}
             </div>
         </div>
     );

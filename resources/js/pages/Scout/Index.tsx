@@ -61,7 +61,6 @@ function ScoutIndexInner({ setNumber }: Props) {
     const [level, setLevel] = useState(8);
     const [topN, setTopN] = useState(10);
     const [max5Cost, setMax5Cost] = useState<number | null>(null);
-    const [roleBalance, setRoleBalance] = useState(true);
     const [minFrontline, setMinFrontline] = useState(0);
     const [minDps, setMinDps] = useState(0);
     const [lockedChampions, setLockedChampions] = useState<string[]>([]);
@@ -80,7 +79,7 @@ function ScoutIndexInner({ setNumber }: Props) {
             level,
             topN,
             max5Cost,
-            roleBalance,
+
             minFrontline,
             minDps,
             lockedChampions,
@@ -123,7 +122,7 @@ function ScoutIndexInner({ setNumber }: Props) {
                 setError(err.message);
                 setIsRunning(false);
             });
-    }, [generate, labEnabled, level, topN, max5Cost, roleBalance, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
+    }, [generate, labEnabled, level, topN, max5Cost, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
@@ -133,7 +132,6 @@ function ScoutIndexInner({ setNumber }: Props) {
         level,
         topN,
         max5Cost,
-        roleBalance,
         minFrontline,
         minDps,
         lockedChampions,
@@ -152,56 +150,48 @@ return;
     }, [debouncedParamsKey, champions.length]);
 
     return (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <Head title="Scout — TFT Scout" />
-            <div className="grid grid-cols-1 gap-4 p-6 lg:grid-cols-[280px_1fr_300px]">
-                <aside className="flex flex-col gap-4">
+            <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr] gap-4 overflow-hidden p-6 lg:grid-cols-[280px_1fr_300px]">
+                <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                     <ScoutControls
                         level={level}
                         topN={topN}
                         max5Cost={max5Cost}
-                        roleBalance={roleBalance}
                         minFrontline={minFrontline}
                         minDps={minDps}
                         isRunning={isRunning}
                         onLevelChange={setLevel}
                         onTopNChange={setTopN}
                         onMax5CostChange={setMax5Cost}
-                        onRoleBalanceChange={setRoleBalance}
                         onMinFrontlineChange={setMinFrontline}
                         onMinDpsChange={setMinDps}
                         onRun={run}
                     />
-                </aside>
-
-                <main className="flex flex-col gap-4">
-                    <div className="flex items-baseline justify-between">
-                        <h1 className="text-2xl font-bold">
-                            Scout (Set {setNumber})
-                        </h1>
-                        <span className="text-xs text-muted-foreground">
-                            {results.length} comps
-                        </span>
-                    </div>
-                    {contextStale && (
-                        <div className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-300">
-                            MetaTFT data is older than 24h — a background refresh has been
-                            scheduled. Reload the page in a minute to see fresh numbers.
-                        </div>
-                    )}
-                    <ScoutResultsList
-                        teams={results}
-                        isRunning={isRunning}
-                        error={error}
-                    />
-                </main>
-
-                <aside className="flex flex-col gap-4">
                     <LockedChampionsPicker
                         champions={champions}
                         locked={lockedChampions}
                         onChange={setLockedChampions}
                     />
+                </aside>
+
+                <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+                    {contextStale && (
+                        <div className="shrink-0 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-300">
+                            MetaTFT data is older than 24h — a background refresh has been
+                            scheduled. Reload the page in a minute to see fresh numbers.
+                        </div>
+                    )}
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                        <ScoutResultsList
+                            teams={results}
+                            isRunning={isRunning}
+                            error={error}
+                        />
+                    </div>
+                </main>
+
+                <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                     <LockedTraitsPicker
                         traits={traits}
                         locked={lockedTraits}
@@ -219,7 +209,7 @@ return;
                     level,
                     topN,
                     max5Cost,
-                    roleBalance,
+        
                     minFrontline,
                     minDps,
                     lockedChampions,
@@ -228,7 +218,7 @@ return;
                 }}
                 results={results}
             />
-        </>
+        </div>
     );
 }
 

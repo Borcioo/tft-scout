@@ -1,20 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 
 type Props = {
     level: number;
     topN: number;
     max5Cost: number | null;
-    roleBalance: boolean;
     minFrontline: number;
     minDps: number;
     isRunning: boolean;
     onLevelChange: (value: number) => void;
     onTopNChange: (value: number) => void;
     onMax5CostChange: (value: number | null) => void;
-    onRoleBalanceChange: (value: boolean) => void;
     onMinFrontlineChange: (value: number) => void;
     onMinDpsChange: (value: number) => void;
     onRun: () => void;
@@ -24,20 +21,18 @@ export function ScoutControls({
     level,
     topN,
     max5Cost,
-    roleBalance,
     minFrontline,
     minDps,
     isRunning,
     onLevelChange,
     onTopNChange,
     onMax5CostChange,
-    onRoleBalanceChange,
     onMinFrontlineChange,
     onMinDpsChange,
     onRun,
 }: Props) {
     return (
-        <div className="flex flex-col gap-5 rounded-lg border bg-card p-5">
+        <div className="flex shrink-0 flex-col gap-5 rounded-lg border bg-card p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Scout Settings
             </h2>
@@ -83,15 +78,6 @@ export function ScoutControls({
                     max={5}
                     step={1}
                     onValueChange={([v]) => onMax5CostChange(v === 5 ? null : v)}
-                />
-            </div>
-
-            <div className="flex items-center justify-between">
-                <Label htmlFor="role-balance">Role balance</Label>
-                <Switch
-                    id="role-balance"
-                    checked={roleBalance}
-                    onCheckedChange={onRoleBalanceChange}
                 />
             </div>
 
