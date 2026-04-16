@@ -335,11 +335,24 @@ class CharacterBinInspector
     private function resolveLinkedTraits(array $linkedTraits, array $traitHashMap): array
     {
         return array_map(function (array $entry) use ($traitHashMap) {
-            $hash = $entry['TraitData'] ?? null;
+            $ref = $entry['TraitData'] ?? null;
+            if ($ref === null) {
+                return ['hash' => null, 'api_name' => null];
+            }
 
+            // CDragon may have already resolved the FNV hash to a full
+            // path like "Maps/Shipping/Map22/Sets/TFTSet17/Traits/TFT17_X".
+            // Extract the api_name from the last path segment directly.
+            if (is_string($ref) && str_contains($ref, '/Traits/')) {
+                $apiName = substr($ref, strrpos($ref, '/') + 1);
+
+                return ['hash' => $ref, 'api_name' => $apiName];
+            }
+
+            // Fallback: numeric FNV hash → lookup in pre-computed map.
             return [
-                'hash' => $hash,
-                'api_name' => $hash !== null ? ($traitHashMap[$hash] ?? null) : null,
+                'hash' => $ref,
+                'api_name' => $traitHashMap[$ref] ?? null,
             ];
         }, $linkedTraits);
     }

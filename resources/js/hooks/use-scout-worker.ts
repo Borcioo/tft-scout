@@ -45,11 +45,6 @@ function createWorker(): Worker {
             '../workers/scout/index.ts',
             import.meta.url,
         ).href;
-        // Blob workers run under a `blob:` origin with no host, so
-        // `fetch('/api/...')` inside the worker throws "Failed to parse
-        // URL". Inject the page origin as a global so the worker can
-        // build absolute URLs. In prod (`?worker&inline`) the page
-        // origin is inherited automatically, so this only matters here.
         const stub =
             `self.__API_BASE__=${JSON.stringify(location.origin)};` +
             `import ${JSON.stringify(workerUrl)};`;
@@ -60,7 +55,13 @@ function createWorker(): Worker {
         return new Worker(blobUrl, { type: 'module' });
     }
 
-    return new ScoutWorker();
+    // ?worker&inline produces a blob URL in prod too — blob workers
+    // have no host, so relative fetch('/api/...') fails. Post the
+    // origin to the worker immediately after creation.
+    const w = new ScoutWorker();
+    w.postMessage({ type: '__init__', origin: location.origin });
+
+    return w;
 }
 
 function getWorker(): Worker {
