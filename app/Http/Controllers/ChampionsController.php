@@ -121,8 +121,15 @@ class ChampionsController extends Controller
             ->unique()
             ->values();
 
+        // Include api_names of single-item rows too so we can emit `type`
+        // alongside the build rows below.
+        $singleApiNames = $itemSingleRows
+            ->map(fn ($row) => $row->item?->api_name)
+            ->filter()
+            ->values();
+
         $itemsByApi = Item::query()
-            ->whereIn('api_name', $setApiNames)
+            ->whereIn('api_name', $setApiNames->merge($singleApiNames)->unique())
             ->get()
             ->keyBy('api_name');
 
@@ -134,6 +141,15 @@ class ChampionsController extends Controller
                 'api_name' => $row->item?->api_name ?? '',
                 'name' => $row->item?->name ?? $row->item?->api_name ?? '',
                 'icon' => $row->item?->icon_path,
+                // `type` is the canonical class (base/craftable/radiant/artifact/
+                // support/trait_item). `is_tactician` is a separate axis — some
+                // craftables are Tactician's hatbox items (TacticiansRing/Scepter/
+                // ForceOfNature) that players may want to filter independently.
+                'type' => $row->item?->type,
+                'is_tactician' => $row->item
+                    ? str_contains($row->item->api_name, 'Tacticians')
+                        || str_contains($row->item->api_name, 'ForceOfNature')
+                    : false,
                 'games' => $row->games,
                 'avg_place' => $row->avg_place,
                 'place_change' => $row->place_change,
@@ -153,6 +169,15 @@ class ChampionsController extends Controller
                     ),
                     'icons' => array_map(
                         fn ($api) => $itemsByApi->get($api)?->icon_path,
+                        $apiNames,
+                    ),
+                    'types' => array_map(
+                        fn ($api) => $itemsByApi->get($api)?->type,
+                        $apiNames,
+                    ),
+                    'is_tactician' => array_map(
+                        fn ($api) => str_contains($api, 'Tacticians')
+                            || str_contains($api, 'ForceOfNature'),
                         $apiNames,
                     ),
                     'games' => $row->games,

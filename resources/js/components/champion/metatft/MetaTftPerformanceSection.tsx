@@ -1,13 +1,19 @@
 import { Info } from 'lucide-react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Toggle } from '@/components/ui/toggle';
 import { ItemStatsTable } from './ItemStatsTable';
 import type { Tier } from './ItemTierBadge';
+
+type ItemType = 'base' | 'craftable' | 'radiant' | 'support' | 'artifact' | 'trait_item';
 
 type ItemSingle = {
     api_name: string;
     name: string;
     icon: string | null;
+    type: ItemType | null;
+    is_tactician: boolean;
     games: number;
     avg_place: number;
     place_change: number | null;
@@ -21,6 +27,8 @@ type ItemBuild = {
     items: string[];
     names: string[];
     icons: (string | null)[];
+    types: (ItemType | null)[];
+    is_tactician: boolean[];
     games: number;
     avg_place: number;
     place_change: number | null;
@@ -49,8 +57,35 @@ type Props = {
 export function MetaTftPerformanceSection({ data }: Props) {
     const hasData = data.items_single.length > 0 || data.items_builds.length > 0;
 
+    const [hideRadiant, setHideRadiant] = useState(false);
+    const [hideArtifact, setHideArtifact] = useState(false);
+    const [hideTactician, setHideTactician] = useState(false);
+
+    const shouldHide = (types: (ItemType | null)[], tactFlags: boolean[]): boolean => {
+        if (hideRadiant && types.some((t) => t === 'radiant')) {
+            return true;
+        }
+
+        if (hideArtifact && types.some((t) => t === 'artifact')) {
+            return true;
+        }
+
+        if (hideTactician && tactFlags.some((f) => f)) {
+            return true;
+        }
+
+        return false;
+    };
+
+    const filteredSingle = data.items_single.filter(
+        (r) => !shouldHide([r.type], [r.is_tactician]),
+    );
+    const filteredBuilds = data.items_builds.filter(
+        (r) => !shouldHide(r.types, r.is_tactician),
+    );
+
     // Normalize items_single rows into the same shape ItemStatsTable expects
-    const singleRows = data.items_single.map((r) => ({
+    const singleRows = filteredSingle.map((r) => ({
         items: [r.api_name],
         names: [r.name],
         icons: [r.icon],
@@ -82,18 +117,46 @@ export function MetaTftPerformanceSection({ data }: Props) {
 
             {hasData && (
                 <Tabs defaultValue="builds">
-                    <TabsList>
-                        <TabsTrigger value="builds">
-                            Builds ({data.items_builds.length})
-                        </TabsTrigger>
-                        <TabsTrigger value="singles">
-                            Single items ({singleRows.length})
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <TabsList>
+                            <TabsTrigger value="builds">
+                                Builds ({filteredBuilds.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="singles">
+                                Single items ({singleRows.length})
+                            </TabsTrigger>
+                        </TabsList>
+                        <div className="flex items-center gap-2">
+                            <Toggle
+                                size="sm"
+                                variant="outline"
+                                pressed={hideRadiant}
+                                onPressedChange={setHideRadiant}
+                            >
+                                Hide radiant
+                            </Toggle>
+                            <Toggle
+                                size="sm"
+                                variant="outline"
+                                pressed={hideArtifact}
+                                onPressedChange={setHideArtifact}
+                            >
+                                Hide artifacts
+                            </Toggle>
+                            <Toggle
+                                size="sm"
+                                variant="outline"
+                                pressed={hideTactician}
+                                onPressedChange={setHideTactician}
+                            >
+                                Hide tactician
+                            </Toggle>
+                        </div>
+                    </div>
                     <TabsContent value="builds">
                         <ItemStatsTable
                             title="All item builds"
-                            rows={data.items_builds}
+                            rows={filteredBuilds}
                             emptyHint="No builds logged yet."
                         />
                     </TabsContent>
