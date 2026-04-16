@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Champion;
+use App\Models\ChampionItemBuild;
+use App\Models\ChampionItemSet;
+use App\Models\Item;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -96,6 +99,68 @@ class ChampionsController extends Controller
             $forms->push($variant);
         }
 
+        $itemSingleRows = ChampionItemBuild::query()
+            ->with('item:id,api_name,name,icon_path')
+            ->where('champion_id', $champion->id)
+            ->orderBy('avg_place')
+            ->get();
+
+        $itemSetRows = ChampionItemSet::query()
+            ->where('champion_id', $champion->id)
+            ->orderBy('avg_place')
+            ->get();
+
+        $setApiNames = $itemSetRows
+            ->flatMap(fn ($row) => $row->item_api_names ?? [])
+            ->unique()
+            ->values();
+
+        $itemsByApi = Item::query()
+            ->whereIn('api_name', $setApiNames)
+            ->get()
+            ->keyBy('api_name');
+
+        $syncedAt = $itemSingleRows->first()?->synced_at
+            ?? $itemSetRows->first()?->synced_at;
+
+        $metaTft = [
+            'items_single' => $itemSingleRows->map(fn ($row) => [
+                'api_name' => $row->item?->api_name ?? '',
+                'name' => $row->item?->name ?? $row->item?->api_name ?? '',
+                'icon' => $row->item?->icon_path,
+                'games' => $row->games,
+                'avg_place' => $row->avg_place,
+                'place_change' => $row->place_change,
+                'win_rate' => $row->win_rate,
+                'top4_rate' => $row->top4_rate,
+                'frequency' => $row->frequency,
+                'tier' => $row->tier,
+            ])->values()->all(),
+            'items_builds' => $itemSetRows->map(function ($row) use ($itemsByApi) {
+                $apiNames = $row->item_api_names ?? [];
+
+                return [
+                    'items' => $apiNames,
+                    'names' => array_map(
+                        fn ($api) => $itemsByApi[$api]?->name ?? $api,
+                        $apiNames,
+                    ),
+                    'icons' => array_map(
+                        fn ($api) => $itemsByApi[$api]?->icon_path,
+                        $apiNames,
+                    ),
+                    'games' => $row->games,
+                    'avg_place' => $row->avg_place,
+                    'place_change' => $row->place_change,
+                    'win_rate' => $row->win_rate,
+                    'top4_rate' => $row->top4_rate,
+                    'frequency' => $row->frequency,
+                    'tier' => $row->tier,
+                ];
+            })->values()->all(),
+            'synced_at' => $syncedAt,
+        ];
+
         return Inertia::render('Champions/Show', [
             'champion' => $this->serializeChampion($champion),
             'variants' => $forms->map(
@@ -105,6 +170,7 @@ class ChampionsController extends Controller
             // When ChampionRating is wired up, replace null with:
             //   ChampionRating::where('champion_id', $champion->id)->first()
             'rating' => null,
+            'metatft' => $metaTft,
         ]);
     }
 
