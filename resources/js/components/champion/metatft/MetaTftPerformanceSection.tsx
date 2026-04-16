@@ -59,18 +59,19 @@ export function MetaTftPerformanceSection({ data }: Props) {
 
     const [hideRadiant, setHideRadiant] = useState(false);
     const [hideArtifact, setHideArtifact] = useState(false);
-    const [hideTactician, setHideTactician] = useState(false);
 
+    // Tactician hatbox items (TacticiansRing/Scepter/ForceOfNature) are
+    // never combat-relevant for a champion's BIS — always filtered.
     const shouldHide = (types: (ItemType | null)[], tactFlags: boolean[]): boolean => {
+        if (tactFlags.some((f) => f)) {
+            return true;
+        }
+
         if (hideRadiant && types.some((t) => t === 'radiant')) {
             return true;
         }
 
         if (hideArtifact && types.some((t) => t === 'artifact')) {
-            return true;
-        }
-
-        if (hideTactician && tactFlags.some((f) => f)) {
             return true;
         }
 
@@ -142,14 +143,6 @@ export function MetaTftPerformanceSection({ data }: Props) {
                                 onPressedChange={setHideArtifact}
                             >
                                 Hide artifacts
-                            </Toggle>
-                            <Toggle
-                                size="sm"
-                                variant="outline"
-                                pressed={hideTactician}
-                                onPressedChange={setHideTactician}
-                            >
-                                Hide tactician
                             </Toggle>
                         </div>
                     </div>
