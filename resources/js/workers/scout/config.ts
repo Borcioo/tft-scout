@@ -21,7 +21,18 @@ export const SCORING_CONFIG = {
   // Multiplier per breakpoint level (0-indexed)
   breakpointMultiplier: [1.0, 1.3, 1.8, 2.5] as const,
 
+  // BreakEven score per activeIdx (0=Bronze ... 3=Prismatic). Bronze set
+  // to 0.45 (was 0.25) so mediocre Bronze traits with avgPlace ≥ ~4.5
+  // contribute ~0 pkt instead of inflating wide comps. Silver/Gold/Prismatic
+  // unchanged (proven meta values).
+  breakEvenByTier: [0.45, 0.40, 0.40, 0.20] as const,
+
   nearBreakpointBonus: 2.0,
+
+  // Diminishing-returns multiplier applied to Bronze trait scores after
+  // sorting desc. k-th Bronze score (0-indexed) is multiplied by
+  // bronzeStackFactor ** k. 1.0 = disabled (full stacking). 0.6 = default.
+  bronzeStackFactor: 0.6,
 
   minGamesForReliable: 50,
 
