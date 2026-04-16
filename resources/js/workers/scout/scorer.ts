@@ -415,9 +415,17 @@ export function teamScore(team: any, ctx: any) {
   // Trait scores
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
 
-  for (const trait of team.activeTraits) {
-    const { score: tScore } = traitScore(trait, ctx);
-    score += tScore;
+  // Collect per-trait scores WITH activeIdx, then apply Bronze stacking
+  // so wide Bronze spreads can't dominate focused Silver/Gold/Prismatic.
+  const traitResults = team.activeTraits.map((trait: any) => {
+    const sorted = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
+    const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
+    const { score: rawScore, near } = traitScore(trait, ctx);
+    return { apiName: trait.apiName, activeIdx, rawScore, near };
+  });
+
+  for (const r of applyBronzeStacking(traitResults)) {
+    score += r.score;
   }
 
   // Affinity bonus — reward champions that are statistically proven with active traits
@@ -489,9 +497,15 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
 
-  for (const trait of team.activeTraits) {
-    const { score: tScore } = traitScore(trait, ctx);
-    breakdown.traits += tScore;
+  const traitResultsBd = team.activeTraits.map((trait: any) => {
+    const sorted = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
+    const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
+    const { score: rawScore, near } = traitScore(trait, ctx);
+    return { apiName: trait.apiName, activeIdx, rawScore, near };
+  });
+
+  for (const r of applyBronzeStacking(traitResultsBd)) {
+    breakdown.traits += r.score;
   }
 
   for (const champ of team.champions) {
