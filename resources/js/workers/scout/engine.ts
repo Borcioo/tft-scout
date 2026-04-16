@@ -18,6 +18,7 @@
 
 import { buildActiveTraits } from './active-traits';
 import { filterCandidates, getLockedChampions, buildExclusionLookup } from './candidates';
+import { SCORING_CONFIG } from './config';
 import { buildHeroExclusionGroup } from './hero-exclusion';
 import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { startSpan } from './scout-profiler';
@@ -423,10 +424,35 @@ export function generate(input) {
 
     _endInsights();
 
-    // Sort by final score and return top N
+    // Sort by final score and dedupe topN by core champion overlap.
+    // Without this, top results are permutations of the same comp with
+    // 1-2 champs swapped. Threshold from config — 0.75 = 6/8 shared = dup.
     validComps.sort((a, b) => b.score - a.score);
 
-    const finalComps = validComps.slice(0, topN);
+    const dedupeThreshold = SCORING_CONFIG.dedupeOverlapPct;
+    const finalComps: typeof validComps = [];
+    for (const team of validComps) {
+      if (finalComps.length >= topN) {
+        break;
+      }
+
+      const teamApis = new Set(team.champions.map((c: any) => c.baseApiName || c.apiName));
+      const isDup = finalComps.some((accepted) => {
+        const acceptedApis = new Set(accepted.champions.map((c: any) => c.baseApiName || c.apiName));
+        let shared = 0;
+        for (const api of teamApis) {
+          if (acceptedApis.has(api)) {
+            shared++;
+          }
+        }
+        const size = Math.max(teamApis.size, acceptedApis.size);
+        return size > 0 && shared / size >= dedupeThreshold;
+      });
+
+      if (!isDup) {
+        finalComps.push(team);
+      }
+    }
 
     // Swap base champions back to their hero variants for any hero
     // the caller locked. Traits, cost and slotsUsed are identical so

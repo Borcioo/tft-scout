@@ -34,6 +34,37 @@ export const SCORING_CONFIG = {
   // bronzeStackFactor ** k. 1.0 = disabled (full stacking). 0.6 = default.
   bronzeStackFactor: 0.6,
 
+  // Non-linear trait reward formula — (neutralAvg - rating.avgPlace)^exponent * weight * bpMult
+  // Captures the exponential nature of TFT placement: avgPlace 3.13 is
+  // not "22% better than 4.0", it's a radically different tier.
+  // Trait with avg >= neutralAvg contributes 0 pkt (no reward).
+  // Linear fallback (score-based) kicks in only when rating missing.
+  traitReward: {
+    neutralAvg: 4.5,
+    exponent: 1.8,
+    weight: 15,
+  },
+
+  // Proven bonus — per-trait bonus when a breakpoint has exceptional
+  // real-world results. Rewards comps where multiple traits align on
+  // strong meta data, without hardcoding any specific comp.
+  // - Linear portion: (maxAvg - avg) * weight for all traits under maxAvg
+  // - Quadratic portion: (expThresh - avg)^2 * weight * quadMult when avg < expThresh
+  //   Captures "meta-defining" traits (SummonTrait:3 avg 3.13 is a tier higher
+  //   than Silver traits at avg 3.7-4.0 — quadratic reflects this).
+  provenBonus: {
+    maxAvgPlace: 4.3,
+    weight: 20,
+    exponentialThreshold: 3.5,  // widened from 3.0 — meta-defining starts here
+    quadMult: 3,                // up from 2 — stronger boost for god-tier traits
+    minGames: 30,
+  },
+
+  // Dedupe threshold for engine topN — team is dropped if it shares
+  // >= dedupeOverlapPct champions with an already-accepted higher-score team.
+  // 0.75 = 6/8 shared → duplicate. 1.0 = disabled.
+  dedupeOverlapPct: 0.75,
+
   minGamesForReliable: 50,
 
   // Exploration thresholds — controls which data phases consider "viable"

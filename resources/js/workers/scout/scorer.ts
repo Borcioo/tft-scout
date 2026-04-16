@@ -15,7 +15,7 @@ import { SCORING_CONFIG } from './config';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 
-const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
+const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, traitReward, provenBonus: PROVEN_CFG, dedupeOverlapPct, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
 
 const ROLE_CATEGORY = {
   ADCarry: 'dps', APCarry: 'dps', ADCaster: 'dps', APCaster: 'dps',
@@ -155,13 +155,15 @@ return { score: 0, near };
   let basePts;
 
   if (rating && rating.games >= minGamesForReliable) {
-    const breakEven = breakEvenByTier[Math.min(activeIdx, breakEvenByTier.length - 1)] ?? 0.40;
-    basePts = (rating.score - breakEven) * weights.traitRating * bpMult;
-
-    if (basePts < -5) {
-basePts = -5;
-}
+    // Non-linear reward: (neutralAvg - avgPlace)^exponent * weight * bpMult
+    // Trait with avg >= neutralAvg (default 4.5) gets 0 pkt — no reward.
+    // No negative penalty — orphan/filler penalties handle bad comps separately.
+    const delta = traitReward.neutralAvg - rating.avgPlace;
+    basePts = delta > 0
+      ? Math.pow(delta, traitReward.exponent) * traitReward.weight * bpMult
+      : 0;
   } else {
+    // Style fallback only when no MetaTFT rating — keep old formula
     const styleName = activeBp.style || 'Bronze';
     const styleScore = ctx.styleScores?.[styleName] || 0.22;
     basePts = styleScore * weights.traitRating * bpMult;
@@ -448,12 +450,12 @@ continue;
 
     const rating = ctx.traitRatings?.[trait.apiName]?.[activeIdx + 1];
 
-    if (rating && rating.games >= thresholds.phaseMinGames && rating.avgPlace < 4.0) {
-      let bonus = (4.0 - rating.avgPlace) * weights.traitRating;
+    if (rating && rating.games >= PROVEN_CFG.minGames && rating.avgPlace < PROVEN_CFG.maxAvgPlace) {
+      let bonus = (PROVEN_CFG.maxAvgPlace - rating.avgPlace) * PROVEN_CFG.weight;
 
-      // Exceptional breakpoints (avg < 2.5) get exponential boost
-      if (rating.avgPlace < 2.5) {
-        bonus += Math.pow(2.5 - rating.avgPlace, 2) * weights.traitRating * 2;
+      // Exceptional breakpoints (avg < exponentialThreshold) get quadratic boost
+      if (rating.avgPlace < PROVEN_CFG.exponentialThreshold) {
+        bonus += Math.pow(PROVEN_CFG.exponentialThreshold - rating.avgPlace, 2) * PROVEN_CFG.weight * PROVEN_CFG.quadMult;
       }
 
       score += bonus;
@@ -539,11 +541,11 @@ continue;
 
     const rating = ctx.traitRatings?.[trait.apiName]?.[activeIdx + 1];
 
-    if (rating && rating.games >= thresholds.phaseMinGames && rating.avgPlace < 4.0) {
-      let bonus = (4.0 - rating.avgPlace) * weights.traitRating;
+    if (rating && rating.games >= PROVEN_CFG.minGames && rating.avgPlace < PROVEN_CFG.maxAvgPlace) {
+      let bonus = (PROVEN_CFG.maxAvgPlace - rating.avgPlace) * PROVEN_CFG.weight;
 
-      if (rating.avgPlace < 2.5) {
-        bonus += Math.pow(2.5 - rating.avgPlace, 2) * weights.traitRating * 2;
+      if (rating.avgPlace < PROVEN_CFG.exponentialThreshold) {
+        bonus += Math.pow(PROVEN_CFG.exponentialThreshold - rating.avgPlace, 2) * PROVEN_CFG.weight * PROVEN_CFG.quadMult;
       }
 
       provenBonus += bonus;
