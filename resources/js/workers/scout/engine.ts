@@ -377,28 +377,46 @@ export function generate(input) {
     const metaComps = scoringCtx.metaComps || [];
 
     if (metaComps.length > 0) {
+      // Meta badge rules:
+      // 1. Archetype match: team has at most 1 champion missing vs meta
+      //    core (i.e. overlap >= meta.units.length - 1). Counting diffs
+      //    instead of % because for 8-unit comps 90% = 100% (granularity).
+      // 2. Meta must actually be meta (avgPlace < 4.5). Published "meta"
+      //    clusters include bad placements too; we don't want to mark
+      //    avg 5.34 comps as Meta.
+      // 3. Prefer the meta with the most overlap (not just "first match").
+      const MAX_DIFF = 1;
+      const META_MAX_AVG = 4.5;
+
       for (const comp of validComps) {
         const teamApis = new Set(comp.champions.map(c => c.baseApiName || c.apiName));
 
+        let best: { meta: (typeof metaComps)[number]; overlap: number } | null = null;
         for (const meta of metaComps) {
-          const overlap = meta.units.filter(u => teamApis.has(u)).length;
-
-          // Match if ≥85% of meta comp units are in the team. For
-          // 8-unit comps this means 7/8 (87.5%) counts as "Meta"
-          // — one substitution is still the same archetype. 90%
-          // would require 100% for 8-unit comps (granularity issue).
-          // Below 85% still counted by insights (minOverlapPct 0.7)
-          // for "similar to X meta" concern rules.
-          if (overlap / meta.units.length >= 0.85) {
-            comp.metaMatch = {
-              name: meta.name,
-              avgPlace: meta.avgPlace,
-              games: meta.games,
-              overlap,
-              total: meta.units.length,
-            };
-            break; // first (best) match only
+          if (meta.avgPlace >= META_MAX_AVG) {
+            continue;
           }
+
+          const overlap = meta.units.filter(u => teamApis.has(u)).length;
+          const missing = meta.units.length - overlap;
+
+          if (missing > MAX_DIFF) {
+            continue;
+          }
+
+          if (!best || overlap > best.overlap) {
+            best = { meta, overlap };
+          }
+        }
+
+        if (best) {
+          comp.metaMatch = {
+            name: best.meta.name,
+            avgPlace: best.meta.avgPlace,
+            games: best.meta.games,
+            overlap: best.overlap,
+            total: best.meta.units.length,
+          };
         }
       }
     }
