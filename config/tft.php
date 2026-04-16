@@ -55,4 +55,16 @@ return [
             'stance_spell' => 'FlexTraitStance',
         ],
     ],
+    'metatft' => [
+        'min_games_gate' => 15,
+        'tier_thresholds' => [
+            // avg_place upper bound (inclusive) per tier
+            'SS' => 3.5,
+            'S' => 4.0,
+            'A' => 4.3,
+            'B' => 4.6,
+            'C' => 5.0,
+            // D = everything above C
+        ],
+    ],
 ];
