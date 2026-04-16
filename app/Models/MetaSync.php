@@ -26,6 +26,9 @@ class MetaSync extends Model
         'meta_comps_count',
         'status',
         'notes',
+        'item_stats_count',
+        'item_builds_count',
+        'failed_item_champions',
     ];
 
     protected $casts = [
