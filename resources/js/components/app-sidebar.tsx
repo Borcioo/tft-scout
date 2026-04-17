@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Crosshair,
     Radar,
@@ -37,6 +37,12 @@ const scoutNavItems: NavItem[] = [
         href: '/scout',
         icon: Crosshair,
     },
+];
+
+// My Plans is auth-only — hidden from sidebar for guests since the
+// route is behind auth middleware anyway and the CTA would 302 them
+// to login.
+const scoutAuthedNavItems: NavItem[] = [
     {
         title: 'My Plans',
         href: '/plans',
@@ -73,6 +79,13 @@ const browseNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage<{ auth: { user: { id: number } | null } }>().props;
+    const isAuthed = !!auth?.user;
+
+    const scoutItems = isAuthed
+        ? [...scoutNavItems, ...scoutAuthedNavItems]
+        : scoutNavItems;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -88,7 +101,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={scoutNavItems} label="Scout" />
+                <NavMain items={scoutItems} label="Scout" />
                 <NavMain items={browseNavItems} label="Browse" />
             </SidebarContent>
 

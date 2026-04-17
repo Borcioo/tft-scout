@@ -26,12 +26,15 @@ class Plan extends Model
         'name',
         'notes',
         'slots',
+        'planner_code',
+        'meta',
         'is_public',
         'share_token',
     ];
 
     protected $casts = [
         'slots' => 'array',
+        'meta' => 'array',
         'is_public' => 'boolean',
     ];
 

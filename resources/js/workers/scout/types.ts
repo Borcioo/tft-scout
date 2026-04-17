@@ -159,12 +159,25 @@ export type ScoredTeam = {
     insights: TeamInsights | null;
 };
 
+export type RescoreParams = {
+    championApis: string[];
+    level: number;
+    emblems: string[];
+};
+
+export type RescoreResult = {
+    score: number | null;
+    missing: number;
+};
+
 export type WorkerInMsg =
     | { type: 'generate'; id: number; params: ScoutParams }
+    | { type: 'rescore'; id: number; params: RescoreParams }
     | { type: 'roadTo'; id: number; params: unknown };
 
 export type WorkerOutMsg =
     | { id: number; result: { results: ScoredTeam[]; insights: unknown } }
+    | { id: number; rescore: RescoreResult }
     | { id: number; error: string };
 
 // ── "Why this comp?" insights ────────────────────

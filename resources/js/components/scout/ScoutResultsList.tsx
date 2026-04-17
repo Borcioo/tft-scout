@@ -2,14 +2,29 @@ import type { ScoredTeam } from '@/workers/scout/types';
 import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
 import { ScoutCompCard } from './ScoutCompCard';
 
+type EmblemEntry = { apiName: string; count: number };
+
 type Props = {
     teams: ScoredTeam[];
     isRunning: boolean;
     error: string | null;
     itemBuilds: ItemBuildsMap;
+    savedCodes: Set<string>;
+    onSaved: (code: string) => void;
+    level: number;
+    emblems: EmblemEntry[];
 };
 
-export function ScoutResultsList({ teams, isRunning, error, itemBuilds }: Props) {
+export function ScoutResultsList({
+    teams,
+    isRunning,
+    error,
+    itemBuilds,
+    savedCodes,
+    onSaved,
+    level,
+    emblems,
+}: Props) {
     if (error) {
         return (
             <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-4 text-sm text-red-300">
@@ -37,7 +52,15 @@ export function ScoutResultsList({ teams, isRunning, error, itemBuilds }: Props)
     return (
         <div className="flex flex-col gap-4">
             {teams.map((team, i) => (
-                <ScoutCompCard key={i} team={team} itemBuilds={itemBuilds} />
+                <ScoutCompCard
+                    key={i}
+                    team={team}
+                    itemBuilds={itemBuilds}
+                    savedCodes={savedCodes}
+                    onSaved={onSaved}
+                    level={level}
+                    emblems={emblems}
+                />
             ))}
         </div>
     );

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\RefreshMetaTftJob;
+use App\Models\Plan;
 use App\Services\Scout\ScoutContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,9 +35,20 @@ class ScoutController extends Controller
         // props — UI accordion can render without a separate fetch.
         $itemBuilds = $this->builder->buildItemBuildsForInertia($setNumber);
 
+        // For authed users: pass down already-saved planner codes so the
+        // Scout cards can highlight comps the user has already saved and
+        // prevent duplicate saves.
+        $savedPlannerCodes = Auth::check()
+            ? Plan::forUser((int) Auth::id())
+                ->whereNotNull('planner_code')
+                ->pluck('planner_code')
+                ->values()
+            : [];
+
         return Inertia::render('Scout/Index', [
             'setNumber' => $setNumber,
             'itemBuilds' => $itemBuilds,
+            'savedPlannerCodes' => $savedPlannerCodes,
         ]);
     }
 

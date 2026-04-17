@@ -1,185 +1,174 @@
-import { Hand, Shield, Sparkles, Swords } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { usePage } from '@inertiajs/react';
+import { Check, Copy, Star } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { generatePlannerCode } from '@/lib/plannerCode';
 import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
 
-import { ChampionItemBuildsAccordion, type ItemBuildsMap } from './ChampionItemBuildsAccordion';
-import { WhyThisComp } from './WhyThisComp';
+import { type ItemBuildsMap } from './ChampionItemBuildsAccordion';
+import { buildPlanName, CompCardBody } from './CompCardBody';
 
-const COST_BORDER: Record<number, string> = {
-    1: 'border-zinc-500',
-    2: 'border-green-500',
-    3: 'border-blue-500',
-    4: 'border-purple-500',
-    5: 'border-yellow-500',
-};
+function getCsrfToken(): string {
+    return (
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+    );
+}
 
-const STYLE_CHIP: Record<string, string> = {
-    Bronze: 'border-amber-700 bg-amber-950/40 text-amber-400',
-    Silver: 'border-zinc-400 bg-zinc-800/60 text-zinc-200',
-    Gold: 'border-yellow-500 bg-yellow-950/40 text-yellow-300',
-    Prismatic: 'border-fuchsia-400 bg-fuchsia-950/40 text-fuchsia-300',
-    Unique: 'border-red-500 bg-red-950/40 text-red-300',
-};
-
-// Rank used to pick the 1–2 traits that name the comp. Higher =
-// stronger. Unique is excluded from the ranking entirely — every
-// comp has unique traits, so they never identify a comp.
-const STYLE_RANK: Record<string, number> = {
-    Prismatic: 4,
-    Gold: 3,
-    Silver: 2,
-    Bronze: 1,
-};
+type EmblemEntry = { apiName: string; count: number };
 
 type Props = {
     team: ScoredTeam;
     itemBuilds: ItemBuildsMap;
+    savedCodes: Set<string>;
+    onSaved: (code: string) => void;
+    /** Scout parameters used to produce this team — captured at save time
+     *  so live recompute on Plans page uses the same context. */
+    level: number;
+    emblems: EmblemEntry[];
 };
 
-export function ScoutCompCard({ team, itemBuilds }: Props) {
-    const titleTraits = [...team.activeTraits]
-        .filter((t) => (t.style ?? 'Bronze') !== 'Unique')
-        .sort((a, b) => {
-            const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
-            const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-
-            if (sb !== sa) {
-return sb - sa;
+/** Flatten EmblemEntry[] → apiName[] (engine expects one string per instance). */
+function flattenEmblems(emblems: EmblemEntry[]): string[] {
+    const out: string[] = [];
+    for (const e of emblems) {
+        const count = Math.max(1, e.count | 0);
+        for (let i = 0; i < count; i++) out.push(e.apiName);
+    }
+    return out;
 }
 
-            return b.count - a.count;
-        })
-        .slice(0, 2);
+export function ScoutCompCard({
+    team,
+    itemBuilds,
+    savedCodes,
+    onSaved,
+    level,
+    emblems,
+}: Props) {
+    const { auth } = usePage<{ auth: { user: { id: number } | null } }>().props;
+    const isAuthed = !!auth?.user;
+
+    const [copied, setCopied] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const plannerCode = generatePlannerCode(team.champions);
+    const isSaved = plannerCode != null && savedCodes.has(plannerCode);
+
+    const handleCopy = async () => {
+        if (!plannerCode) return;
+        try {
+            await navigator.clipboard.writeText(plannerCode);
+            setCopied(true);
+            toast.success('Team code copied — paste in TFT Team Planner');
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            toast.error('Copy failed');
+        }
+    };
+
+    const handleSave = async () => {
+        if (saving || isSaved) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/plans', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    name: buildPlanName(team),
+                    champions: team.champions.map((c) => c.apiName),
+                    meta: {
+                        score: team.score,
+                        activeTraits: team.activeTraits,
+                        roles: team.roles,
+                        insights: team.insights,
+                        metaMatch: team.metaMatch,
+                        // Params needed to reproduce score on Plans page.
+                        params: {
+                            level,
+                            emblems: flattenEmblems(emblems),
+                        },
+                    },
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const json = (await res.json()) as {
+                plannerCode: string | null;
+                alreadySaved: boolean;
+            };
+            if (json.plannerCode) {
+                onSaved(json.plannerCode);
+            }
+            toast.success(
+                json.alreadySaved ? 'Already in My Plans' : 'Saved to My Plans',
+            );
+        } catch (e) {
+            toast.error('Save failed');
+            console.error(e);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
-        <Card className="flex flex-col gap-3 p-4">
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    {titleTraits.map((t, i) => (
-                        <span
-                            key={t.apiName}
-                            className="flex items-center gap-1 text-sm font-semibold"
-                        >
-                            {t.icon && (
-                                <img
-                                    src={t.icon}
-                                    alt=""
-                                    className="size-4"
-                                />
-                            )}
-                            <span className="truncate">{t.count} {t.name}</span>
-                            {i < titleTraits.length - 1 && (
-                                <span className="text-muted-foreground">+</span>
-                            )}
-                        </span>
-                    ))}
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                    {team.metaMatch && (
-                        <Badge
+        <CompCardBody
+            team={team}
+            itemBuilds={itemBuilds}
+            headerRight={
+                <>
+                    {plannerCode && (
+                        <Button
                             variant="outline"
-                            className="gap-1 border-emerald-500/60 bg-emerald-950/40 text-emerald-300"
-                            title={`Matches ${team.metaMatch.overlap}/${team.metaMatch.total} units of "${team.metaMatch.name}" meta comp (${team.metaMatch.games.toLocaleString()} games)`}
+                            size="sm"
+                            onClick={handleCopy}
+                            className="h-7 gap-1.5 text-xs"
+                            title="Copy TFT Team Planner code"
                         >
-                            <Sparkles className="size-3" />
-                            Meta · avg {team.metaMatch.avgPlace.toFixed(2)}
-                        </Badge>
+                            {copied ? (
+                                <Check className="size-3.5 text-emerald-400" />
+                            ) : (
+                                <Copy className="size-3.5" />
+                            )}
+                            {copied ? 'Copied' : 'Copy code'}
+                        </Button>
                     )}
-                    <span className="font-mono text-sm text-muted-foreground">
-                        Score{' '}
-                        <span className="text-lg font-bold text-amber-300">
-                            {team.score.toFixed(1)}
-                        </span>
-                    </span>
-                </div>
-            </div>
-
-            {team.roles && (
-                <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
-                    <span className="flex items-center gap-1 text-blue-400">
-                        <Shield className="size-3.5" aria-label="Frontline" />
-                        {team.roles.frontline}
-                    </span>
-                    <span className="flex items-center gap-1 text-red-400">
-                        <Swords className="size-3.5" aria-label="DPS" />
-                        {team.roles.dps}
-                    </span>
-                    {team.roles.fighter > 0 && (
-                        <span className="flex items-center gap-1 text-yellow-400">
-                            <Hand className="size-3.5" aria-label="Fighter" />
-                            {team.roles.fighter}
-                        </span>
-                    )}
-                </div>
-            )}
-
-            <div className="flex flex-wrap gap-1.5">
-                {[...team.champions]
-                    .sort((a, b) => a.cost - b.cost)
-                    .map((c) => (
-                    <div
-                        key={c.apiName}
-                        className={cn(
-                            'flex size-12 items-center justify-center overflow-hidden rounded border-2 bg-muted',
-                            COST_BORDER[c.cost] ?? 'border-zinc-500',
-                        )}
-                        title={c.name}
-                    >
-                        <img
-                            src={c.icon}
-                            alt={c.name}
-                            className="size-full object-cover"
-                            loading="lazy"
-                        />
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-                {[...team.activeTraits]
-                    .sort((a, b) => {
-                        const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
-                        const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-
-                        if (sb !== sa) {
-return sb - sa;
-}
-
-                        return b.count - a.count;
-                    })
-                    .map((t) => {
-                    const style = t.style ?? 'Bronze';
-
-                    return (
-                        <Badge
-                            key={t.apiName}
+                    {isAuthed && (
+                        <Button
                             variant="outline"
+                            size="sm"
+                            onClick={handleSave}
+                            disabled={saving || isSaved}
                             className={cn(
-                                'gap-1 text-[10px]',
-                                STYLE_CHIP[style] ?? '',
+                                'h-7 gap-1.5 text-xs',
+                                isSaved && 'border-amber-500/60 bg-amber-950/30',
                             )}
+                            title={
+                                isSaved
+                                    ? 'Already saved in My Plans'
+                                    : 'Save to My Plans'
+                            }
                         >
-                            {t.icon && (
-                                <img
-                                    src={t.icon}
-                                    alt=""
-                                    className="size-3"
-                                />
-                            )}
-                            {t.count} {t.name}
-                        </Badge>
-                    );
-                })}
-            </div>
-
-            <WhyThisComp insights={team.insights} />
-
-            <ChampionItemBuildsAccordion
-                champions={team.champions as any}
-                itemBuilds={itemBuilds}
-            />
-        </Card>
+                            <Star
+                                className={cn(
+                                    'size-3.5',
+                                    isSaved && 'fill-amber-400 text-amber-400',
+                                )}
+                            />
+                            {isSaved ? 'Saved' : saving ? 'Saving…' : 'Save'}
+                        </Button>
+                    )}
+                </>
+            }
+        />
     );
 }

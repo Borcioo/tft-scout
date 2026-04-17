@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ChampionsController;
 use App\Http\Controllers\ItemsController;
+use App\Http\Controllers\PlansController;
 use App\Http\Controllers\ScoutController;
 use App\Http\Controllers\TraitsController;
 use Illuminate\Support\Facades\Route;
@@ -44,7 +45,9 @@ Route::inertia('/augments', 'Augments/Index')->name('augments.index');
 */
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('/plans', 'Plans/Index')->name('plans.index');
+    Route::get('/plans', [PlansController::class, 'index'])->name('plans.index');
+    Route::post('/api/plans', [PlansController::class, 'store'])->name('plans.store');
+    Route::delete('/api/plans/{plan}', [PlansController::class, 'destroy'])->name('plans.destroy');
 
     // Admin / future premium features
     Route::inertia('/dashboard', 'dashboard')->name('dashboard');

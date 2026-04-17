@@ -5,6 +5,7 @@
 
 import { generate } from './engine';
 import { generateInsights } from './insights';
+import { rescoreTeam } from './re-score';
 import type { ScoutContext, ScoutParams, ScoredTeam, WorkerInMsg, WorkerOutMsg } from './types';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -140,6 +141,16 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
         if (msg.type === 'generate') {
             const result = await runGenerate(ctx, msg.params);
             const out: WorkerOutMsg = { id: msg.id, result };
+            self.postMessage(out);
+        } else if (msg.type === 'rescore') {
+            const { championApis, level, emblems } = msg.params;
+            const { score, missing } = rescoreTeam({
+                championApis,
+                level,
+                emblems,
+                context: ctx,
+            });
+            const out: WorkerOutMsg = { id: msg.id, rescore: { score, missing } };
             self.postMessage(out);
         } else {
             // roadTo deferred to post-MVP per spec

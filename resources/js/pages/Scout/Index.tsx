@@ -15,6 +15,7 @@ import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/
 type Props = {
     setNumber: number;
     itemBuilds: ItemBuildsMap;
+    savedPlannerCodes: string[];
 };
 
 type EmblemEntry = { apiName: string; count: number };
@@ -39,10 +40,25 @@ export default function ScoutIndex(props: Props) {
     );
 }
 
-function ScoutIndexInner({ setNumber, itemBuilds }: Props) {
+function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
     const { generate } = useScoutWorker();
     const page = usePage<{ scoutLabEnabled?: boolean }>();
     const labEnabled = page.props.scoutLabEnabled === true;
+
+    // Local mirror of saved planner codes — starts from server-passed list
+    // and grows with every successful save during the session so cards
+    // flip to Saved immediately without a roundtrip.
+    const [savedCodes, setSavedCodes] = useState<Set<string>>(
+        () => new Set(savedPlannerCodes),
+    );
+    const markSaved = useCallback((code: string) => {
+        setSavedCodes((prev) => {
+            if (prev.has(code)) return prev;
+            const next = new Set(prev);
+            next.add(code);
+            return next;
+        });
+    }, []);
 
     // Context fetched once from the same /api/scout/context the worker
     // hits — lets the UI render pickers before the first generate call.
@@ -190,6 +206,10 @@ return;
                             isRunning={isRunning}
                             error={error}
                             itemBuilds={itemBuilds}
+                            savedCodes={savedCodes}
+                            onSaved={markSaved}
+                            level={level}
+                            emblems={emblems}
                         />
                     </div>
                 </main>

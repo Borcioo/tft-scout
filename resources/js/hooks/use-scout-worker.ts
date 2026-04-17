@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import ScoutWorker from '@/workers/scout/index?worker&inline';
-import type { ScoutParams, ScoredTeam, WorkerOutMsg } from '@/workers/scout/types';
+import type {
+    RescoreParams,
+    RescoreResult,
+    ScoutParams,
+    ScoredTeam,
+    WorkerOutMsg,
+} from '@/workers/scout/types';
 
 // Singleton worker shared across all hook consumers on a page.
 // Legacy pattern — one worker instance for the entire /scout session,
@@ -26,8 +32,13 @@ let sharedWorker: Worker | null = null;
 let refCount = 0;
 let msgId = 0;
 
+// Union resolver — each message type has its own payload shape, but
+// only one pending entry is active per id, so a single resolve signature
+// covering the union is enough.
+type WorkerReply = { results: ScoredTeam[]; insights: unknown } | RescoreResult;
+
 type Pending = {
-    resolve: (value: { results: ScoredTeam[]; insights: unknown }) => void;
+    resolve: (value: WorkerReply) => void;
     reject: (reason: Error) => void;
 };
 
@@ -79,6 +90,8 @@ return;
 
             if ('error' in msg) {
                 handler.reject(new Error(msg.error));
+            } else if ('rescore' in msg) {
+                handler.resolve(msg.rescore);
             } else {
                 handler.resolve(msg.result);
             }
@@ -101,15 +114,28 @@ function releaseWorker() {
     }
 }
 
-function sendMessage(type: 'generate', params: ScoutParams) {
+function sendGenerate(params: ScoutParams) {
     const id = ++msgId;
-
     return new Promise<{ results: ScoredTeam[]; insights: unknown }>(
         (resolve, reject) => {
-            pending.set(id, { resolve, reject });
-            sharedWorker!.postMessage({ type, id, params });
+            pending.set(id, {
+                resolve: resolve as (v: WorkerReply) => void,
+                reject,
+            });
+            sharedWorker!.postMessage({ type: 'generate', id, params });
         },
     );
+}
+
+function sendRescore(params: RescoreParams) {
+    const id = ++msgId;
+    return new Promise<RescoreResult>((resolve, reject) => {
+        pending.set(id, {
+            resolve: resolve as (v: WorkerReply) => void,
+            reject,
+        });
+        sharedWorker!.postMessage({ type: 'rescore', id, params });
+    });
 }
 
 export function useScoutWorker() {
@@ -122,8 +148,12 @@ export function useScoutWorker() {
     }, []);
 
     const generate = useCallback((params: ScoutParams) => {
-        return sendMessage('generate', params);
+        return sendGenerate(params);
     }, []);
 
-    return { generate };
+    const rescore = useCallback((params: RescoreParams) => {
+        return sendRescore(params);
+    }, []);
+
+    return { generate, rescore };
 }
