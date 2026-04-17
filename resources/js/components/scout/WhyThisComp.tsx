@@ -145,9 +145,9 @@ function renderInsight(item: InsightItem): ReactNode {
                 </>
             );
         case 'noMetaMatch':
-            return <>Experimental build — no matching meta comp on MetaTFT</>;
+            return <>Experimental build — no matching meta comp on record</>;
         case 'staleData':
-            return <>MetaTFT data is over 24h old — numbers may be outdated</>;
+            return <>Stats may be slightly outdated — refresh in progress</>;
     }
 }
 

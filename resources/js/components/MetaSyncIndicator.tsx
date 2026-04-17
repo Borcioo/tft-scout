@@ -46,17 +46,17 @@ export function MetaSyncIndicator() {
     if (!refreshing) return null;
 
     return (
-        // Bottom-LEFT on purpose — bottom-right is occupied by the
-        // Laravel debug bar toggle in dev, collisions make both icons
-        // unusable. Left corner is almost always empty in our layouts.
+        // Bottom-CENTER — bottom-left collided with guest auth buttons,
+        // bottom-right is the Laravel debug bar. Horizontal centering
+        // with translate-x keeps it out of the way on any viewport.
         <div
-            className="pointer-events-none fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-full border border-border/60 bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur"
+            className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border/60 bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur"
             role="status"
             aria-live="polite"
-            title="MetaTFT stats are being refreshed in the background"
+            title="Stats are being refreshed in the background"
         >
             <Loader2 className="size-3.5 animate-spin text-emerald-400" />
-            <span>Refreshing meta stats…</span>
+            <span>Updating stats…</span>
         </div>
     );
 }

@@ -196,8 +196,8 @@ return;
                 <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                     {contextStale && (
                         <div className="shrink-0 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-300">
-                            MetaTFT data is older than 24h — a background refresh has been
-                            scheduled. Reload the page in a minute to see fresh numbers.
+                            Stats are updating in the background. Reload the page in a
+                            minute to see fresh numbers.
                         </div>
                     )}
                     <div className="min-h-0 flex-1 overflow-y-auto">
