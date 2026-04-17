@@ -11,6 +11,7 @@ use App\Services\MetaTft\Dto\TraitRatingDto;
 use App\Services\MetaTft\Dto\UnitRatingDto;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -813,6 +814,12 @@ class MetaTftClient
                 $chunk,
             ));
 
+            // Collect successful responses into a bulk upsert payload.
+            // Per-row updateOrCreate was observed at ~80s per row on mikrus
+            // 2GB because `data` jsonb can be 100-500KB per response. One
+            // bulk upsert per batch collapses ~50 round-trips into one.
+            $now = now()->toDateTimeString();
+            $rows = [];
             foreach ($chunk as $req) {
                 $res = $responses[$req['key']] ?? null;
                 if ($res === null || ! method_exists($res, 'successful') || ! $res->successful()) {
@@ -826,7 +833,24 @@ class MetaTftClient
                     $req['endpoint'],
                     $req['params'],
                 );
-                $this->storeInCache($hash, $req['endpoint'], $req['params'], $data);
+                $rows[] = [
+                    'endpoint' => $req['endpoint'],
+                    'params_hash' => $hash,
+                    // jsonb columns — upsert bypasses the model so we
+                    // encode manually instead of relying on casts.
+                    'params' => json_encode($req['params']),
+                    'data' => json_encode($data),
+                    'fetched_at' => $now,
+                    'ttl_seconds' => self::DEFAULT_TTL,
+                ];
+            }
+
+            if (! empty($rows)) {
+                DB::table('metatft_cache')->upsert(
+                    $rows,
+                    ['endpoint', 'params_hash'],
+                    ['params', 'data', 'fetched_at', 'ttl_seconds'],
+                );
             }
 
             if ($onProgress) {
