@@ -140,9 +140,56 @@ class MetaTftSync
         $this->itemFetchFailedChampions = [];
         $runStartedAt = CarbonImmutable::now();
 
+        // Build the per-champion sync list ONCE — used both for prewarm
+        // (before the transaction) and the inner loop (inside). Include
+        // variant-parent rows (is_playable=false but referenced via
+        // base_champion_id by playable variants) so the scorer can look
+        // up affinity/companions for champions like TFT17_MissFortune —
+        // MetaTFT publishes stats under the base apiName, and the
+        // scorer's `baseApiName || apiName` fallback needs those rows
+        // populated or variant champs end up with zero score.
+        $variantParentIds = Champion::query()
+            ->where('set_id', $set->id)
+            ->whereNotNull('base_champion_id')
+            ->distinct()
+            ->pluck('base_champion_id')
+            ->flip()
+            ->all();
+
+        $toSync = [];
+        foreach ($championsByApiName as $apiName => $champion) {
+            if (! $champion->is_playable && ! isset($variantParentIds[$champion->id])) {
+                continue;
+            }
+            $toSync[] = [$apiName, $champion];
+        }
+        $totalChamps = count($toSync);
+
+        // PHASE 1 — prewarm HTTP cache BEFORE opening the DB transaction.
+        //
+        // Keeping HTTP I/O out of `DB::transaction` is critical: Postgres
+        // holds the connection in "idle in transaction" for the full
+        // duration of the pool's network round-trips, blocking concurrent
+        // writers and occasionally wedging the whole sync on slower boxes
+        // (observed on mikrus 2GB — 6+ minute lockups). With prewarm
+        // outside, the subsequent transaction hits warm cache and does
+        // pure DB work with no network waits.
+        if ($concurrency > 1 && $totalChamps > 0) {
+            $this->log("Prewarming HTTP cache for {$totalChamps} champions (concurrency={$concurrency})...");
+            $apiNames = array_map(fn ($row) => $row[0], $toSync);
+            $this->client->prewarmChampionsBatch(
+                $apiNames,
+                $concurrency,
+                function (int $done, int $total) {
+                    $this->log("  prewarm batch {$done}/{$total}");
+                },
+            );
+            $this->log('  → prewarm done, DB transaction will hit cache');
+        }
+
         try {
             DB::transaction(function () use (
-                $set, $championsByApiName, $traitsByApiName, &$counts, $runStartedAt, $concurrency,
+                $set, $championsByApiName, $traitsByApiName, &$counts, $runStartedAt, $toSync, $totalChamps,
             ) {
                 $this->log('Fetching bulk unit ratings...');
                 $counts['units'] = $this->syncUnitRatings($set, $championsByApiName);
@@ -156,52 +203,7 @@ class MetaTftSync
                 $counts['meta_comps'] = $this->syncMetaComps($set, $championsByApiName, $traitsByApiName);
                 $this->log("  → {$counts['meta_comps']} meta comps upserted");
 
-                // Per-champion fetches run AFTER bulk inserts so the
-                // outer transaction rolls back affinity/companions on
-                // failure of the bulk block.
-                //
-                // Include variant-parent rows (is_playable=false but
-                // referenced via base_champion_id by playable variants)
-                // so the scorer can look up affinity/companions for
-                // champions like TFT17_MissFortune — MetaTFT publishes
-                // stats under the base apiName, and the scorer's
-                // `baseApiName || apiName` fallback needs those rows
-                // populated or variant champs end up with zero
-                // affinity/companion score.
-                $variantParentIds = Champion::query()
-                    ->where('set_id', $set->id)
-                    ->whereNotNull('base_champion_id')
-                    ->distinct()
-                    ->pluck('base_champion_id')
-                    ->flip()
-                    ->all();
-
-                $toSync = [];
-                foreach ($championsByApiName as $apiName => $champion) {
-                    if (! $champion->is_playable && ! isset($variantParentIds[$champion->id])) {
-                        continue;
-                    }
-                    $toSync[] = [$apiName, $champion];
-                }
-                $total = count($toSync);
-
-                // Prewarm the HTTP cache in parallel before the serial
-                // per-champion loop. Each champion needs 5 explorer
-                // endpoints; without this every iteration pays the full
-                // network latency one call at a time.
-                if ($concurrency > 1) {
-                    $this->log("Prewarming HTTP cache for {$total} champions (concurrency={$concurrency})...");
-                    $apiNames = array_map(fn ($row) => $row[0], $toSync);
-                    $this->client->prewarmChampionsBatch(
-                        $apiNames,
-                        $concurrency,
-                        function (int $done, int $total) {
-                            $this->log("  prewarm batch {$done}/{$total}");
-                        },
-                    );
-                    $this->log('  → prewarm done, per-champion loop will hit cache');
-                }
-
+                $total = $totalChamps;
                 $this->log("Fetching per-champion data (affinity + companions + items) for {$total} champions...");
 
                 $i = 0;
