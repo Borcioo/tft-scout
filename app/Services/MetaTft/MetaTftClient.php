@@ -10,6 +10,7 @@ use App\Services\MetaTft\Dto\MetaCompDto;
 use App\Services\MetaTft\Dto\TraitRatingDto;
 use App\Services\MetaTft\Dto\UnitRatingDto;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Pool;
 use RuntimeException;
 
 /**
@@ -51,10 +52,30 @@ class MetaTftClient
 
     private const DEFAULT_TTL = 3600;
 
+    /**
+     * Per-run memo for fetchTotalGames — the sync calls it once from
+     * fetchItemStats and once from fetchItemBuilds for the SAME champion,
+     * which doubles the HTTP work even though the answer is identical
+     * within a single sync run. Cleared between runs via resetRunCache().
+     *
+     * @var array<string, int>
+     */
+    private array $totalGamesCache = [];
+
     public function __construct(
         private readonly HttpFactory $http,
     ) {
         $this->queue = (string) config('services.metatft.queue', 'PBE');
+    }
+
+    /**
+     * Clear per-run in-memory caches. Call at the start of a sync run so
+     * repeated runs in the same process (tests, queue workers) don't
+     * return stale values.
+     */
+    public function resetRunCache(): void
+    {
+        $this->totalGamesCache = [];
     }
 
     /**
@@ -255,6 +276,10 @@ class MetaTftClient
      */
     public function fetchTotalGames(string $championApiName): int
     {
+        if (isset($this->totalGamesCache[$championApiName])) {
+            return $this->totalGamesCache[$championApiName];
+        }
+
         $payload = $this->getWithCache(
             self::EXPLORER_BASE_URL,
             'total',
@@ -263,15 +288,16 @@ class MetaTftClient
 
         $row = $payload['data'][0] ?? null;
         if (! is_array($row)) {
-            return 0;
+            return $this->totalGamesCache[$championApiName] = 0;
         }
 
         $direct = $row['total_games'] ?? null;
         if (is_numeric($direct)) {
-            return (int) $direct;
+            return $this->totalGamesCache[$championApiName] = (int) $direct;
         }
 
-        return self::sumPlaces($row['placement_count'] ?? []);
+        return $this->totalGamesCache[$championApiName] =
+            self::sumPlaces($row['placement_count'] ?? []);
     }
 
     /**
@@ -639,19 +665,11 @@ class MetaTftClient
     private function getWithCache(string $baseUrl, string $endpoint, array $params): array
     {
         ksort($params);
-        // Column is varchar(16) — truncate to the first 16 hex chars
-        // (64 bits). Collision probability across a few thousand rows
-        // is negligible and the migration comment explicitly calls this
-        // a "sha256 slice".
-        $paramsHash = substr(
-            hash('sha256', $baseUrl.':'.$endpoint.':'.json_encode($params)),
-            0,
-            16,
-        );
+        $hash = $this->cacheKey($baseUrl, $endpoint, $params);
 
         $cached = \App\Models\MetatftCache::query()
             ->where('endpoint', $endpoint)
-            ->where('params_hash', $paramsHash)
+            ->where('params_hash', $hash)
             ->first();
 
         if ($cached && $cached->isFresh()) {
@@ -671,9 +689,40 @@ class MetaTftClient
         }
 
         $data = $response->json() ?? [];
+        $this->storeInCache($hash, $endpoint, $params, $data);
 
+        return $data;
+    }
+
+    /**
+     * Truncated sha256 of (base, endpoint, params). Column is varchar(16),
+     * so we slice to 64 bits — collision probability across the few
+     * thousand rows this table ever holds is negligible.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    private function cacheKey(string $baseUrl, string $endpoint, array $params): string
+    {
+        ksort($params);
+
+        return substr(
+            hash('sha256', $baseUrl.':'.$endpoint.':'.json_encode($params)),
+            0,
+            16,
+        );
+    }
+
+    /**
+     * Write a payload to the metatft_cache table. Caller computes the hash
+     * so it matches exactly what getWithCache looks up.
+     *
+     * @param  array<string, mixed>  $params
+     * @param  array<mixed>  $data
+     */
+    private function storeInCache(string $hash, string $endpoint, array $params, array $data): void
+    {
         \App\Models\MetatftCache::query()->updateOrCreate(
-            ['endpoint' => $endpoint, 'params_hash' => $paramsHash],
+            ['endpoint' => $endpoint, 'params_hash' => $hash],
             [
                 'params' => $params,
                 'data' => $data,
@@ -681,7 +730,108 @@ class MetaTftClient
                 'ttl_seconds' => self::DEFAULT_TTL,
             ],
         );
+    }
 
-        return $data;
+    /**
+     * Warm the cache for a batch of champions via concurrent HTTP.
+     *
+     * For every champion we need 5 explorer endpoints (traits, units_unique,
+     * total, unit_items_unique/X-1, unit_builds/X). Running them one
+     * champion at a time is network-bound and slow. This method fires them
+     * in parallel using Http::pool, batched so the pool never holds more
+     * than `$concurrency × 5` in-flight requests.
+     *
+     * After prewarm completes the regular fetch* methods see a cache hit
+     * and skip the HTTP layer entirely, so the rest of the sync flow is
+     * unchanged. Cache-fresh entries are skipped to avoid wasted traffic.
+     *
+     * Failures inside a batch are swallowed individually — a single bad
+     * response from one champion must not poison the rest of the batch.
+     * The per-champion fetch* methods will still fail loudly later when
+     * called for that champion.
+     *
+     * @param  list<string>  $championApiNames
+     * @param  callable(int, int): void|null  $onProgress  Optional
+     *         "batch i of N processed" reporter for CLI progress output.
+     */
+    public function prewarmChampionsBatch(
+        array $championApiNames,
+        int $concurrency = 10,
+        ?callable $onProgress = null,
+    ): void {
+        if ($concurrency < 1) {
+            $concurrency = 1;
+        }
+
+        // Build the request plan: (key, baseUrl, endpoint, params) tuples
+        // for every champion × endpoint, skipping those already fresh in
+        // cache so we don't hammer MetaTFT with no-op requests.
+        $requests = [];
+        foreach ($championApiNames as $api) {
+            $explorerParams = $this->explorerUnitParams($api);
+            $endpoints = [
+                'traits',
+                'units_unique',
+                'total',
+                'unit_items_unique/'.$api.'-1',
+                'unit_builds/'.$api,
+            ];
+
+            foreach ($endpoints as $endpoint) {
+                $hash = $this->cacheKey(self::EXPLORER_BASE_URL, $endpoint, $explorerParams);
+                $cached = \App\Models\MetatftCache::query()
+                    ->where('endpoint', $endpoint)
+                    ->where('params_hash', $hash)
+                    ->first();
+                if ($cached && $cached->isFresh()) {
+                    continue;
+                }
+
+                $requests[] = [
+                    'key' => $api.'|'.$endpoint,
+                    'endpoint' => $endpoint,
+                    'url' => self::EXPLORER_BASE_URL.'/'.$endpoint,
+                    'params' => $explorerParams,
+                ];
+            }
+        }
+
+        if (empty($requests)) {
+            return;
+        }
+
+        $chunks = array_chunk($requests, $concurrency * 5);
+        $total = count($chunks);
+
+        foreach ($chunks as $i => $chunk) {
+            $responses = $this->http->pool(fn (Pool $pool) => array_map(
+                fn (array $req) => $pool
+                    ->as($req['key'])
+                    ->timeout(30)
+                    ->acceptJson()
+                    ->get($req['url'], $req['params']),
+                $chunk,
+            ));
+
+            foreach ($chunk as $req) {
+                $res = $responses[$req['key']] ?? null;
+                if ($res === null || ! method_exists($res, 'successful') || ! $res->successful()) {
+                    // Leave the cache empty — the per-champion fetch path
+                    // will retry and surface the error with context.
+                    continue;
+                }
+                $data = $res->json() ?? [];
+                $hash = $this->cacheKey(
+                    self::EXPLORER_BASE_URL,
+                    $req['endpoint'],
+                    $req['params'],
+                );
+                $this->storeInCache($hash, $req['endpoint'], $req['params'], $data);
+            }
+
+            if ($onProgress) {
+                $onProgress($i + 1, $total);
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -35,6 +36,13 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $setNumber = (int) config('services.tft.set', 17);
+        // `meta:refresh-active:N` is set by RevalidateMetaTft middleware
+        // when it dispatches the refresh job, cleared by the job itself.
+        // Initial page load reads it so the indicator can show up
+        // instantly without a /status poll.
+        $metaSyncRefreshing = Cache::has(RevalidateMetaTft::activeKey($setNumber));
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -43,6 +51,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'scoutLabEnabled' => env('SCOUT_LAB_ENABLED') === '1',
+            'metaSyncRefreshing' => $metaSyncRefreshing,
         ];
     }
 }

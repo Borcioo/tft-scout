@@ -26,6 +26,18 @@ Route::get('/scout', [ScoutController::class, 'index'])->name('scout.index');
 Route::get('/api/scout/context', [ScoutController::class, 'context'])->name('scout.context');
 Route::post('/api/scout/lab/ingest', [ScoutController::class, 'labIngest'])->name('scout.lab.ingest');
 
+// Lightweight status endpoint for the in-page loading indicator — polled
+// by MetaSyncIndicator every ~10s while a refresh is in flight.
+Route::get('/api/meta-sync/status', function () {
+    $setNumber = (int) config('services.tft.set', 17);
+
+    return response()->json([
+        'refreshing' => \Illuminate\Support\Facades\Cache::has(
+            \App\Http\Middleware\RevalidateMetaTft::activeKey($setNumber),
+        ),
+    ]);
+})->name('meta-sync.status');
+
 // Browse data (public read-only)
 Route::get('/champions', [ChampionsController::class, 'index'])
     ->name('champions.index');

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\RefreshMetaTftJob;
 use App\Models\Plan;
 use App\Services\Scout\ScoutContextBuilder;
 use Illuminate\Http\JsonResponse;
@@ -53,19 +52,16 @@ class ScoutController extends Controller
     }
 
     /**
-     * The scout Web Worker fetches this endpoint once on init. If the
-     * latest successful sync is >24h old, dispatch a background refresh
-     * job (stale-while-revalidate) and return the current data anyway
-     * with `stale: true`.
+     * The scout Web Worker fetches this endpoint once on init. Staleness
+     * is now handled globally by RevalidateMetaTft middleware (runs on
+     * every web request in terminate(), lock-guarded) — we still return
+     * `stale: true` in the payload so the worker / UI can surface a
+     * banner, but the middleware owns the dispatch side.
      */
     public function context(): JsonResponse
     {
         $setNumber = (int) config('services.tft.set', 17);
         $context = $this->builder->build($setNumber);
-
-        if ($context['stale']) {
-            RefreshMetaTftJob::dispatch($setNumber);
-        }
 
         return response()->json($context);
     }

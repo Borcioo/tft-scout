@@ -15,8 +15,10 @@ use App\Models\Set;
 use App\Models\TftTrait;
 use App\Models\TraitRating;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -63,8 +65,43 @@ class MetaTftSync
         }
     }
 
-    public function run(int $setNumber): MetaSync
+    /**
+     * @param  int  $concurrency  When >1, prewarm per-champion caches in
+     *         parallel with Http::pool. Default 1 preserves the legacy
+     *         sequential behavior for safety.
+     *
+     * @throws RuntimeException if another sync is already running for this
+     *         set (CLI invocation racing with a queue job, or two queue
+     *         workers somehow picking up the same job). The lock is
+     *         released in `finally` so a crashed run never strands it.
+     */
+    public function run(int $setNumber, int $concurrency = 1): MetaSync
     {
+        // Service-layer guard — the middleware + ShouldBeUnique already
+        // block most duplicate paths, but this protects against CLI
+        // runs (`artisan metatft:sync`) colliding with a queued refresh.
+        // TTL slightly above timeout so a stuck process doesn't wedge
+        // the lock forever without reaching finally.
+        $lock = Cache::lock("meta-tft-sync-running:{$setNumber}", 900);
+        if (! $lock->get()) {
+            throw new RuntimeException(
+                "MetaTftSync: another run is already in progress for set {$setNumber}",
+            );
+        }
+
+        try {
+            return $this->runLocked($setNumber, $concurrency);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Inner sync body — held behind the Cache::lock in run().
+     */
+    private function runLocked(int $setNumber, int $concurrency): MetaSync
+    {
+        $this->client->resetRunCache();
         $set = Set::query()->where('number', $setNumber)->firstOrFail();
 
         $championsByApiName = Champion::query()
@@ -105,7 +142,7 @@ class MetaTftSync
 
         try {
             DB::transaction(function () use (
-                $set, $championsByApiName, $traitsByApiName, &$counts, $runStartedAt,
+                $set, $championsByApiName, $traitsByApiName, &$counts, $runStartedAt, $concurrency,
             ) {
                 $this->log('Fetching bulk unit ratings...');
                 $counts['units'] = $this->syncUnitRatings($set, $championsByApiName);
@@ -147,6 +184,24 @@ class MetaTftSync
                     $toSync[] = [$apiName, $champion];
                 }
                 $total = count($toSync);
+
+                // Prewarm the HTTP cache in parallel before the serial
+                // per-champion loop. Each champion needs 5 explorer
+                // endpoints; without this every iteration pays the full
+                // network latency one call at a time.
+                if ($concurrency > 1) {
+                    $this->log("Prewarming HTTP cache for {$total} champions (concurrency={$concurrency})...");
+                    $apiNames = array_map(fn ($row) => $row[0], $toSync);
+                    $this->client->prewarmChampionsBatch(
+                        $apiNames,
+                        $concurrency,
+                        function (int $done, int $total) {
+                            $this->log("  prewarm batch {$done}/{$total}");
+                        },
+                    );
+                    $this->log('  → prewarm done, per-champion loop will hit cache');
+                }
+
                 $this->log("Fetching per-champion data (affinity + companions + items) for {$total} champions...");
 
                 $i = 0;

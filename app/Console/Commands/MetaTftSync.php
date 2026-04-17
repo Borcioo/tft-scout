@@ -7,20 +7,24 @@ use Illuminate\Console\Command;
 
 class MetaTftSync extends Command
 {
-    protected $signature = 'metatft:sync {--set= : Set number to sync; defaults to TFT_SET env}';
+    protected $signature = 'metatft:sync
+        {--set= : Set number to sync; defaults to TFT_SET env}
+        {--parallel=1 : HTTP pool concurrency for per-champion prewarm (1 = legacy sequential)}';
 
     protected $description = 'Fetch MetaTFT aggregates and populate scout rating tables';
 
     public function handle(MetaTftSyncService $sync): int
     {
         $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 17));
+        $concurrency = max(1, (int) $this->option('parallel'));
 
-        $this->info("Syncing MetaTFT data for set {$setNumber}...");
+        $mode = $concurrency > 1 ? " (parallel={$concurrency})" : '';
+        $this->info("Syncing MetaTFT data for set {$setNumber}{$mode}...");
         $start = microtime(true);
 
         $record = $sync
             ->onProgress(fn (string $msg) => $this->line($msg))
-            ->run($setNumber);
+            ->run($setNumber, $concurrency);
 
         $elapsed = round(microtime(true) - $start, 2);
 
