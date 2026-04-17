@@ -60,6 +60,15 @@ export const SCORING_CONFIG = {
     minGames: 30,
   },
 
+  // Per-trait contribution cap — total pts from a single trait (traitScore
+  // + provenBonus + synergy) never exceed this. Prevents the 6-Vanguard
+  // family from piling ~62 pts in one trait while nuancée comps spread
+  // points across many smaller traits. Empirically: Vanguard:6 Gold with
+  // avgPlace 3.32 hits ~62 pre-cap, SummonTrait:3 avg 3.13 would hit ~83.
+  // Cap at 45 levels both down while keeping them comfortably above
+  // Bronze-stacked spread comps (which naturally sum to 20-30 per trait).
+  maxTraitContribution: 45,
+
   // Dedupe threshold for engine topN — team is dropped if it shares
   // >= dedupeOverlapPct champions with an already-accepted higher-score team.
   // 0.75 = 6/8 shared → duplicate. 1.0 = disabled.

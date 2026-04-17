@@ -15,7 +15,7 @@ import { SCORING_CONFIG } from './config';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 
-const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, traitReward, provenBonus: PROVEN_CFG, dedupeOverlapPct, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds } = SCORING_CONFIG;
+const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, traitReward, provenBonus: PROVEN_CFG, dedupeOverlapPct, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds, maxTraitContribution } = SCORING_CONFIG;
 
 const ROLE_CATEGORY = {
   ADCarry: 'dps', APCarry: 'dps', ADCaster: 'dps', APCaster: 'dps',
@@ -414,11 +414,14 @@ export function teamScore(team: any, ctx: any) {
     score += (champ.slotsUsed > 1 ? pts * champ.slotsUsed : pts) * champScoreWeight;
   }
 
-  // Trait scores
+  // Trait scores — collect per-trait contribution (traitScore + proven +
+  // synergy) atomically, then cap so no single trait can dominate. Without
+  // the cap, one high-data trait (Vanguard:6 avg 3.32, Dark Star:9, etc.)
+  // stacked all three mechanisms and produced ~60-80 pts while spread comps
+  // topped out at ~25 per trait — that's what made 6V+3C impossible to
+  // beat regardless of emblems/locks.
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
 
-  // Collect per-trait scores WITH activeIdx, then apply Bronze stacking
-  // so wide Bronze spreads can't dominate focused Silver/Gold/Prismatic.
   const traitResults = team.activeTraits.map((trait: any) => {
     const sorted = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
     const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
@@ -426,20 +429,12 @@ export function teamScore(team: any, ctx: any) {
     return { apiName: trait.apiName, activeIdx, rawScore, near };
   });
 
+  const perTraitContrib: Record<string, number> = {};
   for (const r of applyBronzeStacking(traitResults)) {
-    score += r.score;
+    perTraitContrib[r.apiName] = (perTraitContrib[r.apiName] ?? 0) + r.score;
   }
 
-  // Affinity bonus — reward champions that are statistically proven with active traits
-  for (const champ of team.champions) {
-    score += affinityBonus(champ, activeTraitApis, ctx);
-  }
-
-  // Companion bonus — reward champion pairs that perform well together
-  score += companionBonus(team, ctx);
-
-  // Proven team bonus — when a trait breakpoint has exceptional real-world results,
-  // the team gets a direct bonus reflecting that the composition "works" as a whole
+  // Proven team bonus — fold into per-trait contrib so it can be capped.
   for (const trait of team.activeTraits) {
     const sorted = [...(trait.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
     const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
@@ -453,16 +448,16 @@ continue;
     if (rating && rating.games >= PROVEN_CFG.minGames && rating.avgPlace < PROVEN_CFG.maxAvgPlace) {
       let bonus = (PROVEN_CFG.maxAvgPlace - rating.avgPlace) * PROVEN_CFG.weight;
 
-      // Exceptional breakpoints (avg < exponentialThreshold) get quadratic boost
       if (rating.avgPlace < PROVEN_CFG.exponentialThreshold) {
         bonus += Math.pow(PROVEN_CFG.exponentialThreshold - rating.avgPlace, 2) * PROVEN_CFG.weight * PROVEN_CFG.quadMult;
       }
 
-      score += bonus;
+      perTraitContrib[trait.apiName] = (perTraitContrib[trait.apiName] ?? 0) + bonus;
     }
   }
 
-  // Synergy concentration — bonus for traits at 2nd+ breakpoint
+  // Synergy concentration — also folded in so the 5-pt/trait bonus
+  // counts toward the per-trait cap.
   const highBreakpoints = team.activeTraits.filter((t: any) => {
     const sorted = [...(t.breakpoints || [])].sort((a, b) => a.minUnits - b.minUnits);
 
@@ -474,7 +469,22 @@ return false;
 
     return activeIdx >= 1;
   });
-  score += highBreakpoints.length * weights.synergyBonus;
+  for (const hb of highBreakpoints) {
+    perTraitContrib[hb.apiName] = (perTraitContrib[hb.apiName] ?? 0) + weights.synergyBonus;
+  }
+
+  // Apply cap per-trait and sum.
+  for (const apiName of Object.keys(perTraitContrib)) {
+    score += Math.min(perTraitContrib[apiName], maxTraitContribution);
+  }
+
+  // Affinity bonus — reward champions that are statistically proven with active traits
+  for (const champ of team.champions) {
+    score += affinityBonus(champ, activeTraitApis, ctx);
+  }
+
+  // Companion bonus — reward champion pairs that perform well together
+  score += companionBonus(team, ctx);
 
   // Role balance penalty — penalize unrealistic compositions
   score -= roleBalancePenalty(team.champions);
@@ -499,6 +509,12 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));
 
+  // Track per-trait totals so we can report the capping delta separately —
+  // `traits`, `proven`, `synergy` keys keep their raw pre-cap values for
+  // diagnostic clarity, and `traitCap` is a negative adjustment that
+  // balances the total.
+  const perTraitContrib: Record<string, number> = {};
+
   const traitResultsBd = team.activeTraits.map((trait: any) => {
     const sorted = [...(trait.breakpoints || [])].sort((a: any, b: any) => a.minUnits - b.minUnits);
     const activeIdx = findActiveBreakpointIdx(trait.count, sorted);
@@ -508,6 +524,7 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   for (const r of applyBronzeStacking(traitResultsBd)) {
     breakdown.traits += r.score;
+    perTraitContrib[r.apiName] = (perTraitContrib[r.apiName] ?? 0) + r.score;
   }
 
   for (const champ of team.champions) {
@@ -527,6 +544,9 @@ return false;
   });
   breakdown.companions = companionBonus(team, ctx);
   breakdown.synergy = highBreakpoints.length * SCORING_CONFIG.weights.synergyBonus;
+  for (const hb of highBreakpoints) {
+    perTraitContrib[hb.apiName] = (perTraitContrib[hb.apiName] ?? 0) + SCORING_CONFIG.weights.synergyBonus;
+  }
 
   // Proven team bonus
   let provenBonus = 0;
@@ -549,17 +569,38 @@ continue;
       }
 
       provenBonus += bonus;
+      perTraitContrib[trait.apiName] = (perTraitContrib[trait.apiName] ?? 0) + bonus;
     }
   }
 
   breakdown.proven = provenBonus;
+
+  // Compute cap delta — sum of (contrib - cap) for every trait that exceeds.
+  // Reported as a negative breakdown key so the total adds up correctly.
+  let traitCapReduction = 0;
+  for (const apiName of Object.keys(perTraitContrib)) {
+    const contrib = perTraitContrib[apiName];
+    if (contrib > maxTraitContribution) {
+      traitCapReduction -= (contrib - maxTraitContribution);
+    }
+  }
+  breakdown.traitCap = traitCapReduction;
 
   breakdown.balance = -roleBalancePenalty(team.champions);
 
   const activeTraitsByApi = Object.fromEntries(team.activeTraits.map((t: any) => [t.apiName, t]));
   breakdown.filler = -fillerCount(team.champions, activeTraitsByApi) * weights.fillerPenalty;
 
-  breakdown.total = breakdown.champions + breakdown.traits + breakdown.affinity + breakdown.companions + breakdown.synergy + breakdown.proven + breakdown.balance + breakdown.filler;
+  breakdown.total =
+    breakdown.champions +
+    breakdown.traits +
+    breakdown.affinity +
+    breakdown.companions +
+    breakdown.synergy +
+    breakdown.proven +
+    breakdown.traitCap +
+    breakdown.balance +
+    breakdown.filler;
 
   for (const k of Object.keys(breakdown)) {
 breakdown[k] = Math.round(breakdown[k] * 10) / 10;
