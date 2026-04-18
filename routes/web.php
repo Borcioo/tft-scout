@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChampionsController;
+use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\ItemsController;
 use App\Http\Controllers\PlansController;
 use App\Http\Controllers\ScoutController;
@@ -37,6 +38,12 @@ Route::get('/api/meta-sync/status', function () {
         ),
     ]);
 })->name('meta-sync.status');
+
+// Operator diagnostics — gated by DIAGNOSTICS_KEY env var. 404 when the
+// env var is unset or the key is wrong, so the route's existence never
+// leaks. Read-only; no persistence, no mutations.
+Route::get('/api/admin/diagnostics/meta-sync', [DiagnosticsController::class, 'metaSync'])
+    ->name('diagnostics.meta-sync');
 
 // Browse data (public read-only)
 Route::get('/champions', [ChampionsController::class, 'index'])
