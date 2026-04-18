@@ -287,39 +287,56 @@ class MetaTftSync
             ->pluck('id', 'api_name')
             ->all();
 
-        $count = 0;
+        // Fetch all existing rows once for prev_avg_place lookup — was
+        // one SELECT per item inside the loop (~8-20 per champion).
+        $itemIds = array_values(array_filter($itemsByApi));
+        $prevByItemId = empty($itemIds)
+            ? []
+            : ChampionItemBuild::query()
+                ->where('champion_id', $champion->id)
+                ->whereIn('item_id', $itemIds)
+                ->pluck('avg_place', 'item_id')
+                ->all();
+
+        $rows = [];
         foreach ($dtos as $dto) {
             $itemId = $itemsByApi[$dto->itemApiName] ?? null;
             if ($itemId === null) {
                 continue;
             }
 
-            $existing = ChampionItemBuild::query()
-                ->where('champion_id', $champion->id)
-                ->where('item_id', $itemId)
-                ->first();
-
-            $prevAvg = $existing?->avg_place;
+            $prevAvg = $prevByItemId[$itemId] ?? null;
             $placeChange = $prevAvg !== null ? $dto->avgPlace - $prevAvg : null;
             $tier = TierCalculator::compute($dto->avgPlace, $dto->games);
 
-            ChampionItemBuild::query()->updateOrCreate(
-                ['champion_id' => $champion->id, 'item_id' => $itemId],
+            $rows[] = [
+                'champion_id' => $champion->id,
+                'item_id' => $itemId,
+                'set_id' => $set->id,
+                'avg_place' => $dto->avgPlace,
+                'games' => $dto->games,
+                'frequency' => $dto->frequency,
+                'win_rate' => $dto->winRate,
+                'top4_rate' => $dto->top4Rate,
+                'prev_avg_place' => $prevAvg,
+                'place_change' => $placeChange,
+                'tier' => $tier,
+                'synced_at' => $runStartedAt,
+            ];
+        }
+
+        // Single bulk upsert replaces N × (SELECT + UPDATE/INSERT) —
+        // the per-item updateOrCreate was ~3 round-trips each.
+        if (! empty($rows)) {
+            DB::table('champion_item_builds')->upsert(
+                $rows,
+                ['champion_id', 'item_id'],
                 [
-                    'set_id' => $set->id,
-                    'avg_place' => $dto->avgPlace,
-                    'games' => $dto->games,
-                    'frequency' => $dto->frequency,
-                    'win_rate' => $dto->winRate,
-                    'top4_rate' => $dto->top4Rate,
-                    'prev_avg_place' => $prevAvg,
-                    'place_change' => $placeChange,
-                    'tier' => $tier,
-                    'synced_at' => $runStartedAt,
+                    'set_id', 'avg_place', 'games', 'frequency',
+                    'win_rate', 'top4_rate', 'prev_avg_place',
+                    'place_change', 'tier', 'synced_at',
                 ],
             );
-
-            $count++;
         }
 
         if (! isset($this->itemFetchFailedChampions[$champion->id])) {
@@ -331,7 +348,7 @@ class MetaTftSync
                 ->delete();
         }
 
-        return $count;
+        return count($rows);
     }
 
     /**
@@ -340,6 +357,14 @@ class MetaTftSync
      * Uses `champion_item_sets` (legacy name — stores item combos as
      * Postgres text[]). Builds are identified by the sorted `item_api_names`
      * array so `(BT, IE, Sterak)` dedups against `(IE, Sterak, BT)`.
+     *
+     * Bulk strategy: prefetch existing rows (1 SELECT) for prev_avg_place
+     * tracking, then DELETE all rows for this champion + single bulk
+     * INSERT of fresh rows. Replaces N × (SELECT + UPDATE/INSERT) which
+     * dominated the per-champion DB budget — a single champion can have
+     * 100-400 build rows. There's no unique constraint on
+     * (champion_id, item_api_names) so upsert() isn't available; DELETE
+     * + INSERT is the cleanest alternative.
      */
     private function syncItemBuildsForChampion(
         Champion $champion,
@@ -359,26 +384,46 @@ class MetaTftSync
             return 0;
         }
 
-        $count = 0;
+        // Prefetch existing avg_place values keyed by "a|b|c" (sorted),
+        // so DELETE + INSERT doesn't lose the place_change tracking.
+        $existingByKey = ChampionItemSet::query()
+            ->where('champion_id', $champion->id)
+            ->get(['item_api_names', 'avg_place'])
+            ->mapWithKeys(function ($row) {
+                $items = $row->item_api_names ?? [];
+                sort($items);
+                return [implode('|', $items) => $row->avg_place];
+            })
+            ->all();
+
+        ChampionItemSet::query()
+            ->where('champion_id', $champion->id)
+            ->delete();
+
+        $rows = [];
         foreach ($dtos as $dto) {
             $sortedItems = $dto->itemApiNames;
             sort($sortedItems);
             $itemCount = count($sortedItems);
+            $key = implode('|', $sortedItems);
 
-            $existing = ChampionItemSet::query()
-                ->where('champion_id', $champion->id)
-                ->whereRaw('item_api_names = ?::text[]', [
-                    '{'.implode(',', $sortedItems).'}',
-                ])
-                ->first();
-
-            $prevAvg = $existing?->avg_place;
+            $prevAvg = $existingByKey[$key] ?? null;
             $placeChange = $prevAvg !== null ? $dto->avgPlace - $prevAvg : null;
             $tier = TierCalculator::compute($dto->avgPlace, $dto->games);
 
-            $attributes = [
+            // Build postgres array literal manually — raw DB insert
+            // bypasses the PostgresArray cast. Quote each element to be
+            // safe with any embedded commas (item api_names don't have
+            // them today but future-proof against surprises).
+            $pgArray = '{'.implode(',', array_map(
+                fn ($s) => '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $s).'"',
+                $sortedItems,
+            )).'}';
+
+            $rows[] = [
+                'champion_id' => $champion->id,
                 'set_id' => $set->id,
-                'item_api_names' => $sortedItems,
+                'item_api_names' => $pgArray,
                 'avg_place' => $dto->avgPlace,
                 'games' => $dto->games,
                 'frequency' => $dto->frequency,
@@ -390,25 +435,18 @@ class MetaTftSync
                 'tier' => $tier,
                 'synced_at' => $runStartedAt,
             ];
+        }
 
-            if ($existing) {
-                $existing->update($attributes);
-            } else {
-                ChampionItemSet::create(['champion_id' => $champion->id] + $attributes);
+        if (! empty($rows)) {
+            // Chunk the insert to keep a single statement under Postgres'
+            // parameter limit (65535 placeholders). 13 cols × 5000 rows
+            // = 65000 params; chunk at 2000 for a wide safety margin.
+            foreach (array_chunk($rows, 2000) as $chunk) {
+                DB::table('champion_item_sets')->insert($chunk);
             }
-            $count++;
         }
 
-        if (! isset($this->itemFetchFailedChampions[$champion->id])) {
-            ChampionItemSet::query()
-                ->where('champion_id', $champion->id)
-                ->where(function ($q) use ($runStartedAt) {
-                    $q->whereNull('synced_at')->orWhere('synced_at', '<', $runStartedAt);
-                })
-                ->delete();
-        }
-
-        return $count;
+        return count($rows);
     }
 
     private function syncUnitRatings(Set $set, $championsByApiName): int
@@ -526,20 +564,21 @@ class MetaTftSync
             return 0;
         }
 
-        // Replace strategy — per-champion affinity is small (5-10 rows)
-        // and the exact trait list can shift between patches.
+        // Bulk DELETE + INSERT. Was: DELETE + N × Model::create() →
+        // N+1 round-trips per champion (~10 queries × 60 champs = 600+).
+        // Now: 2 queries per champion (DELETE + single bulk INSERT).
         ChampionTraitAffinity::query()
             ->where('champion_id', $champion->id)
             ->delete();
 
-        $count = 0;
+        $rows = [];
         foreach ($dtos as $dto) {
             $trait = $traitsByApiName[$dto->traitApiName] ?? null;
             if ($trait === null) {
                 continue;
             }
 
-            ChampionTraitAffinity::create([
+            $rows[] = [
                 'champion_id' => $champion->id,
                 'trait_id' => $trait->id,
                 'breakpoint_position' => $dto->breakpointPosition,
@@ -547,11 +586,14 @@ class MetaTftSync
                 'avg_place' => $dto->avgPlace,
                 'games' => $dto->games,
                 'frequency' => $dto->frequency,
-            ]);
-            $count++;
+            ];
         }
 
-        return $count;
+        if (! empty($rows)) {
+            ChampionTraitAffinity::insert($rows);
+        }
+
+        return count($rows);
     }
 
     private function syncCompanionsForChampion(Champion $champion, Set $set, $championsByApiName): int
@@ -564,28 +606,34 @@ class MetaTftSync
             return 0;
         }
 
+        // Same DELETE + bulk INSERT pattern as affinity — per-row
+        // ChampionCompanion::create() was dominating the per-champion
+        // time budget.
         ChampionCompanion::query()
             ->where('champion_id', $champion->id)
             ->delete();
 
-        $count = 0;
+        $rows = [];
         foreach ($dtos as $dto) {
             $companion = $championsByApiName[$dto->companionApiName] ?? null;
             if ($companion === null) {
                 continue;
             }
 
-            ChampionCompanion::create([
+            $rows[] = [
                 'champion_id' => $champion->id,
-                'companion_champion_id' => $companion->id,  // actual DB column name
+                'companion_champion_id' => $companion->id,
                 'set_id' => $set->id,
                 'avg_place' => $dto->avgPlace,
                 'games' => $dto->games,
                 'frequency' => $dto->frequency,
-            ]);
-            $count++;
+            ];
         }
 
-        return $count;
+        if (! empty($rows)) {
+            ChampionCompanion::insert($rows);
+        }
+
+        return count($rows);
     }
 }
