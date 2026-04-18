@@ -246,7 +246,10 @@ return;
 }
 
 ScoutIndex.layout = (page: React.ReactNode) => (
-    <AppLayout breadcrumbs={[{ title: 'Scout', href: '/scout' }]}>
+    <AppLayout
+        breadcrumbs={[{ title: 'Scout', href: '/scout' }]}
+        scrollMode="inset"
+    >
         {page}
     </AppLayout>
 );
