@@ -75,23 +75,20 @@ class ScoutContextBuilder
 
     private function buildItemBuilds(Set $set): array
     {
-        // Popularity-weighted sort: `games * (5 - avg_place)` balances
-        // mainstream builds (high games) vs cherry-picked outliers (tiny
-        // sample + great avg). Raw avg_place sort was showing builds with
-        // 57-99 games on top while MetaTFT.com displays 1000+ games mainstream
-        // — users saw totally different top builds from the same data.
-        //
-        // Min games bumped 50 → 200 to cut the longest tail entirely. 200
-        // is low enough to keep off-meta pocket picks when they're real,
-        // high enough that place_change / tier signals are statistically
-        // meaningful.
+        // Sort by avg_place ASC — matches what the Champions detail page
+        // shows. Weighted-popularity sort was great for "what do most
+        // people run" but users on Scout want "what's the best build for
+        // this carry" = lowest avg_place. Min games=200 cuts the long
+        // tail so we don't surface 50-game cherry-picks; secondary sort
+        // by games keeps tied avgs mainstream-first.
         $rows = ChampionItemSet::query()
             ->join('champions', 'champions.id', '=', 'champion_item_sets.champion_id')
             ->where('champions.set_id', $set->id)
             ->where('champion_item_sets.item_count', 3)
             ->where('champion_item_sets.games', '>=', 200)
             ->orderBy('champions.api_name')
-            ->orderByRaw('champion_item_sets.games * GREATEST(5 - champion_item_sets.avg_place, 0) DESC')
+            ->orderBy('champion_item_sets.avg_place')
+            ->orderByDesc('champion_item_sets.games')
             ->get([
                 'champions.api_name as champ_api',
                 'champion_item_sets.item_api_names',
