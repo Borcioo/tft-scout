@@ -13,11 +13,15 @@ export default function AppSidebarLayout({
     breadcrumbs = [],
     scrollMode = 'page',
 }: Props) {
-    // `inset` pins the viewport (overflow-hidden) for pages that manage
-    // their own internal scroll (Scout). `page` lets the browser handle
-    // body scroll naturally — default for every browse page so long
-    // tables/grids (Champions, Plans) scroll as users expect.
-    const insetClass = scrollMode === 'inset' ? 'overflow-hidden' : '';
+    // AppShell wrapper has `h-svh overflow-hidden` unconditionally
+    // (shadcn sidebar primitive), so the SidebarInset (AppContent) is
+    // where scroll actually lives.
+    //   - `page` → overflow-y-auto so long lists/grids scroll naturally
+    //   - `inset` → overflow-hidden; Scout handles scroll in its own
+    //     3-column internal layout
+    const insetClass = scrollMode === 'inset'
+        ? 'overflow-hidden'
+        : 'overflow-y-auto';
 
     return (
         <AppShell variant="sidebar">
