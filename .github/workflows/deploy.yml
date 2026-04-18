@@ -86,7 +86,14 @@ jobs:
           php artisan route:cache
           php artisan view:cache
 
-          # Restart services
+          # Restart services. Force-kill queue workers first — a worker
+          # mid-sync can take `stopwaitsecs` (default 1h) to exit gracefully,
+          # which makes deploys hang. Killing the process bypasses the
+          # graceful wait; supervisor's autorestart brings it back on the
+          # new code immediately. queue:work is idempotent per-job so
+          # killed work is retried by the next worker.
+          pkill -9 -f 'artisan queue:work' || true
+
           systemctl restart php8.4-fpm
           supervisorctl reread
           supervisorctl update
