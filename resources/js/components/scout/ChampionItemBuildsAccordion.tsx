@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ChampionVariantBadge } from './ChampionVariantBadge';
 
 export type ChampionBuild = {
     items: string[];
@@ -20,6 +21,7 @@ type TeamChampion = {
     name: string;
     cost: number;
     icon: string;
+    variant?: string | null;
 };
 
 type Props = {
@@ -103,7 +105,7 @@ function ChampionBuildsRow({
         <div className="flex items-start gap-3">
             <div
                 className={cn(
-                    'flex size-14 shrink-0 items-center justify-center overflow-hidden rounded border-2 bg-muted',
+                    'relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded border-2 bg-muted',
                     COST_BORDER[champ.cost] ?? 'border-zinc-500',
                 )}
                 title={champ.name}
@@ -114,6 +116,7 @@ function ChampionBuildsRow({
                     className="size-full object-cover"
                     loading="lazy"
                 />
+                <ChampionVariantBadge variant={champ.variant} size="md" />
             </div>
 
             <div className="flex flex-1 flex-col gap-1">

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
 
 import { ChampionItemBuildsAccordion, type ItemBuildsMap } from './ChampionItemBuildsAccordion';
+import { ChampionVariantBadge } from './ChampionVariantBadge';
 import { WhyThisComp } from './WhyThisComp';
 
 const COST_BORDER: Record<number, string> = {
@@ -134,7 +135,7 @@ export function CompCardBody({
                         <div
                             key={c.apiName}
                             className={cn(
-                                'flex size-12 items-center justify-center overflow-hidden rounded border-2 bg-muted',
+                                'relative flex size-12 items-center justify-center overflow-hidden rounded border-2 bg-muted',
                                 COST_BORDER[c.cost] ?? 'border-zinc-500',
                             )}
                             title={c.name}
@@ -151,6 +152,7 @@ export function CompCardBody({
                                     {c.name.slice(0, 3)}
                                 </span>
                             )}
+                            <ChampionVariantBadge variant={(c as any).variant} size="md" />
                         </div>
                     ))}
             </div>

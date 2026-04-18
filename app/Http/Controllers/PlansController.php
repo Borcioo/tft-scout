@@ -60,7 +60,7 @@ class PlansController extends Controller
         $championLookup = Champion::query()
             ->whereIn('api_name', $apiNames)
             ->with('baseChampion:id,api_name')
-            ->get(['id', 'api_name', 'name', 'cost', 'planner_code', 'base_champion_id'])
+            ->get(['id', 'api_name', 'name', 'cost', 'planner_code', 'base_champion_id', 'variant_label'])
             ->mapWithKeys(fn (Champion $c) => [
                 $c->api_name => [
                     'apiName' => $c->api_name,
@@ -69,6 +69,7 @@ class PlansController extends Controller
                     'icon' => '/icons/champions/'.$c->api_name.'.png',
                     'plannerCode' => $c->planner_code,
                     'baseApiName' => $c->baseChampion?->api_name,
+                    'variant' => $c->variant_label,
                 ],
             ]);
 

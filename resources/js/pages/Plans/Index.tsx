@@ -49,6 +49,7 @@ type ChampInfo = {
     icon: string;
     plannerCode: number | null;
     baseApiName: string | null;
+    variant: string | null;
 };
 
 type Props = {
@@ -82,6 +83,7 @@ function planToTeam(plan: Plan, lookup: Record<string, ChampInfo>): ScoredTeam {
                       icon: info.icon,
                       plannerCode: info.plannerCode,
                       baseApiName: info.baseApiName,
+                      variant: info.variant,
                   }
                 : null;
         })
