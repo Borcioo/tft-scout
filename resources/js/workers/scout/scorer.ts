@@ -409,6 +409,9 @@ export function teamScore(team: any, ctx: any) {
   const champScoreWeight = dominantTraitDampen(team.activeTraits, ctx);
 
   // Champion scores (dampened when a dominant trait carries the team)
+  // Enhanced Mecha are treated as 2× contribution via `slotsUsed=2` —
+  // same semantics as "2 champions in 1 slot" without touching the
+  // champion list shape.
   for (const champ of team.champions) {
     const pts = championScore(champ, ctx, level);
     score += (champ.slotsUsed > 1 ? pts * champ.slotsUsed : pts) * champScoreWeight;
@@ -478,9 +481,12 @@ return false;
     score += Math.min(perTraitContrib[apiName], maxTraitContribution);
   }
 
-  // Affinity bonus — reward champions that are statistically proven with active traits
+  // Affinity bonus — reward champions that are statistically proven with active traits.
+  // Enhanced (slotsUsed=2) contributes twice, matching the "it's 2 champions
+  // in one slot" semantics the user expects.
   for (const champ of team.champions) {
-    score += affinityBonus(champ, activeTraitApis, ctx);
+    const mult = champ.slotsUsed ?? 1;
+    score += affinityBonus(champ, activeTraitApis, ctx) * mult;
   }
 
   // Companion bonus — reward champion pairs that perform well together
@@ -528,7 +534,8 @@ export function teamScoreBreakdown(team: any, ctx: any) {
   }
 
   for (const champ of team.champions) {
-    breakdown.affinity += affinityBonus(champ, activeTraitApis, ctx);
+    const mult = champ.slotsUsed ?? 1;
+    breakdown.affinity += affinityBonus(champ, activeTraitApis, ctx) * mult;
   }
 
   const highBreakpoints = team.activeTraits.filter((t: any) => {

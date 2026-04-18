@@ -224,25 +224,13 @@ export function generate(input) {
 
     _endTightAutoPromote();
 
-    // Calculate team size from level, accounting for locked enhanced champions.
-    //
-    // Trait-rule bonus: some traits grant extra slots at specific breakpoints
-    // (e.g. Mecha @ 6 adds the Companion Mech → +1 slot). Bonus is derived
-    // from user-locked traits so the engine knows up-front how many champs
-    // to look for. If the bonus trait only activates post-hoc it still
-    // counts — the post-filter below re-checks with activeTraits of the
-    // actual team so non-locked comps also benefit.
+    // Team size is a SLOT budget (level + trait-rule bonuses). Board
+    // capacity is N slots; enhanced Mecha count 2 so a team can have
+    // fewer unique units than its slot budget. Team-builder honours
+    // the budget natively (see shared/team-builder.ts) — no more
+    // subtracting extra slots for locked enhanced up front.
     const lockedTraitBonus = teamSizeBonus(traitLocks);
-    const baseTeamSize = level + lockedTraitBonus;
-    let extraSlots = 0;
-
-    for (const c of locked) {
-      if (c.slotsUsed > 1) {
-  extraSlots += c.slotsUsed - 1;
-  }
-    }
-
-    const effectiveTeamSize = baseTeamSize - extraSlots;
+    const effectiveTeamSize = level + lockedTraitBonus;
 
     // Build graph from eligible champions (locked + candidates).
     // Auto-promoted tight-lock champions may have been in `candidates`

@@ -168,9 +168,20 @@ fiveCostCount++;
 }
   }
 
-  while (team.length < teamSize) {
+  // teamSize is a SLOT budget (not a unit count) so that enhanced
+  // Mecha (slotsUsed=2) can coexist with base champs on the same
+  // board without the builder having to pre-compute champion counts.
+  // Board capacity = level + any trait-rule bonuses (e.g. Mecha@6
+  // Companion Mech). Score is unchanged; this only affects *stopping*
+  // and *candidate filtering*.
+  const slotsOf = (api: string): number => nodes[api]?.slotsUsed ?? 1;
+  const currentSlots = (t: string[]): number =>
+    t.reduce((s, api) => s + slotsOf(api), 0);
+
+  while (currentSlots(team) < teamSize) {
     const candidates = [];
     const seen = new Set();
+    const slotsLeft = teamSize - currentSlots(team);
 
     const atFiveCostLimit = max5Cost != null && fiveCostCount >= max5Cost;
 
@@ -186,6 +197,11 @@ continue;
 }
 
         if (atFiveCostLimit && (nodes[edge.champ]?.cost || 0) === 5) {
+continue;
+}
+
+        // Skip if candidate doesn't fit in remaining slot budget.
+        if (slotsOf(edge.champ) > slotsLeft) {
 continue;
 }
 
@@ -208,6 +224,10 @@ continue;
 }
 
         if (atFiveCostLimit && (nodes[api]?.cost || 0) === 5) {
+continue;
+}
+
+        if (slotsOf(api) > slotsLeft) {
 continue;
 }
 
