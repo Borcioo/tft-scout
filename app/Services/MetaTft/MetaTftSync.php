@@ -81,10 +81,11 @@ class MetaTftSync
         // block most duplicate paths, but this protects against CLI
         // runs (`artisan metatft:sync`) colliding with a queued refresh.
         //
-        // TTL 300s = slightly above the expected parallel-prewarm runtime
-        // (~60-90s on prod). A crashed process (kill -9 skips finally)
-        // clears the lock after 5 min instead of blocking everyone for 15.
-        $lock = Cache::lock("meta-tft-sync-running:{$setNumber}", 300);
+        // TTL 600s — prod sync on mikrus 2GB runs ~5-7 min total (prewarm
+        // ~1 min, serial per-champion DB writes ~4-6 min). 300s was too
+        // aggressive; lock expired mid-sync and next dispatch could start
+        // a concurrent run. 600s = comfortable margin above observed p95.
+        $lock = Cache::lock("meta-tft-sync-running:{$setNumber}", 600);
         if (! $lock->get()) {
             throw new RuntimeException(
                 "MetaTftSync: another run is already in progress for set {$setNumber}",
