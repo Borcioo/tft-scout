@@ -103,6 +103,12 @@ class ChampionsController extends Controller
         // Configurable via config('tft.metatft.min_games_display').
         $minGames = (int) config('tft.metatft.min_games_display', 50);
 
+        // For 3-item builds bump threshold higher — with games>=50 the list
+        // filled up with 70-100g cherry-picks while MetaTFT.com shows 1000+g
+        // mainstream. 200 cuts the long tail; popularity-weighted sort keeps
+        // popular builds ahead of tiny-sample outliers.
+        $minGamesBuilds = max($minGames, 200);
+
         // MetaTFT publishes stats under the base apiName (e.g. TFT17_MissFortune),
         // not per-variant (_conduit/_challenger/_replicator). Same applies to
         // Mecha Enhanced and any future variant mechanic. Fall back to the
@@ -118,8 +124,8 @@ class ChampionsController extends Controller
 
         $itemSetRows = ChampionItemSet::query()
             ->where('champion_id', $statsChampionId)
-            ->where('games', '>=', $minGames)
-            ->orderBy('avg_place')
+            ->where('games', '>=', $minGamesBuilds)
+            ->orderByRaw('games * GREATEST(5 - avg_place, 0) DESC')
             ->get();
 
         $setApiNames = $itemSetRows
