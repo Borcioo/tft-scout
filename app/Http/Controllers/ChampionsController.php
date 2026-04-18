@@ -122,8 +122,12 @@ class ChampionsController extends Controller
             ->orderBy('avg_place')
             ->get();
 
+        // Only 3-item combos belong in the builds table. Single items
+        // (ThiefsGloves, emblems) and 2-item combos are listed separately
+        // in the single-items section — don't leak them here.
         $itemSetRows = ChampionItemSet::query()
             ->where('champion_id', $statsChampionId)
+            ->where('item_count', 3)
             ->where('games', '>=', $minGamesBuilds)
             ->orderByRaw('games * GREATEST(5 - avg_place, 0) DESC')
             ->get();
