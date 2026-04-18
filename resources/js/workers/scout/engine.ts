@@ -82,11 +82,21 @@ export function generate(input) {
       ? [...exclusionGroups, heroGroup]
       : exclusionGroups;
 
+    // Defense in depth: strip any apiName that appears in BOTH lock and
+    // ban lists. UI enforces mutual exclusion, but this protects against
+    // callers (tests, CLI) that could pass conflicting lists — without
+    // this, a locked+excluded champ would survive as a lock (because
+    // `getLockedChampions` doesn't filter by exclusion) and end up in
+    // every team despite the user's ban.
+    const rawExcludedSet = new Set(constraints.excludedChampions || []);
+    const sanitizedLocked = (constraints.lockedChampions || [])
+      .filter((api: string) => !rawExcludedSet.has(api));
+
     // Filter candidates using exclusion groups
     const _endFilterCandidates = startSpan('engine.filterCandidates');
     const candidates = filterCandidates(champions, constraints, effectiveExclusionGroups);
     _endFilterCandidates();
-    const rawLocked = getLockedChampions(champions, constraints.lockedChampions || []);
+    const rawLocked = getLockedChampions(champions, sanitizedLocked);
 
     // Hero variant → base swap. When the user locks a hero variant,
     // run the whole pipeline on its base champion instead. In TFT17

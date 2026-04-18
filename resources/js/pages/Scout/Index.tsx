@@ -82,6 +82,7 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
     const [minFrontline, setMinFrontline] = useState(0);
     const [minDps, setMinDps] = useState(0);
     const [lockedChampions, setLockedChampions] = useState<string[]>([]);
+    const [excludedChampions, setExcludedChampions] = useState<string[]>([]);
     const [lockedTraits, setLockedTraits] = useState<LockedTrait[]>([]);
     const [emblems, setEmblems] = useState<EmblemEntry[]>([]);
 
@@ -101,6 +102,7 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
             minFrontline,
             minDps,
             lockedChampions,
+            excludedChampions,
             lockedTraits,
             emblems,
         };
@@ -189,7 +191,9 @@ return;
                     <LockedChampionsPicker
                         champions={champions}
                         locked={lockedChampions}
-                        onChange={setLockedChampions}
+                        excluded={excludedChampions}
+                        onChangeLocked={setLockedChampions}
+                        onChangeExcluded={setExcludedChampions}
                     />
                 </aside>
 
