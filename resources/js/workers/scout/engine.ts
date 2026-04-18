@@ -24,6 +24,7 @@ import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { startSpan } from './scout-profiler';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
+import { teamSizeBonus } from './trait-rules';
 
 /**
  * Generate team compositions.
@@ -198,8 +199,16 @@ export function generate(input) {
 
     _endTightAutoPromote();
 
-    // Calculate team size from level, accounting for locked enhanced champions
-    const baseTeamSize = level;
+    // Calculate team size from level, accounting for locked enhanced champions.
+    //
+    // Trait-rule bonus: some traits grant extra slots at specific breakpoints
+    // (e.g. Mecha @ 6 adds the Companion Mech → +1 slot). Bonus is derived
+    // from user-locked traits so the engine knows up-front how many champs
+    // to look for. If the bonus trait only activates post-hoc it still
+    // counts — the post-filter below re-checks with activeTraits of the
+    // actual team so non-locked comps also benefit.
+    const lockedTraitBonus = teamSizeBonus(traitLocks);
+    const baseTeamSize = level + lockedTraitBonus;
     let extraSlots = 0;
 
     for (const c of locked) {
@@ -302,13 +311,18 @@ export function generate(input) {
     // player-requested trait lock. Trait locks are a hard filter —
     // every active trait in the locked list must hit at least its
     // requested minUnits count.
-    const maxSlots = level;
+    //
+    // Slot budget = level + teamSizeBonus(activeTraits). Trait rules
+    // like Mecha @ 6 expand the board one slot per-comp; re-compute
+    // per result so non-locked comps that happen to hit the bonus
+    // breakpoint get the benefit too.
     const minFrontline = constraints.minFrontline ?? 0;
     const minDps = constraints.minDps ?? 0;
     const applyRoleFilter = minFrontline > 0 || minDps > 0;
 
     const _endValidCompsFilter = startSpan('engine.validCompsFilter');
     const validComps = enriched.filter(r => {
+      const maxSlots = level + teamSizeBonus(r.activeTraits);
       if (r.slotsUsed > maxSlots) {
         return false;
       }
@@ -359,6 +373,7 @@ export function generate(input) {
       const validKeys = new Set(validComps.map(t => t.champions.map(c => c.apiName).sort().join(',')));
       const backfillCandidates = enriched
         .filter(r => {
+          const maxSlots = level + teamSizeBonus(r.activeTraits);
           if (r.slotsUsed > maxSlots) {
             return false;
           }
