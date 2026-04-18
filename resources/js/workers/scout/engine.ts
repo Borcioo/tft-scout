@@ -363,6 +363,18 @@ export function generate(input) {
             return false;
           }
 
+          // Trait locks are a HARD contract — never backfill with teams
+          // that miss them. User saw "low-ranked comps without my locked
+          // trait" because backfill only checked slot budget, not locks.
+          // Role-balance / slot relaxations are still fine to backfill
+          // (softer UX signals).
+          for (const lock of traitLocks) {
+            const active = r.activeTraits.find(t => t.apiName === lock.apiName);
+            if (!active || active.count < lock.minUnits) {
+              return false;
+            }
+          }
+
           const key = r.champions.map(c => c.apiName).sort().join(',');
 
           return !validKeys.has(key);
