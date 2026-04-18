@@ -155,45 +155,70 @@ export function generate(input) {
     const excludedSet = new Set(constraints.excludedChampions || []);
     const lockedApiSet = new Set(locked.map(c => c.apiName));
 
-    // Detect mathematically impossible trait locks: when the pool of
-    // champions that could satisfy a lock (plus any emblems boosting
-    // that trait) is strictly smaller than the lock's minUnits, there
-    // is no way to satisfy it. Fix 7's backfill path would otherwise
-    // happily pad the result slate with teams that violate the lock
-    // anyway — the spec explicitly carves out mathematical
-    // impossibility as the ONLY legitimate reason to return fewer than
-    // topN, so we short-circuit the backfill in that case.
-    const anyLockImpossible = traitLocks.some(lock => {
-      const poolSize = champions.filter(c =>
-        c.variant !== 'hero'
-        && !excludedSet.has(c.apiName)
-        && c.traits.includes(lock.apiName),
-      ).length;
-      const emblemBoost = normalizedEmblems.filter(e => e === lock.apiName).length;
+    // Per-trait max-achievable count, honouring exclusion groups AND
+    // slotsUsed. Base + enhanced Mecha are mutually exclusive (same
+    // base_champion_id group), so a naive `filter.length` overcounts:
+    // 6 Mecha champs in the catalogue but only 3 can field at once.
+    // Each can be base (1 slot) or enhanced (2 slots) → best case 3×2=6.
+    //
+    // Algorithm: group champs by exclusion group (singletons for
+    // anything outside a group); pick the member with max slotsUsed
+    // from each; sum.
+    const exclusionMemberMap: Record<string, string[]> = {};
+    for (const group of effectiveExclusionGroups) {
+      for (const member of group) exclusionMemberMap[member] = group;
+    }
+    const maxTraitAchievable = (lockApi: string): { count: number; picks: string[] } => {
+      const groupBest: Record<string, { slots: number; api: string }> = {};
+      for (const c of champions) {
+        if (c.variant === 'hero') continue;
+        if (excludedSet.has(c.apiName)) continue;
+        if (!c.traits.includes(lockApi)) continue;
+        const groupKey = exclusionMemberMap[c.apiName]?.slice().sort().join('|') ?? c.apiName;
+        const slots = c.slotsUsed ?? 1;
+        if (!groupBest[groupKey] || slots > groupBest[groupKey].slots) {
+          groupBest[groupKey] = { slots, api: c.apiName };
+        }
+      }
+      let count = 0;
+      const picks: string[] = [];
+      for (const v of Object.values(groupBest)) {
+        count += v.slots;
+        picks.push(v.api);
+      }
+      return { count, picks };
+    };
 
-      return poolSize + emblemBoost < lock.minUnits;
+    const anyLockImpossible = traitLocks.some(lock => {
+      const { count } = maxTraitAchievable(lock.apiName);
+      const emblemBoost = normalizedEmblems.filter(e => e === lock.apiName).length;
+      return count + emblemBoost < lock.minUnits;
     });
 
     const _endTightAutoPromote = startSpan('engine.tightAutoPromote');
 
     for (const lock of traitLocks) {
-      const poolForTrait = champions.filter(c =>
-        c.variant !== 'hero'
-        && !excludedSet.has(c.apiName)
-        && c.traits.includes(lock.apiName),
-      );
+      const { count, picks } = maxTraitAchievable(lock.apiName);
+      const emblemBoost = normalizedEmblems.filter(e => e === lock.apiName).length;
 
-      if (poolForTrait.length !== lock.minUnits) {
+      // Tight lock = the best-case slot sum exactly equals minUnits
+      // (after emblems). No slack → pin the picks from each exclusion
+      // group so phases actually produce the target composition
+      // instead of shuffling around it. For Mecha:6 this locks the
+      // three _enhanced champions directly.
+      if (count + emblemBoost !== lock.minUnits) {
         continue;
       }
 
-      for (const c of poolForTrait) {
-        if (lockedApiSet.has(c.apiName)) {
+      for (const api of picks) {
+        if (lockedApiSet.has(api)) {
           continue;
         }
-
-        locked.push(c);
-        lockedApiSet.add(c.apiName);
+        const champ = champions.find(c => c.apiName === api);
+        if (champ) {
+          locked.push(champ);
+          lockedApiSet.add(api);
+        }
       }
     }
 
