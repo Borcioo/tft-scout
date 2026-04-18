@@ -24,6 +24,7 @@ export type ScoutDebugParams = {
     minFrontline: number;
     minDps: number;
     lockedChampions: string[];
+    excludedChampions: string[];
     lockedTraits: LockedTrait[];
     emblems: EmblemEntry[];
 };
@@ -61,6 +62,10 @@ function buildCliCommand(params: ScoutDebugParams): string {
 
     if (params.lockedChampions.length > 0) {
         parts.push(`--locked ${params.lockedChampions.join(',')}`);
+    }
+
+    if (params.excludedChampions.length > 0) {
+        parts.push(`--excluded ${params.excludedChampions.join(',')}`);
     }
 
     for (const t of params.lockedTraits) {

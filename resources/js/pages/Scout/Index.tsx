@@ -142,7 +142,7 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
                 setError(err.message);
                 setIsRunning(false);
             });
-    }, [generate, labEnabled, level, topN, max5Cost, minFrontline, minDps, lockedChampions, lockedTraits, emblems]);
+    }, [generate, labEnabled, level, topN, max5Cost, minFrontline, minDps, lockedChampions, excludedChampions, lockedTraits, emblems]);
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
@@ -155,6 +155,7 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
         minFrontline,
         minDps,
         lockedChampions,
+        excludedChampions,
         lockedTraits,
         emblems,
     });
@@ -235,6 +236,7 @@ return;
                 params={{
                     level,
                     topN,
+                    excludedChampions,
                     max5Cost,
         
                     minFrontline,
