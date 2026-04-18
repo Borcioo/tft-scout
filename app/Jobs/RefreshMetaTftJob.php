@@ -59,6 +59,18 @@ class RefreshMetaTftJob implements ShouldBeUnique, ShouldQueue
     {
         try {
             $sync->run($this->setNumber, concurrency: 10);
+        } catch (\RuntimeException $e) {
+            // "Already in progress" = another process has the service lock
+            // (legitimately running OR crashed and lock is still warm).
+            // Not a job failure — skip silently and let the next dispatch
+            // retry after the lock's TTL. Anything else is a real error.
+            if (str_contains($e->getMessage(), 'already in progress')) {
+                \Illuminate\Support\Facades\Log::info(
+                    "RefreshMetaTftJob skipped: {$e->getMessage()}",
+                );
+                return;
+            }
+            throw $e;
         } finally {
             $this->clearLocks();
         }

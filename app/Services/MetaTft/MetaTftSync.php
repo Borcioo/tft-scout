@@ -80,9 +80,11 @@ class MetaTftSync
         // Service-layer guard — the middleware + ShouldBeUnique already
         // block most duplicate paths, but this protects against CLI
         // runs (`artisan metatft:sync`) colliding with a queued refresh.
-        // TTL slightly above timeout so a stuck process doesn't wedge
-        // the lock forever without reaching finally.
-        $lock = Cache::lock("meta-tft-sync-running:{$setNumber}", 900);
+        //
+        // TTL 300s = slightly above the expected parallel-prewarm runtime
+        // (~60-90s on prod). A crashed process (kill -9 skips finally)
+        // clears the lock after 5 min instead of blocking everyone for 15.
+        $lock = Cache::lock("meta-tft-sync-running:{$setNumber}", 300);
         if (! $lock->get()) {
             throw new RuntimeException(
                 "MetaTftSync: another run is already in progress for set {$setNumber}",
