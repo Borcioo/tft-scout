@@ -9,6 +9,13 @@ import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
+import {
+    csvCodec,
+    intCodec,
+    keyValueListCodec,
+    nullableIntCodec,
+    useUrlState,
+} from '@/hooks/use-url-state';
 import AppLayout from '@/layouts/app-layout';
 import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/types';
 
@@ -76,15 +83,55 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
             });
     }, []);
 
-    const [level, setLevel] = useState(9);
-    const [topN, setTopN] = useState(10);
-    const [max5Cost, setMax5Cost] = useState<number | null>(null);
-    const [minFrontline, setMinFrontline] = useState(0);
-    const [minDps, setMinDps] = useState(0);
-    const [lockedChampions, setLockedChampions] = useState<string[]>([]);
-    const [excludedChampions, setExcludedChampions] = useState<string[]>([]);
-    const [lockedTraits, setLockedTraits] = useState<LockedTrait[]>([]);
-    const [emblems, setEmblems] = useState<EmblemEntry[]>([]);
+    // URL-persisted state — reload/refresh keeps all filters. Codecs
+    // omit default values from the query string so a pristine /scout
+    // URL stays clean; any changed param emits exactly one short key.
+    const [level, setLevel] = useUrlState('lvl', 9, intCodec(9).parse, intCodec(9).serialize);
+    const [topN, setTopN] = useUrlState('top', 10, intCodec(10).parse, intCodec(10).serialize);
+    const [max5Cost, setMax5Cost] = useUrlState<number | null>(
+        'max5',
+        null,
+        nullableIntCodec.parse,
+        nullableIntCodec.serialize,
+    );
+    const [minFrontline, setMinFrontline] = useUrlState(
+        'fl',
+        0,
+        intCodec(0).parse,
+        intCodec(0).serialize,
+    );
+    const [minDps, setMinDps] = useUrlState(
+        'dps',
+        0,
+        intCodec(0).parse,
+        intCodec(0).serialize,
+    );
+    const [lockedChampions, setLockedChampions] = useUrlState<string[]>(
+        'lock',
+        [],
+        csvCodec.parse,
+        csvCodec.serialize,
+    );
+    const [excludedChampions, setExcludedChampions] = useUrlState<string[]>(
+        'ban',
+        [],
+        csvCodec.parse,
+        csvCodec.serialize,
+    );
+    const lockedTraitsCodec = keyValueListCodec<'minUnits'>('minUnits');
+    const [lockedTraits, setLockedTraits] = useUrlState<LockedTrait[]>(
+        'lockt',
+        [],
+        lockedTraitsCodec.parse as (raw: string) => LockedTrait[],
+        lockedTraitsCodec.serialize as (v: LockedTrait[]) => string | null,
+    );
+    const emblemsCodec = keyValueListCodec<'count'>('count');
+    const [emblems, setEmblems] = useUrlState<EmblemEntry[]>(
+        'emb',
+        [],
+        emblemsCodec.parse as (raw: string) => EmblemEntry[],
+        emblemsCodec.serialize as (v: EmblemEntry[]) => string | null,
+    );
 
     const [results, setResults] = useState<ScoredTeam[]>([]);
     const [isRunning, setIsRunning] = useState(false);
