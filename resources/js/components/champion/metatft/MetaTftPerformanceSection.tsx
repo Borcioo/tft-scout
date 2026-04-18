@@ -38,10 +38,19 @@ type ItemBuild = {
     tier: Tier | null;
 };
 
+export type BuildsMeta = {
+    sort: string;
+    dir: 'asc' | 'desc';
+    limit: number;
+    total: number;
+    has_more: boolean;
+};
+
 export type MetaTftData = {
     items_single: ItemSingle[];
     items_builds: ItemBuild[];
     synced_at: string | null;
+    builds_meta?: BuildsMeta;
 };
 
 type Props = {
@@ -151,6 +160,7 @@ export function MetaTftPerformanceSection({ data }: Props) {
                             title="All item builds"
                             rows={filteredBuilds}
                             emptyHint="No builds logged yet."
+                            serverMeta={data.builds_meta}
                         />
                     </TabsContent>
                     <TabsContent value="singles">

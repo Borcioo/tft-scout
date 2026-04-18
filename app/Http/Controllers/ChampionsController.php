@@ -67,7 +67,7 @@ class ChampionsController extends Controller
      * MetaTFT rating is passed as null for now — Phase B tables are empty
      * until we implement MetaTftImporter. Frontend shows a placeholder.
      */
-    public function show(string $apiName): Response
+    public function show(string $apiName, \Illuminate\Http\Request $request): Response
     {
         $champion = Champion::query()
             ->with([
@@ -125,11 +125,37 @@ class ChampionsController extends Controller
         // Only 3-item combos belong in the builds table. Single items
         // (ThiefsGloves, emblems) and 2-item combos are listed separately
         // in the single-items section — don't leak them here.
-        $itemSetRows = ChampionItemSet::query()
+        //
+        // Server-side sort + pagination. Frontend sends `buildsSort`
+        // (column key) + `buildsDir` (asc/desc) + `buildsLimit` (row cap).
+        // Default = weighted popularity (games × (5 − avg)). `load more`
+        // on frontend re-requests with a higher limit.
+        $buildsSort = (string) $request->query('buildsSort', 'weighted');
+        $buildsDir = strtolower((string) $request->query('buildsDir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $buildsLimit = max(1, min(500, (int) $request->query('buildsLimit', 20)));
+
+        $sortableColumns = [
+            'weighted' => 'games * GREATEST(5 - avg_place, 0)',
+            'avg_place' => 'avg_place',
+            'place_change' => 'place_change',
+            'win_rate' => 'win_rate',
+            'top4_rate' => 'top4_rate',
+            'frequency' => 'frequency',
+            'games' => 'games',
+            'tier' => 'tier',
+        ];
+        $sortExpr = $sortableColumns[$buildsSort] ?? $sortableColumns['weighted'];
+
+        $itemSetBaseQuery = ChampionItemSet::query()
             ->where('champion_id', $statsChampionId)
             ->where('item_count', 3)
-            ->where('games', '>=', $minGamesBuilds)
-            ->orderByRaw('games * GREATEST(5 - avg_place, 0) DESC')
+            ->where('games', '>=', $minGamesBuilds);
+
+        $itemSetTotal = (clone $itemSetBaseQuery)->count();
+
+        $itemSetRows = $itemSetBaseQuery
+            ->orderByRaw("{$sortExpr} {$buildsDir} NULLS LAST")
+            ->limit($buildsLimit)
             ->get();
 
         $setApiNames = $itemSetRows
@@ -223,6 +249,16 @@ class ChampionsController extends Controller
                 ];
             })->values()->all(),
             'synced_at' => $syncedAt,
+            // Sort + pagination state for the builds table. Frontend
+            // uses these to mark the active column and decide whether to
+            // show the "Load more" button.
+            'builds_meta' => [
+                'sort' => $buildsSort,
+                'dir' => $buildsDir,
+                'limit' => $buildsLimit,
+                'total' => $itemSetTotal,
+                'has_more' => $itemSetTotal > $buildsLimit,
+            ],
         ];
 
         return Inertia::render('Champions/Show', [
