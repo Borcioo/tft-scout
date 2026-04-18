@@ -371,11 +371,28 @@ export default function PlansIndex({
             <Head title="My Plans — TFT Scout" />
 
             <div className="flex flex-col gap-6 p-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">My Plans</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Your saved team compositions. Save new ones from the Scout page.
-                    </p>
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">My Plans</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Your saved team compositions. Save new ones from the Scout page.
+                        </p>
+                    </div>
+
+                    {plans.length > 0 && (
+                        <PlansFilterBar
+                            query={query}
+                            onQueryChange={setQuery}
+                            championOptions={championOptions}
+                            selectedChampions={selectedChampions}
+                            onChampionsChange={setSelectedChampions}
+                            traitOptions={traitFilter}
+                            selectedTraits={selectedTraits}
+                            onTraitsChange={setSelectedTraits}
+                            matchedCount={filteredPlans.length}
+                            totalCount={plans.length}
+                        />
+                    )}
                 </div>
 
                 {plans.length === 0 ? (
@@ -390,18 +407,6 @@ export default function PlansIndex({
                     </Card>
                 ) : (
                     <>
-                        <PlansFilterBar
-                            query={query}
-                            onQueryChange={setQuery}
-                            championOptions={championOptions}
-                            selectedChampions={selectedChampions}
-                            onChampionsChange={setSelectedChampions}
-                            traitOptions={traitFilter}
-                            selectedTraits={selectedTraits}
-                            onTraitsChange={setSelectedTraits}
-                            matchedCount={filteredPlans.length}
-                            totalCount={plans.length}
-                        />
 
                         {filteredPlans.length === 0 ? (
                             <Card className="flex flex-col items-center gap-2 p-8 text-center">

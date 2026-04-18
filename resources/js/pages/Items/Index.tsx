@@ -370,49 +370,51 @@ export default function ItemsIndex({ items }: Props) {
             <Head title="Items — TFT Scout" />
 
             <div className="flex flex-col gap-6 p-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            Items
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            {items.length} items across {availableTypes.length}{' '}
-                            categories. Effects shown are the raw CDragon
-                            values.
-                        </p>
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight">
+                                Items
+                            </h1>
+                            <p className="text-sm text-muted-foreground">
+                                {items.length} items across {availableTypes.length}{' '}
+                                categories. Effects shown are the raw CDragon
+                                values.
+                            </p>
+                        </div>
+
+                        <Input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name or component..."
+                            className="max-w-xs"
+                        />
                     </div>
 
-                    <Input
-                        type="search"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by name or component..."
-                        className="max-w-xs"
-                    />
-                </div>
+                    <div className="flex flex-wrap gap-2">
+                        {availableTypes.map((type) => {
+                            const style = TYPE_STYLES[type];
+                            const isActive = activeType === type;
 
-                <div className="flex flex-wrap gap-2">
-                    {availableTypes.map((type) => {
-                        const style = TYPE_STYLES[type];
-                        const isActive = activeType === type;
-
-                        return (
-                            <button
-                                key={type}
-                                type="button"
-                                onClick={() => setActiveType(type)}
-                                className={cn(
-                                    'rounded-md border px-3 py-1 text-xs font-medium transition-colors',
-                                    isActive
-                                        ? 'border-foreground bg-foreground text-background'
-                                        : 'border-border bg-background hover:border-foreground/40',
-                                    !isActive && style.accent,
-                                )}
-                            >
-                                {style.label} · {countsByType[type]}
-                            </button>
-                        );
-                    })}
+                            return (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => setActiveType(type)}
+                                    className={cn(
+                                        'rounded-md border px-3 py-1 text-xs font-medium transition-colors',
+                                        isActive
+                                            ? 'border-foreground bg-foreground text-background'
+                                            : 'border-border bg-background hover:border-foreground/40',
+                                        !isActive && style.accent,
+                                    )}
+                                >
+                                    {style.label} · {countsByType[type]}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {filtered.length === 0 ? (

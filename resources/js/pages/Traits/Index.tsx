@@ -276,7 +276,7 @@ export default function TraitsIndex({ public_traits, unique_traits }: Props) {
             <Head title="Traits — TFT Scout" />
 
             <div className="flex flex-col gap-8 p-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-wrap items-end justify-between gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Traits</h1>
                         <p className="text-sm text-muted-foreground">

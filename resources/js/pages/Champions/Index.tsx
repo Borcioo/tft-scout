@@ -82,45 +82,49 @@ export default function ChampionsIndex({ champions }: Props) {
             <Head title="Champions — TFT Scout" />
 
             <div className="flex flex-col gap-6 p-6">
-                {/* Header */}
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            Champions
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            {champions.length} champions in Set 17. Click a cost
-                            to filter.
-                        </p>
+                {/* Sticky header + filter bar — stays visible while the
+                    champion grid below scrolls. `-m-6 p-6 -mb-0 pb-6`
+                    keeps the backdrop flush with the page padding so
+                    content scrolling under it is properly masked. */}
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight">
+                                Champions
+                            </h1>
+                            <p className="text-sm text-muted-foreground">
+                                {champions.length} champions in Set 17. Click a cost
+                                to filter.
+                            </p>
+                        </div>
+
+                        <Input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name or trait..."
+                            className="max-w-xs"
+                        />
                     </div>
 
-                    <Input
-                        type="search"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by name or trait..."
-                        className="max-w-xs"
-                    />
-                </div>
-
-                {/* Cost filter tabs */}
-                <div className="flex flex-wrap gap-2">
-                    <CostTab
-                        active={costFilter === null}
-                        onClick={() => setCostFilter(null)}
-                        label="All"
-                    />
-                    {costs.map((cost) => (
+                    <div className="flex flex-wrap gap-2">
                         <CostTab
-                            key={cost}
-                            active={costFilter === cost}
-                            onClick={() =>
-                                setCostFilter(costFilter === cost ? null : cost)
-                            }
-                            label={`${cost} cost`}
-                            colorClass={COST_STYLES[cost].text}
+                            active={costFilter === null}
+                            onClick={() => setCostFilter(null)}
+                            label="All"
                         />
-                    ))}
+                        {costs.map((cost) => (
+                            <CostTab
+                                key={cost}
+                                active={costFilter === cost}
+                                onClick={() =>
+                                    setCostFilter(costFilter === cost ? null : cost)
+                                }
+                                label={`${cost} cost`}
+                                colorClass={COST_STYLES[cost].text}
+                            />
+                        ))}
+                    </div>
                 </div>
 
                 {/* Results */}
