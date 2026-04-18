@@ -75,18 +75,23 @@ class ScoutContextBuilder
 
     private function buildItemBuilds(Set $set): array
     {
-        // Sort by avg_place ASC — matches what the Champions detail page
-        // shows. Weighted-popularity sort was great for "what do most
-        // people run" but users on Scout want "what's the best build for
-        // this carry" = lowest avg_place. Min games=200 cuts the long
-        // tail so we don't surface 50-game cherry-picks; secondary sort
-        // by games keeps tied avgs mainstream-first.
+        // Two-tier games threshold: PREFER builds with games >= 200
+        // (mainstream data), FALL BACK to >= 50 for champs where
+        // high-sample data doesn't exist yet. 5-cost / niche picks
+        // (Morgana, Bard, etc.) can have zero rows at 200g but plenty
+        // at 50g — previously they rendered "No builds yet".
+        //
+        // CASE expression sorts 200+ rows first per champion, with
+        // 50-199 rows as fallback. The per-champion cap of 5 (applied
+        // in PHP below) naturally fills from the preferred tier first.
+        // Secondary sort by games keeps ties mainstream-first.
         $rows = ChampionItemSet::query()
             ->join('champions', 'champions.id', '=', 'champion_item_sets.champion_id')
             ->where('champions.set_id', $set->id)
             ->where('champion_item_sets.item_count', 3)
-            ->where('champion_item_sets.games', '>=', 200)
+            ->where('champion_item_sets.games', '>=', 50)
             ->orderBy('champions.api_name')
+            ->orderByRaw('CASE WHEN champion_item_sets.games >= 200 THEN 0 ELSE 1 END')
             ->orderBy('champion_item_sets.avg_place')
             ->orderByDesc('champion_item_sets.games')
             ->get([

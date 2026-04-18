@@ -103,11 +103,12 @@ class ChampionsController extends Controller
         // Configurable via config('tft.metatft.min_games_display').
         $minGames = (int) config('tft.metatft.min_games_display', 50);
 
-        // For 3-item builds bump threshold higher — with games>=50 the list
-        // filled up with 70-100g cherry-picks while MetaTFT.com shows 1000+g
-        // mainstream. 200 cuts the long tail; popularity-weighted sort keeps
-        // popular builds ahead of tiny-sample outliers.
-        $minGamesBuilds = max($minGames, 200);
+        // For 3-item builds: preferred threshold 200g (cuts cherry-picks),
+        // but fall back to 50g for niche/5-cost champs (Morgana etc.)
+        // that have zero rows at 200g. The two-tier sort in the query
+        // below surfaces mainstream-sample rows first, filling in from
+        // low-sample only when needed.
+        $minGamesBuilds = $minGames; // hard floor = user's min_games_display (50)
 
         // MetaTFT publishes stats under the base apiName (e.g. TFT17_MissFortune),
         // not per-variant (_conduit/_challenger/_replicator). Same applies to
@@ -160,8 +161,16 @@ class ChampionsController extends Controller
         // Skipped when sorting by avg_place itself (would be redundant).
         $secondary = $buildsSort === 'avg_place' ? '' : ', avg_place ASC';
 
+        // Primary sort: PREFER games >= 200 (mainstream) over low-sample
+        // rows. This is a pre-sort that kicks in only when the user
+        // hasn't picked a sort direction that already biases the result
+        // (e.g. sorting by "games DESC" already puts high-sample first).
+        $preferHighSample = in_array($buildsSort, ['avg_place', 'tier', 'place_change'], true)
+            ? 'CASE WHEN games >= 200 THEN 0 ELSE 1 END, '
+            : '';
+
         $itemSetRows = $itemSetBaseQuery
-            ->orderByRaw("{$sortExpr} {$buildsDir} NULLS LAST{$secondary}")
+            ->orderByRaw("{$preferHighSample}{$sortExpr} {$buildsDir} NULLS LAST{$secondary}")
             ->limit($buildsLimit)
             ->get();
 
