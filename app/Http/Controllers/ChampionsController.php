@@ -153,8 +153,15 @@ class ChampionsController extends Controller
 
         $itemSetTotal = (clone $itemSetBaseQuery)->count();
 
+        // Secondary sort by avg_place ASC — breaks ties within grouped
+        // columns (especially `tier`, which only has ~6 distinct values
+        // so ~30 rows share each group). Without a tiebreaker SS-tier
+        // rows came out in DB insertion order, looking random to users.
+        // Skipped when sorting by avg_place itself (would be redundant).
+        $secondary = $buildsSort === 'avg_place' ? '' : ', avg_place ASC';
+
         $itemSetRows = $itemSetBaseQuery
-            ->orderByRaw("{$sortExpr} {$buildsDir} NULLS LAST")
+            ->orderByRaw("{$sortExpr} {$buildsDir} NULLS LAST{$secondary}")
             ->limit($buildsLimit)
             ->get();
 
