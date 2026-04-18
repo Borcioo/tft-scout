@@ -24,6 +24,7 @@ import { phaseMetaCompSeeded } from './phases/meta-comp-seeded';
 import { phasePairSynergy } from './phases/pair-synergy';
 import { phaseTemperatureSweep } from './phases/temperature-sweep';
 import { phaseTraitSeeded } from './phases/trait-seeded';
+import { phaseVariantPairs } from './phases/variant-pairs';
 import { quickScore } from './quick-score';
 import { applyEmblems } from './shared/emblems';
 import { costPenalty } from './shared/team-builder';
@@ -71,6 +72,7 @@ const PHASES: PhaseEntry[] = [
   { name: 'companionSeeded',   phase: phaseCompanionSeeded },
   { name: 'metaCompSeeded',    phase: phaseMetaCompSeeded },
   { name: 'fiveCostHeavy',     phase: phaseFiveCostHeavy },
+  { name: 'variantPairs',      phase: phaseVariantPairs },
   { name: 'crossover',         phase: phaseCrossover },
   { name: 'hillClimb',         phase: phaseHillClimb },
 ];
