@@ -232,7 +232,16 @@ seed = (seed * 31 + s.charCodeAt(i)) | 0;
   const results = new Map();
 
   function addResult(team) {
-    if (team.length !== teamSize) {
+    // teamSize is a SLOT budget (level + trait-rule bonuses), not a
+    // unit count. Enhanced champs (slotsUsed=2) let a valid team have
+    // fewer units than slots. Check by summing slotsUsed so enhanced
+    // teams aren't silently dropped — the bug that made Mecha variant
+    // comps never appear in the slate.
+    const teamSlots = team.reduce(
+      (s, api) => s + ((nodes[api]?.slotsUsed) ?? 1),
+      0,
+    );
+    if (teamSlots !== teamSize) {
 return;
 }
 

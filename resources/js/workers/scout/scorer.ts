@@ -408,13 +408,25 @@ export function teamScore(team: any, ctx: any) {
   // strength matters less (e.g. Meeple 10 avgPlace 1.44)
   const champScoreWeight = dominantTraitDampen(team.activeTraits, ctx);
 
-  // Champion scores (dampened when a dominant trait carries the team)
-  // Enhanced Mecha are treated as 2× contribution via `slotsUsed=2` —
-  // same semantics as "2 champions in 1 slot" without touching the
-  // champion list shape.
+  // Champion scores with enhanced-ability premium.
+  //
+  // MetaTFT stats are published under the BASE apiName — there is no
+  // separate unit rating for enhanced variants even though they play
+  // meaningfully differently (stronger ability, the whole point of the
+  // Mecha mechanic). Hard-stats-only scoring therefore undervalues
+  // enhanced by exactly the amount the ability upgrade is worth.
+  //
+  // Multiplier 2.5× = 2× slotsUsed (covers the "2 champs in 1 slot"
+  // math) + 25% flat ability premium. Keeps the premium small enough
+  // that enhanced only beats a same-trait base stack when the rest of
+  // the comp also lines up — avoids the 6-Vanguard-style bias where
+  // one mechanic dominates every slate.
   for (const champ of team.champions) {
     const pts = championScore(champ, ctx, level);
-    score += (champ.slotsUsed > 1 ? pts * champ.slotsUsed : pts) * champScoreWeight;
+    const variantMult = champ.variant === 'enhanced'
+      ? 2.5
+      : (champ.slotsUsed ?? 1);
+    score += pts * variantMult * champScoreWeight;
   }
 
   // Trait scores — collect per-trait contribution (traitScore + proven +
@@ -510,7 +522,10 @@ export function teamScoreBreakdown(team: any, ctx: any) {
 
   for (const champ of team.champions) {
     const pts = championScore(champ, ctx, level);
-    breakdown.champions += (champ.slotsUsed > 1 ? pts * champ.slotsUsed : pts) * champScoreWeight;
+    const variantMult = champ.variant === 'enhanced'
+      ? 2.5
+      : (champ.slotsUsed ?? 1);
+    breakdown.champions += pts * variantMult * champScoreWeight;
   }
 
   const activeTraitApis = new Set(team.activeTraits.map((t: any) => t.apiName));

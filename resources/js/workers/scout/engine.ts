@@ -422,6 +422,55 @@ export function generate(input) {
       }
     }
 
+    // Variant diversification: when the whole topN slate is all-base
+    // but enhanced-variant teams exist in the scored pool, swap the
+    // LAST comp for the best available enhanced alternative so the
+    // user sees both playstyles at a glance.
+    //
+    // Rationale: enhanced (slotsUsed=2) champions represent a separate
+    // playstyle (carry-focused with Marauder/Brawler wrap for Urgot
+    // Enhanced etc.) that raw stats underscore — MetaTFT lumps
+    // base+enhanced plays under the base apiName, so the scorer can't
+    // tell them apart. Showing at least one enhanced option per slate
+    // is a UX guarantee, not a scoring override: the displaced team is
+    // always the LOWEST-ranked, top picks stay untouched.
+    //
+    // No score threshold — enhanced comps are legitimately lower on
+    // raw score due to their narrower trait spread; the whole point is
+    // to surface them anyway. Marked `variantPick: 1` in breakdown so
+    // the UI can badge them.
+    const hasEnhancedInTop = validComps.some(t =>
+      t.champions?.some(c => c.variant === 'enhanced'),
+    );
+    if (!hasEnhancedInTop && validComps.length > 1) {
+      const enhancedCandidate = enriched
+        .filter(r => {
+          if (!r.champions?.some(c => c.variant === 'enhanced')) return false;
+          const maxSlots = level + teamSizeBonus(r.activeTraits);
+          if (r.slotsUsed > maxSlots) return false;
+          // Respect trait-lock hard filter.
+          for (const lock of traitLocks) {
+            const active = r.activeTraits.find(t => t.apiName === lock.apiName);
+            if (!active || active.count < lock.minUnits) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.score - a.score)[0];
+
+      if (enhancedCandidate) {
+        const key = enhancedCandidate.champions.map(c => c.apiName).sort().join(',');
+        const existingKeys = new Set(
+          validComps.map(t => t.champions.map(c => c.apiName).sort().join(',')),
+        );
+        if (!existingKeys.has(key)) {
+          if (enhancedCandidate.breakdown && typeof enhancedCandidate.breakdown === 'object') {
+            enhancedCandidate.breakdown.variantPick = 1;
+          }
+          validComps[validComps.length - 1] = enhancedCandidate;
+        }
+      }
+    }
+
     // Meta-comp match detection — annotate results that match known meta comps
     const _endMetaCompMatch = startSpan('engine.metaCompMatch');
     const metaComps = scoringCtx.metaComps || [];
