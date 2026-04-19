@@ -4,6 +4,7 @@ use App\Http\Controllers\ChampionsController;
 use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\ItemsController;
 use App\Http\Controllers\PlansController;
+use App\Http\Controllers\RandomController;
 use App\Http\Controllers\ScoutController;
 use App\Http\Controllers\TraitsController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,7 @@ Route::inertia('/', 'welcome', [
 
 // Scout workflow (public — algorithm runs client-side in a Web Worker)
 Route::get('/scout', [ScoutController::class, 'index'])->name('scout.index');
+Route::get('/random', [RandomController::class, 'index'])->name('random.index');
 Route::get('/api/scout/context', [ScoutController::class, 'context'])->name('scout.context');
 Route::post('/api/scout/lab/ingest', [ScoutController::class, 'labIngest'])->name('scout.lab.ingest');
 
