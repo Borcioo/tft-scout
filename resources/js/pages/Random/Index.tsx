@@ -178,8 +178,12 @@ return;
                 }
             }
 
+            setTeam(null);
+            setAnchor(null);
             setError('Nie udało się wylosować comp po 3 próbach — spróbuj ponownie.');
         } catch (err) {
+            setTeam(null);
+            setAnchor(null);
             setError(err instanceof Error ? err.message : String(err));
         } finally {
             setIsRunning(false);
