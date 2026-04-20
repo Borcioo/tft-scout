@@ -41,22 +41,73 @@ export function pickRandomCarry(
 }
 
 /**
+ * Max slots a trait can reach from the champion pool WITHOUT emblems.
+ * Groups champions by `baseApiName ?? apiName` (base + enhanced variants
+ * share a base id and are mutually exclusive on the board), picks the
+ * max slotsUsed per group, sums. Hero variants excluded — they never
+ * appear in random seeds.
+ *
+ * Example: 3 unique Mecha bases where each has an enhanced variant
+ * (slotsUsed=2) → 3 groups × 2 slots = 6, so Mecha ≥ 6 is reachable.
+ */
+function maxAchievableSlots(champions: Champion[], traitApi: string): number {
+    const groupBest = new Map<string, number>();
+
+    for (const c of champions) {
+        if (c.variant === 'hero') continue;
+        if (!c.traits.includes(traitApi)) continue;
+
+        const groupKey = c.baseApiName ?? c.apiName;
+        const slots = c.slotsUsed ?? 1;
+        const prev = groupBest.get(groupKey) ?? 0;
+
+        if (slots > prev) groupBest.set(groupKey, slots);
+    }
+
+    let sum = 0;
+    for (const s of groupBest.values()) sum += s;
+
+    return sum;
+}
+
+/**
  * Pick one trait anchor. Only `public` traits — `unique` covers hero traits
- * that are too narrow to seed a whole comp. minUnits is the smallest breakpoint.
+ * that are too narrow to seed a whole comp.
+ *
+ * minUnits = MAX breakpoint reachable from the champion pool without
+ * emblems. Traits whose smallest breakpoint already needs an emblem are
+ * dropped from the pool entirely (no point rolling a lock that forces
+ * the scout engine to flag it impossible).
  */
 export function pickRandomTrait(
     traits: Trait[],
+    champions: Champion[],
     rng: Rng = defaultRng,
 ): RandomTraitLock | null {
-    const pool = traits.filter((t) => t.category === 'public' && t.breakpoints.length > 0);
-    const picked = uniform(pool, rng);
+    type Candidate = { apiName: string; minUnits: number };
+    const candidates: Candidate[] = [];
+
+    for (const t of traits) {
+        if (t.category !== 'public') continue;
+        if (t.breakpoints.length === 0) continue;
+
+        const maxSlots = maxAchievableSlots(champions, t.apiName);
+        if (maxSlots === 0) continue;
+
+        let bestBp = 0;
+        for (const bp of t.breakpoints) {
+            if (bp.minUnits <= maxSlots && bp.minUnits > bestBp) {
+                bestBp = bp.minUnits;
+            }
+        }
+
+        if (bestBp > 0) candidates.push({ apiName: t.apiName, minUnits: bestBp });
+    }
+
+    const picked = uniform(candidates, rng);
     if (!picked) return null;
 
-    const minUnits = picked.breakpoints
-        .map((b) => b.minUnits)
-        .reduce((a, b) => (a < b ? a : b), picked.breakpoints[0].minUnits);
-
-    return { apiName: picked.apiName, minUnits };
+    return { apiName: picked.apiName, minUnits: picked.minUnits };
 }
 
 /** Uniformly sample one team from a result list; ignores the scout ranking. */

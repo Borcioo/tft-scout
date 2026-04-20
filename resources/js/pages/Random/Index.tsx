@@ -148,7 +148,7 @@ return;
                 }
 
                 // mode === 'trait'
-                const traitLock = pickRandomTrait(traits);
+                const traitLock = pickRandomTrait(traits, champions);
 
                 if (!traitLock) {
                     setError('Brak traitów do losowania.');
