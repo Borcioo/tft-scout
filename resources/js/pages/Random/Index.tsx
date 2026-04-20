@@ -24,6 +24,10 @@ import type {
     Trait,
 } from '@/workers/scout/types';
 
+// Level hard-coded per spec — random mode always targets the endgame
+// board size. Full random uses a wide topN so the random-pick step
+// across the result list gives meaningful variety; seeded modes use
+// a smaller topN because the lock already narrows the search space.
 const LEVEL = 9;
 const FULL_RANDOM_TOP_N = 50;
 const SEEDED_TOP_N = 10;
@@ -54,8 +58,8 @@ function RandomIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
     const markSaved = useCallback((code: string) => {
         setSavedCodes((prev) => {
             if (prev.has(code)) {
-return prev;
-}
+                return prev;
+            }
 
             const next = new Set(prev);
             next.add(code);
@@ -87,8 +91,8 @@ return prev;
 
     const randomize = useCallback(async () => {
         if (!contextReady) {
-return;
-}
+            return;
+        }
 
         setIsRunning(true);
         setError(null);
@@ -139,7 +143,10 @@ return;
 
                     if (picked) {
                         setTeam(picked);
-                        setAnchor({ kind: 'carry', label: `Carry: ${carry.name}` });
+                        setAnchor({
+                            kind: 'carry',
+                            label: `Carry: ${carry.name}`,
+                        });
 
                         return;
                     }
@@ -166,7 +173,9 @@ return;
                 const picked = pickRandomFromTeams(out.results);
 
                 if (picked) {
-                    const traitMeta = traits.find((t) => t.apiName === traitLock.apiName);
+                    const traitMeta = traits.find(
+                        (t) => t.apiName === traitLock.apiName,
+                    );
                     const displayName = traitMeta?.name ?? traitLock.apiName;
                     setTeam(picked);
                     setAnchor({
@@ -180,7 +189,9 @@ return;
 
             setTeam(null);
             setAnchor(null);
-            setError('Nie udało się wylosować comp po 3 próbach — spróbuj ponownie.');
+            setError(
+                'Nie udało się wylosować comp po 3 próbach — spróbuj ponownie.',
+            );
         } catch (err) {
             setTeam(null);
             setAnchor(null);
@@ -195,7 +206,11 @@ return;
             <Head title="Random — TFT Scout" />
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
                 <div className="flex flex-wrap items-center gap-3">
-                    <RandomModeTabs mode={mode} onChange={setMode} disabled={isRunning} />
+                    <RandomModeTabs
+                        mode={mode}
+                        onChange={setMode}
+                        disabled={isRunning}
+                    />
                     {mode === 'carry' && (
                         <CostTierPicker
                             value={costTier}
@@ -223,7 +238,9 @@ return;
 
                 {anchor && (
                     <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{anchor.label}</span>
+                        <span className="font-medium text-foreground">
+                            {anchor.label}
+                        </span>
                     </div>
                 )}
 
