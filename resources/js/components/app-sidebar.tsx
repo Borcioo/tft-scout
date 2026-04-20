@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     Crosshair,
+    Dices,
     Radar,
     Shapes,
     ShieldPlus,
@@ -36,6 +37,11 @@ const scoutNavItems: NavItem[] = [
         title: 'Scout',
         href: '/scout',
         icon: Crosshair,
+    },
+    {
+        title: 'Random',
+        href: '/random',
+        icon: Dices,
     },
 ];
 
