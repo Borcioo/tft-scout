@@ -69,6 +69,10 @@ final class PlannerCode
     }
 
     /**
+     * Set from a champion api_name: `TFT17_Briar` → "TFT17". Set 18's
+     * `DA_` ids carry no recognisable prefix, so callers on Set 18+
+     * should pass the set explicitly; this is only a fallback.
+     *
      * @param  array<int, array{apiName?: string}>  $champions
      */
     public static function deriveSetVersion(array $champions): ?string
@@ -88,6 +92,6 @@ final class PlannerCode
         $raw = (string) ($setVersion ?? '');
         $stripped = preg_replace('/^TFT/', '', $raw) ?? '';
 
-        return $stripped !== '' ? $stripped : '17';
+        return $stripped !== '' ? $stripped : (string) config('services.tft.set', 18);
     }
 }

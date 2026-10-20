@@ -1,3 +1,4 @@
+import { traitAmount } from '@/workers/scout/trait-amount';
 import type { Champion, Trait, ScoredTeam } from '@/workers/scout/types';
 
 export type CostTier = 'random' | 2 | 3 | 4;
@@ -41,14 +42,15 @@ export function pickRandomCarry(
 }
 
 /**
- * Max slots a trait can reach from the champion pool WITHOUT emblems.
- * Groups champions by `baseApiName ?? apiName` (base + enhanced variants
- * share a base id and are mutually exclusive on the board), picks the
- * max slotsUsed per group, sums. Hero variants excluded — they never
- * appear in random seeds.
+ * Max count a trait can reach from the champion pool WITHOUT emblems.
+ * Groups champions by `baseApiName ?? apiName` (base + variants share a
+ * base id and are mutually exclusive on the board), picks the biggest
+ * trait contribution per group, sums. Hero variants excluded — they
+ * never appear in random seeds.
  *
  * Example: 3 unique Mecha bases where each has an enhanced variant
- * (slotsUsed=2) → 3 groups × 2 slots = 6, so Mecha ≥ 6 is reachable.
+ * (counts 2) → 3 groups × 2 = 6, so Mecha ≥ 6 is reachable. Set 18:
+ * Elder Dragon adds 2 Riftbeast, a Lux form 2 of its element.
  */
 function maxAchievableSlots(champions: Champion[], traitApi: string): number {
     const groupBest = new Map<string, number>();
@@ -58,10 +60,10 @@ function maxAchievableSlots(champions: Champion[], traitApi: string): number {
         if (!c.traits.includes(traitApi)) continue;
 
         const groupKey = c.baseApiName ?? c.apiName;
-        const slots = c.slotsUsed ?? 1;
+        const amount = traitAmount(c, traitApi);
         const prev = groupBest.get(groupKey) ?? 0;
 
-        if (slots > prev) groupBest.set(groupKey, slots);
+        if (amount > prev) groupBest.set(groupKey, amount);
     }
 
     let sum = 0;

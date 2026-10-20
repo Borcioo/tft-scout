@@ -102,11 +102,16 @@ class MechaEnhancedHook implements PostImportHook
             'icon_path' => $base->icon_path,
         ]);
 
-        // Same traits as base — engine handles the 2× multiplier via slots_used
-        $baseTraitIds = $base->traits()->pluck('traits.id')->all();
+        // Same traits as base; the Mecha link counts twice ("Transformed
+        // Mechas ... count twice for the Mecha trait") via the pivot amount.
+        $traits = $base->traits()->get()
+            ->mapWithKeys(fn ($t) => [$t->id => [
+                'amount' => $t->api_name === self::MECHA_TRAIT_API_NAME ? 2 : ($t->pivot->amount ?? 1),
+            ]])
+            ->all();
 
-        if (! empty($baseTraitIds)) {
-            $enhanced->traits()->sync($baseTraitIds);
+        if (! empty($traits)) {
+            $enhanced->traits()->sync($traits);
         }
     }
 }

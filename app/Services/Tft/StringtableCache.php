@@ -80,6 +80,22 @@ class StringtableCache
         }
     }
 
+    /**
+     * Look a plaintext RST key up in loaded entries.
+     *
+     * CDragon keys the stringtable two ways: entries whose key it could
+     * crack are stored under the lowercased plaintext
+     * (`spell_tft18_ahrispell_tooltip`), the rest under the masked xxh3
+     * hash (`{3b2780ff82}`). Since the 16.x exports nearly every TFT
+     * spell/trait key is plaintext, so the hash alone misses them.
+     *
+     * @param  array<string, string>  $entries
+     */
+    public static function find(array $entries, string $key): ?string
+    {
+        return $entries[strtolower($key)] ?? $entries[RstHasher::key($key)] ?? null;
+    }
+
     private function fetchAndStore(string $channel, string $locale): void
     {
         $url = sprintf(

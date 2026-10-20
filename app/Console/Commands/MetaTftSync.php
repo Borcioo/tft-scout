@@ -15,7 +15,7 @@ class MetaTftSync extends Command
 
     public function handle(MetaTftSyncService $sync): int
     {
-        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 17));
+        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 18));
         $concurrency = max(1, (int) $this->option('parallel'));
 
         $mode = $concurrency > 1 ? " (parallel={$concurrency})" : '';

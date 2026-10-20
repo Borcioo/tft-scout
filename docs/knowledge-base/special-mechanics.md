@@ -1,106 +1,98 @@
-# TFT Set 17 — Special Mechanics
+# TFT Set 18 — Special Mechanics
 
-> Mechaniki specjalne, które wpływają na budowanie drużyn i wymagają osobnego traktowania w algorytmie.
-
----
-
-## 1. Mecha Enhanced
-
-**Opis**: Championów z traitem Mecha można transformować w Enhanced formę za pomocą itemu Mecha-Former.
-
-**Zasady**:
-- Enhanced champion zajmuje **2 sloty** zamiast 1
-- Liczy się **2x** do traitu Mecha (1 Enhanced = 2 Mecha count)
-- Zyskuje +100% HP i ulepszoną ability
-- Gracz sam decyduje, którego Mecha transformuje
-
-**Eligible Champions**: Urgot, Aurelion Sol, The Mighty Mech
-
-**Modeling w bazie**: Każdy Mecha champion ma dwa wpisy:
-- `TFT17_Urgot` — normalny (1 slot, 1x Mecha)
-- `TFT17_Urgot_enhanced` — enhanced (2 sloty, 2x Mecha)
-- Wzajemnie się wykluczają (ta sama postać, inna forma)
-
-**Breakpoint math examples**:
-- 1 Enhanced Urgot + 1 Normal ASol = 3 Mecha → bronze active
-- 1 Enhanced Urgot + 1 Enhanced ASol = 4 Mecha → gold active (2 slots each = 4 slots used)
-- 3 Enhanced = 6 Mecha → prismatic (+1 team size) but uses 6 slots
+> Mechaniki, które wpływają na budowanie drużyn i jak tft-scout je modeluje.
+> Źródła: CDragon `latest` (16.20) — `en_us.json`, character biny, `map22.bin.json`; MetaTFT ranked.
+> Set 17 (Mecha, hero augmenty, MF): `set17/special-mechanics.md`.
 
 ---
 
-## 2. Miss Fortune — Choose Trait
+## 1. Avatar — Lux i jego formy (×2 do traitu)
 
-**Opis**: Miss Fortune pozwala graczowi wybrać jeden z 3 trybów przy wstawieniu na planszę.
+**Mechanika:** Lux występuje w 9 formach żywiołów: Coven, Elderwood, Fae, Inferno, Lunar
+(`DA_18_Lux_Moonbeam`), Primal, Solar (`DA_18_Lux_Sunbeam`), Blackthorn, Blossom. Posiadanie Avatara na
+ławce/planszy zamienia pozostałe Avatary w sklepie na ten sam żywioł. **Wybrany trait liczy się podwójnie.**
 
-**Tryby**:
-| Mode | Dodany Trait | Ability Type | Suggested Role |
-|------|-------------|--------------|----------------|
-| Conduit Mode | Conduit (TFT17_ManaTrait) | Mana-based | APCaster |
-| Challenger Mode | Challenger (TFT17_ASTrait) | Attack speed | ADCarry |
-| Replicator Mode | Replicator (TFT17_APTrait) | Double-cast | APCaster |
+**Dane:** każda forma to osobny champion w CDragon (`Lux (Coven)` itd.) + rekord bazowy `DA_Lux18_Base`
+("Lux", tylko trait Avatar). Podwójne liczenie jest w binie: `mLinkedTraits[{TraitData: …DA_18_Coven, Amount: 2}]`.
+MetaTFT raportuje wszystkie formy jako `DA_Lux18_Base`.
 
-**Stały trait**: Gun Goddess (TFT17_MissFortuneUniqueTrait) — zawsze aktywny niezależnie od trybu.
+**Modelowanie:**
+- `DisplayNameVariantHook` — formy "X (Y)" → warianty bazy "X" (`base_champion_id`, `variant_label = coven`…),
+  baza `is_playable = false`, formy dziedziczą planner code bazy i statystyki umiejętności (biny form nie mają SpellObject).
+- `TraitContributionHook` — `Amount` → `champion_trait.amount = 2` → kontekst scouta `traitAmounts: {DA_18_Coven: 2}`.
+- Formy wykluczają się (wspólny `base_champion_id` → exclusion group). Ratingi/affinity/companions przez `baseApiName`.
 
-**Modeling w bazie**: 3 osobne wpisy championów:
-- `TFT17_MissFortune_Conduit` — traits: Conduit, Gun Goddess
-- `TFT17_MissFortune_Challenger` — traits: Challenger, Gun Goddess
-- `TFT17_MissFortune_Replicator` — traits: Replicator, Gun Goddess
-- Wzajemnie się wykluczają (ta sama postać, inny tryb)
+## 2. Apex Predator — Elder Dragon (2 sloty, ×2 Riftbeast)
 
-**W algorytmie**: Scout powinien rozważyć wszystkie 3 warianty niezależnie i wybrać ten, który najlepiej pasuje do budowanej synergii.
+**Mechanika:** "Elder Dragon takes up 2 team slots and grants +2 to the Riftbeast trait."
 
----
+**Dane:** +2 Riftbeast = bin `mLinkedTraits[{…DA_Riftbeast18, Amount: 2}]` (Elder Dragon liczy się jako 2, nie 3).
+2 sloty nie są nigdzie w danych → `config/tft.php` `sets.18.slots_by_trait = ['DA_18_ApexPredator' => 2]`.
 
-## 3. Redeemer (Rhaast)
+**Modelowanie:** `TraitSlotOverrideHook` → `slots_used = 2`; amount z `TraitContributionHook`. Scorer mnoży wartość
+championa przez `slotsUsed` (jak Mecha Enhanced w Set 17), team-builder liczy budżet slotów.
 
-**Opis**: Rhaast zyskuje bonusy skalujące z liczbą aktywnych traitów w drużynie.
+## 3. Riftbeast 10 — +2 maksymalnego rozmiaru drużyny
 
-**Zasady**:
-- Bonus zaczyna działać powyżej 5 aktywnych traitów
-- Każdy trait powyżej 5 daje +1.0 bonus score
-- Preferuje diverse teams z wieloma różnymi traitami
-- Nie ma sensu w mono-trait teamach (np. 6 Brawler + Rhaast = mało traitów)
+**Mechanika:** Riftbeast (3/5/7/10) — przy 10: "+2 maximum team size".
 
----
+**Dane:** zmienna `TeamSize: 2` w efekcie breakpointu 10. Uwaga: w Set 17 Mecha miała `TeamSize: 1` na
+**każdym** breakpoincie, a bonus dawał tylko wiersz 6 — dlatego źródłem prawdy jest wiersz opisu (`@MinUnits@`)
+który wspomina `@TeamSize@` (`App\Services\Tft\TraitTeamSize`).
 
-## 4. N.O.V.A. — Champion-Dependent Buffs
+**Modelowanie:** `ScoutContextBuilder` → `breakpoint.teamSizeBonus`; worker `trait-rules.ts`
+(`buildTeamSizeRules` / `teamSizeBonus`) zamiast hardkodu `TFT17_Mecha`. Lock `Riftbeast:10` na lvl 9 → 11 slotów.
+Riftbeast 10 wymaga Elder Dragona (5-cost), więc poniżej lvl 9 jest nieosiągalny (shop odds).
 
-**Opis**: N.O.V.A. daje różne buffy zależnie od tego, którzy championowie N.O.V.A. są w drużynie.
+## 4. Adaptor — formy AD/AP
 
-| Champion | Buff |
-|----------|------|
-| Aatrox | Shred + Sunder enemies |
-| Caitlyn | Attack Speed for allies |
-| Akali | Precision for allies |
-| Maokai | Heal allies |
-| Kindred | Shield strongest tank |
-| Emblem | Bonus true damage |
+**Mechanika:** "Adaptor abilities change depending on if their Attack Damage or Ability Power is higher."
+Akali, Master Yi, Kog'Maw (`_AD`), Gromp, Nidalee (`_AP`).
 
-At 5 units (prismatic) — gain a Striker selector to activate one champion's Strike ability.
+**Dane:** CDragon ma jedną formę na championa; MetaTFT czasem raportuje drugą (`DA_18_MasterYi_AP` — 12 gier,
+`DA_Gromp18_AD` — 291, `DA_NidaleeCougar18_AD` — 15, wobec 600k–1M gier formy z CDragon).
 
----
+**Modelowanie:** `SetProfile::canonicalUnit` — rodzeństwo `_AD`/`_AP` i aliasy z configu (`metatft_unit_aliases`)
+składane do championa z CDragon w ratingach jednostek, companions i meta compach (ważone grami).
 
-## 5. Stargazer — Random Constellation
+## 5. Rival — Kha'Zix / Rengar
 
-**Opis**: Każda gra losuje inną konstelację, która zmienia działanie traitu Stargazer.
+**Mechanika:** breakpointy `[1, 1, 2]` — "Only active while fielding 1 Rival" oraz przy 2: "Rivals can be
+fielded together, and their abilities grant each other bonuses". Co odblokowuje wariant z dwoma Rivalami, z danych
+nie wynika. Kha'Zix ewoluuje (wybór Executioner/Rapidfire/Ravager/Spellweaver), Rengar daje gold i AD.
 
-Konstelacja jest niezmienna w trakcie gry. AI powinno wiedzieć, że Stargazer jest zmienny, ale bez znajomości aktualnej konstelacji nie może ocenić pełnej siły traitu.
+**Modelowanie:** trait `public` z breakpointem 1 — traktowany jak unikat. Ewolucje Kha'Zixa (dodatkowy trait
+w trakcie gry) **nie są modelowane** — brak ich w danych CDragon.
 
----
+## 6. Pozostałe unikalne traity (1 champion)
 
-## 6. Zed — Augment-Only Champion
+Attuned (Alune), Bounty Seeker (Draven), Emerald Aspect (Taric), Greenfather (Ivern), Old Growth (Maokai),
+Thornmaiden (Zyra), Monolith (Malphite, `DA_18_Battlemage`), Caustic (Kog'Maw) — zwykłe unikaty, bez specjalnej
+obsługi. Flora Fatalis (Fiddlesticks, Soraka; 1/2) — zwykły trait.
 
-**Opis**: Zed (Galaxy Hunter) jest dostępny wyłącznie przez augment "Invader Zed". Nie pojawia się w normalnym shopie.
+## 7. Eclipse
 
-**Implikacja**: Scout nie powinien generować kompów z Zedem w standardowym trybie, chyba że gracz zaznaczył go jako locked.
+Trait bez championa i bez breakpointu (`minUnits = null`) — aktywowany inną drogą niż liczbą jednostek.
+Importer oznacza go `hidden` (zostaje w DB dla ratingów MetaTFT, znika z pickerów i kontekstu scouta).
 
----
+## 8. Itemy Set 18
 
-## 7. Exclusion Groups Summary
+- Cała pula w przestrzeni `DA_`: komponenty `DA_Component_*`, itemy `DA_InfinityEdge`, radianty
+  `DA_InfinityEdgeRadiant` / `DA_AdaptiveHelm_Radiant`, artefakty `DA_Artifact_*`, emblematy `DA_18_Emblem*`.
+  `TFT_Item_*` nie są używane w meczach (`evergreen_items = false`) i nie są listowane w UI.
+- Mikstury (`DA_HealthPotion18`, `DA_ManaPotion18`, `DA_BlastPotion18` + radianty) — typ `mechanic`.
+- ~350 jednorazowych "zapów" z różdżek (`assets/ux/tft/hud/zaps/wands`, np. Minor Polymorph, Phantom Emblem)
+  i consumables (Boostery, Duplicatory, Reforger) — pomijane przy imporcie.
+- Augmenty bez markera `_Augment_` — rozpoznawane po ikonie w `icons/augments/`; tier z hashowanego tagu
+  (`{d11fd6d5}` silver, `{ce1fd21c}` gold, `{cf1fd3af}` prismatic). Hero augmentów w Set 18 brak.
 
-| Group | Members | Rule |
-|-------|---------|------|
-| Miss Fortune | MF Conduit, MF Challenger, MF Replicator | Max 1 per team |
-| Urgot forms | Urgot, Urgot Enhanced | Max 1 per team |
-| Aurelion Sol forms | ASol, ASol Enhanced | Max 1 per team |
-| The Mighty Mech forms | TMM, TMM Enhanced | Max 1 per team |
+## 9. Role championów (inferowane)
+
+Set 18 nie ma ról w danych (`role = null` w `en_us.json`, brak `CharacterRole` w binach). `RoleInferenceHook`:
+- typ obrażeń: więcej "physical damage" czy "magic damage" w opisie umiejętności → AD/AP; remis → ikony skalowania;
+  dalej remis → H (hybrid),
+- kategoria: zasięg ≥ 4 → Carry (AD) / Caster (AP, H); bliżej → Fighter jeśli ma trait z `fighter_traits`
+  (Ravager, Adaptor, Rival), inaczej Tank.
+
+To heurystyka — role są nasze, nie Riot. Sprawdzenie na 60 meta compach MetaTFT: minimum 2 efektywnych
+frontline'ów na comp, więc kara za brak frontline'u w scorerze została podniesiona (0 → 30 pkt, < 2 → 10 pkt).

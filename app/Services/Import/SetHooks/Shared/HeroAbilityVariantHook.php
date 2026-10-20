@@ -185,11 +185,14 @@ class HeroAbilityVariantHook implements PostImportHook
             'icon_path' => $base->icon_path,
         ]);
 
-        // Hero variant shares the base's trait pivot — copy verbatim so
-        // planner filters by trait still find both forms.
-        $traitIds = $base->traits()->pluck('traits.id')->all();
-        if (! empty($traitIds)) {
-            $variant->traits()->sync($traitIds);
+        // Hero variant shares the base's trait pivot — copy verbatim
+        // (amounts included) so planner filters by trait still find both
+        // forms and trait counting stays identical.
+        $traits = $base->traits()->get()
+            ->mapWithKeys(fn ($t) => [$t->id => ['amount' => $t->pivot->amount ?? 1]])
+            ->all();
+        if (! empty($traits)) {
+            $variant->traits()->sync($traits);
         }
     }
 

@@ -10,10 +10,15 @@ use App\Models\Set;
 use App\Models\TftTrait;
 use App\Services\Import\Contracts\PostImportHook;
 use App\Services\Import\SetHooks\Set17\MechaEnhancedHook;
-use App\Services\Import\SetHooks\Set17\RemoveNonPlayableHook;
 use App\Services\Import\SetHooks\Shared\CharacterAbilityEnrichHook;
+use App\Services\Import\SetHooks\Shared\DisplayNameVariantHook;
 use App\Services\Import\SetHooks\Shared\HeroAbilityVariantHook;
+use App\Services\Import\SetHooks\Shared\RemoveNonPlayableHook;
+use App\Services\Import\SetHooks\Shared\RoleInferenceHook;
+use App\Services\Import\SetHooks\Shared\TraitContributionHook;
+use App\Services\Import\SetHooks\Shared\TraitSlotOverrideHook;
 use App\Services\Import\SetHooks\Shared\VariantChoiceHook;
+use App\Support\SetProfile;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -47,26 +52,55 @@ class CDragonImporter
 
     /**
      * Set number → array of PostImportHook class names, in execution order.
-     * Add new sets here when they release.
-     */
-    /**
-     * Hook order matters — run CharacterAbilityEnrichHook BEFORE
-     * VariantChoiceHook so the inspector's in-memory report cache is
-     * warm by the time variants need the same character data; this
-     * halves HTTP traffic for variant champions.
+     * Sets not listed here run DEFAULT_HOOKS.
      *
-     * CharacterAbilityEnrichHook and VariantChoiceHook are both generic
-     * and run for every set. The remaining hooks are set-specific
-     * quirks that can't be data-driven yet.
+     * Hook order matters:
+     *   - CharacterAbilityEnrichHook first so the inspector's in-memory
+     *     report cache is warm by the time later hooks need the same
+     *     character data; this halves HTTP traffic.
+     *   - TraitContributionHook and CharacterAbilityEnrichHook must see
+     *     every champion, so they run BEFORE DisplayNameVariantHook links
+     *     "Lux (Coven)"-style rows to their base (the base-only hooks
+     *     after it skip linked variants).
+     *   - TraitSlotOverrideHook last so synthesized variants inherit
+     *     nothing stale.
+     *
+     * Everything except MechaEnhancedHook is generic and data/config
+     * driven (see config/tft.php `sets`).
      */
+    private const DEFAULT_HOOKS = [
+        RemoveNonPlayableHook::class,
+        CharacterAbilityEnrichHook::class,
+        TraitContributionHook::class,
+        RoleInferenceHook::class,
+        DisplayNameVariantHook::class,
+        VariantChoiceHook::class,
+        HeroAbilityVariantHook::class,
+        TraitSlotOverrideHook::class,
+    ];
+
     private const SET_HOOKS = [
         17 => [
             RemoveNonPlayableHook::class,
             CharacterAbilityEnrichHook::class,
+            TraitContributionHook::class,
             VariantChoiceHook::class,
             HeroAbilityVariantHook::class,
             MechaEnhancedHook::class,
         ],
+    ];
+
+    /**
+     * Augment tier tags. CDragon ships the tier category as a hashed tag
+     * whose plaintext isn't in the hashlists, but the three hashes line
+     * up 1:1 with the `_i` / `_ii` / `_iii` icon suffixes wherever both
+     * exist (214/220 Set 18 augments; the rest are reused icon art).
+     * The tag covers every augment, the icon suffix doesn't.
+     */
+    private const AUGMENT_TIER_TAGS = [
+        '{d11fd6d5}' => 'silver',
+        '{ce1fd21c}' => 'gold',
+        '{cf1fd3af}' => 'prismatic',
     ];
 
     /**
@@ -99,6 +133,8 @@ class CDragonImporter
     /** @var array<int, array{string, string}>  emblem_id → [c1_apiName, c2_apiName] */
     private array $pendingEmblemComponents = [];
 
+    private SetProfile $profile;
+
     public function __construct(private readonly ConsoleKernel $console)
     {
         $channel = (string) config('services.cdragon.channel', 'latest');
@@ -114,6 +150,7 @@ class CDragonImporter
      */
     public function import(int $setNumber): array
     {
+        $this->profile = SetProfile::for($setNumber);
         $data = $this->fetchData();
         $plannerCodes = $this->fetchPlannerCodes($setNumber);
 
@@ -201,12 +238,23 @@ class CDragonImporter
 
     private function upsertSet(int $setNumber, array $setData): Set
     {
+        // CDragon's set name is unreliable — Set 18 ships as "Set10".
+        // Only trust it when it at least carries the right number.
+        $name = $setData['name'] ?? '';
+        if (! str_contains($name, (string) $setNumber)) {
+            $name = "Set {$setNumber}";
+        }
+
+        // Current import is always the active set; previous sets keep
+        // their rows (and MetaTFT history) but stop being active.
+        Set::query()->where('number', '!=', $setNumber)->update(['is_active' => false]);
+
         return Set::updateOrCreate(
             ['number' => $setNumber],
             [
-                'name' => $setData['name'] ?? "Set {$setNumber}",
+                'name' => $name,
                 'mutator' => $setData['mutator'] ?? null,
-                'is_active' => true, // Current import is always active set
+                'is_active' => true,
             ]
         );
     }
@@ -485,6 +533,14 @@ class CDragonImporter
             $isUnique = count($breakpoints) === 1
                 && ($breakpoints[0]['minUnits'] ?? 0) === 1;
 
+            // Traits without a single unit breakpoint can't be built
+            // towards (Set 18 Eclipse: no champion carries it, its one
+            // effect has minUnits = null). Keep the row for MetaTFT
+            // ratings but out of pickers and the scout context.
+            if ($breakpoints === [] && $category === 'public') {
+                $category = 'hidden';
+            }
+
             $trait = TftTrait::create([
                 'set_id' => $set->id,
                 'api_name' => $apiName,
@@ -556,14 +612,13 @@ class CDragonImporter
         array $plannerCodes,
         int $setNumber
     ): void {
-        $prefix = "TFT{$setNumber}_";
-
         foreach ($champsData as $champData) {
             $apiName = $champData['apiName'] ?? null;
             $cost = $champData['cost'] ?? 0;
 
-            // Skip non-set champions and invalid cost
-            if (! $apiName || ! str_starts_with($apiName, $prefix)) {
+            // Skip non-set champions (TFT_TrainingDummy, TFT9_SLIME_Crab,
+            // armory keys...) and invalid cost
+            if (! $apiName || ! $this->profile->owns($apiName)) {
                 continue;
             }
             if ($cost <= 0 || $cost > 10) {
@@ -597,7 +652,10 @@ class CDragonImporter
 
                 'ability_desc' => $champData['ability']['desc'] ?? null,
                 'ability_name' => $champData['ability']['name'] ?? null,
-                'ability_icon_path' => $champData['ability']['icon'] ?? null,
+                // Set 18 ships the literal string "None" for every ability icon.
+                'ability_icon_path' => ($champData['ability']['icon'] ?? 'None') !== 'None'
+                    ? $champData['ability']['icon']
+                    : null,
                 'ability_stats' => $champData['ability']['variables'] ?? [],
 
                 'planner_code' => $plannerCodes[$apiName] ?? null,
@@ -657,7 +715,7 @@ class CDragonImporter
             }
 
             // Classification: augment / emblem / regular item
-            if ($this->isAugment($apiName)) {
+            if ($this->isAugment($itemData)) {
                 $this->createAugment($itemData, $set);
 
                 continue;
@@ -701,6 +759,10 @@ class CDragonImporter
             return true;
         }
 
+        if (! $this->profile->evergreenItems) {
+            return $this->shouldSkipNamespacedItem($itemData);
+        }
+
         // Emblems can have non-standard apiName prefixes — let them through
         // regardless. Excludes augments explicitly because trait-gated augments
         // ALSO carry associatedTraits but must follow the per-set whitelist.
@@ -715,11 +777,10 @@ class CDragonImporter
         $looksLikeEmblem = ! $isAugmentName
             && (in_array('Emblem', $tags, true) || ! empty($associatedTraits));
         if ($looksLikeEmblem) {
-            $currentPrefix = "TFT{$setNumber}_";
-            $fromCurrentSet = str_starts_with($apiName, $currentPrefix)
+            $fromCurrentSet = $this->profile->owns($apiName)
                 || (isset($associatedTraits[0])
                     && is_string($associatedTraits[0])
-                    && str_starts_with($associatedTraits[0], $currentPrefix));
+                    && $this->profile->owns($associatedTraits[0]));
             if ($fromCurrentSet) {
                 return false;
             }
@@ -730,7 +791,7 @@ class CDragonImporter
         // Emblem tag and no associated trait, so it falls through the
         // looksLikeEmblem check. Allow it explicitly by api_name so the
         // player still sees it in the emblems list.
-        if ($apiName === "TFT{$setNumber}_MarketOffering_RandomEmblem") {
+        if ($this->profile->owns($apiName) && str_ends_with($apiName, '_MarketOffering_RandomEmblem')) {
             return false;
         }
 
@@ -752,7 +813,7 @@ class CDragonImporter
         // tokens from Crime trait) are still in the data file but the
         // mechanic isn't in Set 17. Skip the whole `ChampionItem` family
         // so they don't pollute the items list with deprecated entries.
-        if (str_contains($apiName, '_ChampionItem_') || str_starts_with($apiName, 'TFT17_ChampionItem_')) {
+        if (str_contains($apiName, '_ChampionItem_')) {
             return true;
         }
 
@@ -772,12 +833,8 @@ class CDragonImporter
         }
 
         // Set-scoped whitelist: only real items and augments from current set
-        $setPrefixes = [
-            "TFT{$setNumber}_Item_",
-            "TFT{$setNumber}_Augment_",
-        ];
-        foreach ($setPrefixes as $prefix) {
-            if (str_starts_with($apiName, $prefix)) {
+        foreach ($this->profile->prefixes as $prefix) {
+            if (str_starts_with($apiName, $prefix.'Item_') || str_starts_with($apiName, $prefix.'Augment_')) {
                 return false;
             }
         }
@@ -786,9 +843,49 @@ class CDragonImporter
         return true;
     }
 
-    private function isAugment(string $apiName): bool
+    /**
+     * Filter for sets that ship their whole item pool in the set
+     * namespace (Set 18: `DA_Component_BFSword`, `DA_InfinityEdge`,
+     * `DA_18_EmblemFae`, augments like `DA_Kingslayer`). There is no
+     * `_Item_` / `_Augment_` marker to whitelist on, so keep everything
+     * in the namespace except records nobody equips or picks as an
+     * augment. Classification happens downstream.
+     */
+    private function shouldSkipNamespacedItem(array $itemData): bool
     {
-        return str_contains($apiName, '_Augment_');
+        $apiName = $itemData['apiName'] ?? '';
+        $tags = $itemData['tags'] ?? [];
+        $icon = strtolower($itemData['icon'] ?? '');
+
+        if (! $this->profile->owns($apiName)) {
+            return true;
+        }
+
+        // Item Remover, Champion Duplicators, stat Boosters, Reforger...
+        if (in_array('Consumable', $tags, true)) {
+            return true;
+        }
+
+        // Set 18 mechanic: ~350 single-use "zaps" (Minor Polymorph,
+        // Flip Frenzy, Phantom Emblem...) cast from wands. Not items,
+        // not augments — all share the zaps/wands icon folder.
+        if (str_contains($icon, '/hud/zaps/')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isAugment(array $itemData): bool
+    {
+        if (str_contains($itemData['apiName'] ?? '', '_Augment_')) {
+            return true;
+        }
+
+        // Namespaced sets drop the `_Augment_` marker (DA_Kingslayer),
+        // but augment art always lives under icons/augments/.
+        return ! $this->profile->evergreenItems
+            && str_contains(strtolower($itemData['icon'] ?? ''), '/icons/augments/');
     }
 
     private function isEmblem(array $itemData): bool
@@ -902,6 +999,13 @@ class CDragonImporter
             return 'craftable';
         }
 
+        // Namespaced sets tag their components explicitly; anything else
+        // without a recipe is a set-mechanic item (Set 18 Health / Mana /
+        // Blast Potions) rather than a component.
+        if (! $this->profile->evergreenItems && ! in_array('component', $tags, true)) {
+            return 'mechanic';
+        }
+
         return 'base';
     }
 
@@ -955,10 +1059,18 @@ class CDragonImporter
 
         // Set 17 "God Augment" and champion "Carry" augments are hero-tier
         // mechanics — they're champion-specific upgrades, not generic pool augments.
+        // `...Hero` suffix only — a bare substring match also caught Set
+        // 18's regular "Heroic Grab Bag" augments.
         if (str_contains($apiName, 'GodAugment')
             || str_ends_with($apiName, 'Carry')
-            || str_contains(strtolower($apiName), 'hero')) {
+            || str_ends_with($apiName, 'Hero')) {
             return 'hero';
+        }
+
+        foreach ($itemData['tags'] ?? [] as $tag) {
+            if (isset(self::AUGMENT_TIER_TAGS[$tag])) {
+                return self::AUGMENT_TIER_TAGS[$tag];
+            }
         }
 
         // Tier suffix patterns in icon paths (most reliable indicator)
@@ -1039,6 +1151,25 @@ class CDragonImporter
         // skip it rather than storing a headless "[random]" row.
         if ($traitId === null && $name !== 'Random Emblem') {
             return;
+        }
+
+        // One emblem per trait. Set 18 ships augment-granted copies next
+        // to the regular ones (DA_18_EmblemFloraFatalisAugment beside
+        // DA_18_EmblemFloraFatalis) with the same name; keep the shorter
+        // (canonical) api_name so pickers don't list the trait twice.
+        if ($traitId !== null) {
+            $existing = Emblem::query()
+                ->where('set_id', $set->id)
+                ->where('trait_id', $traitId)
+                ->first(['id', 'api_name']);
+
+            if ($existing !== null) {
+                if (strlen($existing->api_name) <= strlen($apiName)) {
+                    return;
+                }
+                unset($this->pendingEmblemComponents[$existing->id]);
+                $existing->delete();
+            }
         }
 
         $emblem = Emblem::create([
@@ -1221,8 +1352,10 @@ class CDragonImporter
         // TFT{N}_Item_..._{Name}Mod_Radiant → TFT{N}_Item_..._{Name}Mod
         // (Set 17 PsyOps trait-item radiant variants share their base
         // name with a single `_Radiant` suffix to chop off.)
-        if (str_ends_with($radiantApiName, '_Radiant')) {
-            return substr($radiantApiName, 0, -strlen('_Radiant'));
+        // Set 18 mixes both shapes: DA_AdaptiveHelm_Radiant and
+        // DA_InfinityEdgeRadiant → DA_AdaptiveHelm / DA_InfinityEdge.
+        if (preg_match('/^(.+?)_?Radiant$/', $radiantApiName, $m)) {
+            return $m[1];
         }
 
         return null;
@@ -1370,7 +1503,7 @@ class CDragonImporter
 
     private function runHooks(Set $set): void
     {
-        $hooks = self::SET_HOOKS[$set->number] ?? [];
+        $hooks = self::SET_HOOKS[$set->number] ?? self::DEFAULT_HOOKS;
 
         foreach ($hooks as $hookClass) {
             /** @var PostImportHook $hook */

@@ -107,8 +107,7 @@ class ItemDescriptionResolver
             '/\{\{([^}]+)\}\}/',
             function (array $match) use ($entries) {
                 $token = trim($match[1]);
-                $hashKey = RstHasher::key($token);
-                $resolved = $entries[$hashKey] ?? null;
+                $resolved = StringtableCache::find($entries, $token);
 
                 if ($resolved === null) {
                     $parts = explode('_', $token);

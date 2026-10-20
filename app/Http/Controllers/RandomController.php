@@ -16,7 +16,7 @@ class RandomController extends Controller
 
     public function index(): Response
     {
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
         $itemBuilds = $this->builder->buildItemBuildsForInertia($setNumber);
 
         $savedPlannerCodes = Auth::check()

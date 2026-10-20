@@ -6,6 +6,7 @@
  */
 
 import { SCORING_CONFIG } from './config';
+import { traitAmount } from './trait-amount';
 
 const { thresholds } = SCORING_CONFIG;
 
@@ -67,7 +68,9 @@ continue;
 continue;
 }
 
-    const lockedInTrait = lockedChampObjects.filter(c => c.traits.includes(traitApi)).length;
+    const lockedInTrait = lockedChampObjects
+      .filter(c => c.traits.includes(traitApi))
+      .reduce((sum, c) => sum + traitAmount(c, traitApi), 0);
 
     // Check each breakpoint from highest down
     for (let i = bps.length - 1; i >= 0; i--) {
@@ -125,7 +128,7 @@ continue;
 
   for (const c of lockedChampObjects) {
     for (const t of c.traits) {
-lockedTraitCounts[t] = (lockedTraitCounts[t] || 0) + 1;
+lockedTraitCounts[t] = (lockedTraitCounts[t] || 0) + traitAmount(c, t);
 }
   }
 

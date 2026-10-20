@@ -15,7 +15,7 @@ const TEAM_SIZE = 10;
 const SLOT_HEX_CHARS = 3;
 const EMPTY_SLOT = '0'.repeat(SLOT_HEX_CHARS);
 const SUFFIX_PREFIX = 'TFTSet';
-const DEFAULT_SET_NUMBER = '17';
+const DEFAULT_SET_NUMBER = '18';
 
 type ChampLike = {
     apiName?: string;
@@ -52,7 +52,8 @@ export function generatePlannerCode(
 
 /**
  * Detect set from champ apiName prefix (e.g. "TFT17_Briar" → "TFT17").
- * Returns null if no match.
+ * Returns null if no match — Set 18's `DA_*` ids carry no set prefix, so
+ * callers should pass the shared `tftSet` page prop as `setVersion`.
  */
 export function deriveSetVersion(champions: ChampLike[]): string | null {
     if (!champions || champions.length === 0) return null;

@@ -36,7 +36,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
         // `meta:refresh-active:N` is set by RevalidateMetaTft middleware
         // when it dispatches the refresh job, cleared by the job itself.
         // Initial page load reads it so the indicator can show up
@@ -52,6 +52,9 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'scoutLabEnabled' => env('SCOUT_LAB_ENABLED') === '1',
             'metaSyncRefreshing' => $metaSyncRefreshing,
+            // Team Planner codes end in "TFTSet{N}"; Set 18 champion ids
+            // (DA_*) don't carry the set, so the client needs it here.
+            'tftSet' => $setNumber,
         ];
     }
 }

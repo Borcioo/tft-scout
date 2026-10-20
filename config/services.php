@@ -29,7 +29,7 @@ return [
     ],
 
     'tft' => [
-        'set' => (int) env('TFT_SET', 17),
+        'set' => (int) env('TFT_SET', 18),
     ],
 
     'cdragon' => [
@@ -37,7 +37,7 @@ return [
     ],
 
     'metatft' => [
-        'queue' => env('METATFT_QUEUE', 'PBE'),
+        'queue' => env('METATFT_QUEUE', '1100'),
     ],
 
     'slack' => [

@@ -18,8 +18,61 @@
  *
  * When a new set introduces a variant-choice champion, add its three
  * entries here and rerun `php artisan tft:import`.
+ *
+ * `sets` holds the per-set quirks the importer, MetaTFT sync and scout
+ * context can't derive from CDragon (see App\Support\SetProfile, which
+ * also supplies defaults for sets missing here).
  */
 return [
+    'sets' => [
+        17 => [
+            'prefixes' => ['TFT17_'],
+            // Set 17 equips the cross-set `TFT_Item_*` pool plus the
+            // TFT5 radiants — the importer pulls them in with set_id NULL.
+            'evergreen_items' => true,
+            'fake_units' => [
+                // Mini Black Hole (Dark Star trait summon)
+                'TFT17_DarkStar_FakeUnit',
+            ],
+        ],
+        18 => [
+            // Set 18 ships every record (champions, traits, items,
+            // components, augments, emblems) under the `DA_` namespace,
+            // with the set number embedded in varying positions:
+            // DA_18_Ahri, DA_Amumu18, DA_Gromp18_AP, DA_InfinityEdge.
+            // MetaTFT reports a couple of summons as TFT18_*.
+            'prefixes' => ['DA_', 'TFT18_'],
+            // Set 18 has its own component + completed item records
+            // (DA_Component_BFSword, DA_InfinityEdge, ...). The old
+            // `TFT_Item_*` rows are not used in matches anymore.
+            'evergreen_items' => false,
+            'fake_units' => [],
+            // "Apex Predator: Elder Dragon takes up 2 team slots" — the
+            // only part of the mechanic not exposed as data (its +2
+            // Riftbeast is the bin's mLinkedTraits Amount).
+            'slots_by_trait' => [
+                'DA_18_ApexPredator' => 2,
+            ],
+            // Set 18 data carries no champion roles (en_us.json `role`
+            // is null, bins have no CharacterRole), so RoleInferenceHook
+            // derives them from range + ability scaling. Melee units are
+            // tanks unless they carry one of these traits.
+            'fighter_traits' => [
+                'DA_18_Slayer',   // Ravager — omnivamp bruisers
+                'DA_18_Adaptor',  // Akali / Master Yi / Nidalee
+                'DA_18_Rival',    // Kha'Zix / Rengar
+            ],
+            // Adaptor units flip between an AD and AP form depending on
+            // items. CDragon lists one form per champion, MetaTFT reports
+            // both under separate unit ids (DA_18_MasterYi_AD + _AP).
+            // `_AD`/`_AP` siblings are folded automatically; only forms
+            // whose id differs beyond the suffix need an entry here.
+            'metatft_unit_aliases' => [
+                'DA_NidaleeCougar18_AD' => 'DA_Nidalee18_AP',
+            ],
+        ],
+    ],
+
     'variant_overrides' => [
         // Miss Fortune Set 17 — 3 selectable modes, sourced from
         // tft.stringtable.json "Conduit Mode" / "Challenger Mode" /

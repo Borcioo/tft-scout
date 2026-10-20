@@ -22,7 +22,7 @@ class ImportCDragon extends Command
 
     public function handle(CDragonImporter $importer): int
     {
-        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 17));
+        $setNumber = (int) ($this->option('set') ?? config('services.tft.set', 18));
 
         $this->info("Importing TFT Set {$setNumber} from CommunityDragon...");
         $this->newLine();

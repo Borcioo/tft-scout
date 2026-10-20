@@ -14,6 +14,8 @@ use App\Models\MetaSync;
 use App\Models\Set;
 use App\Models\TftTrait;
 use App\Models\TraitRating;
+use App\Services\MetaTft\Dto\UnitRatingDto;
+use App\Support\SetProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,8 @@ class MetaTftSync
 
     /** @var (\Closure(string): void)|null Optional progress reporter. */
     private ?\Closure $progress = null;
+
+    private SetProfile $profile;
 
     public function __construct(
         private readonly MetaTftClient $client,
@@ -105,6 +109,7 @@ class MetaTftSync
     private function runLocked(int $setNumber, int $concurrency): MetaSync
     {
         $this->client->resetRunCache();
+        $this->profile = SetProfile::for($setNumber);
         $set = Set::query()->where('number', $setNumber)->firstOrFail();
 
         $championsByApiName = Champion::query()
@@ -162,6 +167,12 @@ class MetaTftSync
         $toSync = [];
         foreach ($championsByApiName as $apiName => $champion) {
             if (! $champion->is_playable && ! isset($variantParentIds[$champion->id])) {
+                continue;
+            }
+            // Variants never show up under their own id on MetaTFT (MF
+            // modes, hero/enhanced forms, Set 18 Lux forms all report as
+            // the base unit) — the scorer reads them through baseApiName.
+            if ($champion->base_champion_id !== null) {
                 continue;
             }
             $toSync[] = [$apiName, $champion];
@@ -451,7 +462,7 @@ class MetaTftSync
 
     private function syncUnitRatings(Set $set, $championsByApiName): int
     {
-        $dtos = $this->client->fetchUnits($set->number);
+        $dtos = $this->mergeUnitForms($this->client->fetchUnits($set->number), $championsByApiName);
         $count = 0;
 
         foreach ($dtos as $dto) {
@@ -479,6 +490,70 @@ class MetaTftSync
         }
 
         return $count;
+    }
+
+    /**
+     * MetaTFT names clusters by api_name ("DA_18_Defender, DA_18_Rengar");
+     * the UI shows this string as-is, so swap each part for the trait or
+     * champion display name ("Defender, Rengar"). Unknown parts stay.
+     *
+     * @param  array<string, mixed>  $championsByApiName
+     * @param  array<string, mixed>  $traitsByApiName
+     */
+    private function displayCompName(string $name, array $championsByApiName, array $traitsByApiName): string
+    {
+        $parts = array_map(function (string $part) use ($championsByApiName, $traitsByApiName) {
+            $part = trim($part);
+            $trait = $traitsByApiName[$part] ?? null;
+            $champion = $championsByApiName[$this->profile->canonicalUnit($part, $championsByApiName)] ?? null;
+
+            return $trait?->name ?? $champion?->name ?? $part;
+        }, explode(',', $name));
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Fold MetaTFT unit ids that are alternate forms of one champion
+     * (Set 18 Adaptor: DA_18_MasterYi_AD + DA_18_MasterYi_AP) into a
+     * single games-weighted rating under the champion's api_name.
+     *
+     * @param  list<UnitRatingDto>  $dtos
+     * @param  array<string, mixed>  $championsByApiName
+     * @return list<UnitRatingDto>
+     */
+    private function mergeUnitForms(array $dtos, array $championsByApiName): array
+    {
+        $groups = [];
+        foreach ($dtos as $dto) {
+            $groups[$this->profile->canonicalUnit($dto->apiName, $championsByApiName)][] = $dto;
+        }
+
+        $out = [];
+        foreach ($groups as $apiName => $forms) {
+            $games = array_sum(array_map(fn (UnitRatingDto $d) => $d->games, $forms));
+            if (count($forms) === 1 || $games === 0) {
+                $out[] = new UnitRatingDto($apiName, $forms[0]->avgPlace, $forms[0]->winRate, $forms[0]->top4Rate, $forms[0]->games, $forms[0]->patch);
+
+                continue;
+            }
+
+            $weighted = fn (callable $field) => array_sum(array_map(
+                fn (UnitRatingDto $d) => $field($d) * $d->games,
+                $forms,
+            )) / $games;
+
+            $out[] = new UnitRatingDto(
+                apiName: $apiName,
+                avgPlace: $weighted(fn (UnitRatingDto $d) => $d->avgPlace),
+                winRate: $weighted(fn (UnitRatingDto $d) => $d->winRate),
+                top4Rate: $weighted(fn (UnitRatingDto $d) => $d->top4Rate),
+                games: $games,
+                patch: $forms[0]->patch,
+            );
+        }
+
+        return $out;
     }
 
     private function syncTraitRatings(Set $set, $traitsByApiName): int
@@ -531,16 +606,18 @@ class MetaTftSync
                 // and was added later for cross-reference — set both.
                 'cluster_id' => $dto->id,
                 'external_id' => $dto->id,
-                'name' => $dto->name,
+                'name' => $this->displayCompName($dto->name, $championsByApiName, $traitsByApiName),
                 'avg_place' => $dto->avgPlace,
                 'games' => $dto->games,
                 'level' => $dto->level,
             ]);
 
-            // Attach champions via pivot (meta_comp_champions).
+            // Attach champions via pivot (meta_comp_champions). Unit ids
+            // go through the set's form aliases (Set 18 Adaptor AD/AP).
             $champIds = collect($dto->championApiNames)
-                ->map(fn ($api) => ($championsByApiName[$api] ?? null)?->id)
+                ->map(fn ($api) => ($championsByApiName[$this->profile->canonicalUnit($api, $championsByApiName)] ?? null)?->id)
                 ->filter()
+                ->unique()
                 ->values()
                 ->all();
 
@@ -615,23 +692,31 @@ class MetaTftSync
 
         $rows = [];
         foreach ($dtos as $dto) {
-            $companion = $championsByApiName[$dto->companionApiName] ?? null;
-            if ($companion === null) {
+            $companionApi = $this->profile->canonicalUnit($dto->companionApiName, $championsByApiName);
+            $companion = $championsByApiName[$companionApi] ?? null;
+            if ($companion === null || $companion->id === $champion->id) {
                 continue;
             }
 
-            $rows[] = [
+            // Two MetaTFT forms of one unit (DA_Gromp18_AP + _AD) fold
+            // into the same row — merge games-weighted instead of
+            // tripping the (champion, companion) unique key.
+            $prev = $rows[$companion->id] ?? null;
+            $games = $dto->games + ($prev['games'] ?? 0);
+            $rows[$companion->id] = [
                 'champion_id' => $champion->id,
                 'companion_champion_id' => $companion->id,
                 'set_id' => $set->id,
-                'avg_place' => $dto->avgPlace,
-                'games' => $dto->games,
-                'frequency' => $dto->frequency,
+                'avg_place' => $prev === null || $games === 0
+                    ? $dto->avgPlace
+                    : ($prev['avg_place'] * $prev['games'] + $dto->avgPlace * $dto->games) / $games,
+                'games' => $games,
+                'frequency' => $dto->frequency + ($prev['frequency'] ?? 0),
             ];
         }
 
         if (! empty($rows)) {
-            ChampionCompanion::insert($rows);
+            ChampionCompanion::insert(array_values($rows));
         }
 
         return count($rows);

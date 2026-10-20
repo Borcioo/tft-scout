@@ -217,6 +217,7 @@ const TYPE_ORDER = [
     'artifact',
     'support',
     'trait_item',
+    'mechanic',
     'emblem',
 ] as const;
 
@@ -253,6 +254,11 @@ const TYPE_STYLES: Record<
         label: 'Trait Item',
         accent: 'text-pink-300',
         border: 'border-pink-500/50',
+    },
+    mechanic: {
+        label: 'Set Mechanic',
+        accent: 'text-lime-300',
+        border: 'border-lime-500/50',
     },
     emblem: {
         label: 'Emblem',

@@ -8,6 +8,7 @@
 // @ts-nocheck
 
 import { SCORING_CONFIG } from '../config';
+import { traitAmount } from '../trait-amount';
 import { collectAffinityMatches } from './shared/affinity';
 import { applyEmblems } from './shared/emblems';
 import type { Graph } from './types';
@@ -30,8 +31,7 @@ continue;
 }
 
     for (const t of node.traits) {
-      const isMechaEnhanced = node.variant === 'enhanced' && t === 'TFT17_Mecha';
-      traitCounts[t] = (traitCounts[t] || 0) + (isMechaEnhanced ? 2 : 1);
+      traitCounts[t] = (traitCounts[t] || 0) + traitAmount(node, t);
     }
   }
 
@@ -156,8 +156,10 @@ score -= weights.orphanPenalty;
 }
   }
 
-  // Lightweight affinity + companion bonus (subset of full scorer)
-  const champApiSet = new Set(champApis);
+  // Lightweight affinity + companion bonus (subset of full scorer).
+  // MetaTFT keys companions by the base unit (Lux forms → Lux base), so
+  // match on base api like the full scorer does.
+  const champApiSet = new Set(champApis.map(api => nodes[api]?.baseApiName || api));
 
   for (const api of champApis) {
     const node = nodes[api];

@@ -4,63 +4,104 @@ import { buildOneTeam } from '../shared/team-builder';
 import type { PhaseContext } from '../types';
 
 /**
- * Ensure the team pool includes compositions seeded from each `slotsUsed=2`
- * variant (Mecha Enhanced in TFT17 — any future multi-slot variant will
- * be picked up automatically).
+ * Ensure the team pool includes compositions seeded from each
+ * "multi-count" champion — one that takes 2+ slots or counts 2+ for a
+ * trait: Mecha Enhanced in TFT17, Elder Dragon (2 slots, ×2 Riftbeast)
+ * and the Lux forms (×2 on their element) in TFT18. Any future champion
+ * with `slotsUsed > 1` or a `traitAmounts` entry is picked up
+ * automatically.
  *
  * Why a dedicated phase:
- *   Enhanced variants share their base's unit rating, so every other
- *   phase seeds them only by accident (if they happen to appear in a
- *   companion pair or a trait pool). The three Enhanced champions
- *   therefore rarely start a search and the generator ends up showing
- *   only base-only comps. This phase explicitly seeds each Enhanced
- *   champion one-at-a-time plus a few small combinations so the
- *   scorer gets to compare enhanced-heavy vs base-only teams on
- *   equal footing. It does NOT bias the result — no points added,
- *   no results favoured. Teams that don't earn a top score through
- *   normal scoring never reach `topN`.
+ *   These champions share their base's unit rating (or have a single
+ *   rating spread over many forms), so every other phase seeds them only
+ *   by accident (if they happen to appear in a companion pair or a trait
+ *   pool). Their value is in the double count, which only shows once
+ *   the rest of the board leans into it. This phase explicitly seeds each
+ *   one alone plus compatible pairs so the scorer gets to compare them
+ *   with regular comps on equal footing. It does NOT bias the result —
+ *   no points added, no results favoured. Teams that don't earn a top
+ *   score through normal scoring never reach `topN`.
  *
- * Cheap by design: at most ~7 seed shapes (3 single + 3 pair + 1 all),
- * each producing ~2 team variants via temperature sweep. Adds <1 ms
- * to total findTeams runtime.
+ * Cheap by design: singletons + pairs that don't share an exclusion
+ * group (Lux forms are mutually exclusive), each producing ~2 team
+ * variants via temperature sweep. ~40 builds for TFT18, a few ms.
  */
 export function phaseVariantPairs(ctx: PhaseContext): void {
     const { graph, teamSize, context, rng, addResult, excludedSet } = ctx;
+    const exclusionLookup = graph.exclusionLookup ?? {};
 
-    const multiSlotVariants: string[] = [];
+    const multiCount: string[] = [];
+
     for (const [api, node] of Object.entries(graph.nodes)) {
-        if (!node) continue;
-        if (excludedSet.has(api)) continue;
-        if ((node as any).variant !== 'enhanced') continue;
-        if (((node as any).slotsUsed ?? 1) < 2) continue;
-        multiSlotVariants.push(api);
+        if (!node) {
+continue;
+}
+
+        if (excludedSet.has(api)) {
+continue;
+}
+
+        if (node.variant === 'hero') {
+continue;
+}
+
+        if (context.allowedSet && !context.allowedSet.has(api)) {
+continue;
+}
+
+        const slots = node.slotsUsed ?? 1;
+        const maxAmount = Math.max(1, ...Object.values(node.traitAmounts ?? {}));
+
+        if (slots < 2 && maxAmount < 2) {
+continue;
+}
+
+        multiCount.push(api);
     }
 
-    if (multiSlotVariants.length === 0) return;
+    if (multiCount.length === 0) {
+return;
+}
 
-    // Sort by baseApiName so Urgot_enhanced / AurelionSol_enhanced /
-    // Galio_enhanced come out in a deterministic order every run.
-    multiSlotVariants.sort();
+    // Deterministic order every run.
+    multiCount.sort();
+
+    const slotsOf = (api: string): number => graph.nodes[api]?.slotsUsed ?? 1;
+    const conflicts = (a: string, b: string): boolean =>
+        exclusionLookup[a]?.has?.(b) || exclusionLookup[b]?.has?.(a) || false;
 
     const seedShapes: string[][] = [];
 
-    // Singletons — "what if I build a team around exactly THIS enhanced?"
-    for (const api of multiSlotVariants) {
+    // Singletons — "what if I build a team around exactly THIS one?"
+    for (const api of multiCount) {
         seedShapes.push([api]);
     }
 
-    // Pairs — enhanced pairs don't overlap on exclusion groups because
-    // each has its own base, so all pairwise combinations are valid.
-    for (let i = 0; i < multiSlotVariants.length; i++) {
-        for (let j = i + 1; j < multiSlotVariants.length; j++) {
-            seedShapes.push([multiSlotVariants[i], multiSlotVariants[j]]);
+    // Pairs — skip same-group pairs (two Lux forms, base + enhanced).
+    for (let i = 0; i < multiCount.length; i++) {
+        for (let j = i + 1; j < multiCount.length; j++) {
+            const [a, b] = [multiCount[i], multiCount[j]];
+
+            if (conflicts(a, b)) {
+continue;
+}
+
+            if (slotsOf(a) + slotsOf(b) > teamSize) {
+continue;
+}
+
+            seedShapes.push([a, b]);
         }
     }
 
-    // Full enhanced set — only bother when it fits in the slot budget.
-    // teamSize is already in slots, so `multi.length * 2` is the cost.
-    if (multiSlotVariants.length * 2 <= teamSize) {
-        seedShapes.push([...multiSlotVariants]);
+    // Full set — only when every member is compatible and it fits the
+    // slot budget (TFT17's three Enhanced Mechas).
+    const allCompatible = multiCount.every((a, i) =>
+        multiCount.slice(i + 1).every(b => !conflicts(a, b)));
+    const allSlots = multiCount.reduce((s, api) => s + slotsOf(api), 0);
+
+    if (multiCount.length > 2 && allCompatible && allSlots <= teamSize) {
+        seedShapes.push([...multiCount]);
     }
 
     // Two temperatures per shape so filler picks aren't always the
@@ -78,6 +119,7 @@ export function phaseVariantPairs(ctx: PhaseContext): void {
                 temperature,
                 rng,
             );
+
             if (team.length > 0) {
                 addResult(team);
             }

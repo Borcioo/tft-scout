@@ -1,17 +1,15 @@
 /**
- * Per-trait algorithm rules — mechanics that CDragon doesn't expose but
- * the algorithm needs to honour. One switch per trait apiName; the
- * algorithm core stays data-driven for the common case.
+ * Trait rules that change the board itself rather than the score.
  *
- * Keep this file small and boring — each rule should be a one-liner
- * gated on `apiName === 'TFT17_X'`. If a trait needs more than a few
- * conditions, split it into its own module.
+ * Currently: max-team-size bonuses. A trait breakpoint can grow the
+ * board (Set 17 Mecha 6 → +1 Companion Mech, Set 18 Riftbeast 10 → +2),
+ * so a player on level N fields N + bonus slots. Without the bonus the
+ * generator rejects every such comp as exceeding the slot budget.
  *
- * Current rules:
- *   - TFT17_Mecha @ 6 units → +1 team slot (the Companion Mech).
- *     Player on level N with active 6-Mecha can field N+1 champions.
- *     Without this bonus the generator rejects any Mecha:6 comp as
- *     exceeding the slot budget.
+ * The bonus is data, not code: ScoutContextBuilder resolves it per
+ * breakpoint from the trait's `TeamSize` effect variable + description
+ * (see App\Services\Tft\TraitTeamSize) and ships it as
+ * `breakpoint.teamSizeBonus`.
  */
 
 type LockOrActive = {
@@ -22,6 +20,31 @@ type LockOrActive = {
     minUnits?: number;
 };
 
+type TraitDef = {
+    apiName: string;
+    breakpoints?: { minUnits: number; teamSizeBonus?: number }[];
+};
+
+/** traitApiName → breakpoints granting a bonus, highest minUnits first. */
+export type TeamSizeRules = Record<string, { minUnits: number; bonus: number }[]>;
+
+export function buildTeamSizeRules(traits: TraitDef[] | undefined | null): TeamSizeRules {
+    const rules: TeamSizeRules = {};
+
+    for (const t of traits ?? []) {
+        const granting = (t.breakpoints ?? [])
+            .filter(bp => (bp.teamSizeBonus ?? 0) > 0)
+            .map(bp => ({ minUnits: bp.minUnits, bonus: bp.teamSizeBonus as number }))
+            .sort((a, b) => b.minUnits - a.minUnits);
+
+        if (granting.length > 0) {
+            rules[t.apiName] = granting;
+        }
+    }
+
+    return rules;
+}
+
 /**
  * How many extra team slots the player gets beyond their level cap
  * when the given traits are active or locked at their given counts.
@@ -29,15 +52,24 @@ type LockOrActive = {
  * Pass either active traits (from buildActiveTraits) or trait locks —
  * the shape difference is absorbed.
  */
-export function teamSizeBonus(traits: LockOrActive[] | undefined | null): number {
-    if (!traits || traits.length === 0) return 0;
+export function teamSizeBonus(
+    traits: LockOrActive[] | undefined | null,
+    rules: TeamSizeRules,
+): number {
+    if (!traits || traits.length === 0) {
+        return 0;
+    }
+
     let bonus = 0;
+
     for (const t of traits) {
         const n = t.count ?? t.minUnits ?? 0;
-        // Mecha @ 6 breakpoint → +1 Companion Mech slot.
-        if (t.apiName === 'TFT17_Mecha' && n >= 6) {
-            bonus += 1;
+        const hit = rules[t.apiName]?.find(r => n >= r.minUnits);
+
+        if (hit) {
+            bonus += hit.bonus;
         }
     }
+
     return bonus;
 }

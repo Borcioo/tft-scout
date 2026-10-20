@@ -1,3 +1,5 @@
+import { traitAmount } from './trait-amount';
+
 /**
  * Compute active traits for a team given champion objects and emblems.
  *
@@ -6,7 +8,8 @@
  * helper (which scores a saved team without running the generator).
  *
  * Applies:
- * - Mecha "enhanced" 2x counting for TFT17_Mecha trait
+ * - per-champion trait amounts (Lux forms ×2, Elder Dragon ×2 Riftbeast,
+ *   Mecha Enhanced ×2 — see trait-amount.ts)
  * - Emblem holder capping (emblem only counts for champs not already having the trait)
  *
  * @param {object[]} champions - champion objects with { apiName, traits, variant, ... }
@@ -25,8 +28,7 @@ traitMap[t.apiName] = t;
 
   for (const c of champions) {
     for (const t of c.traits) {
-      const isMechaEnhanced = c.variant === 'enhanced' && t === 'TFT17_Mecha';
-      traitCounts[t] = (traitCounts[t] || 0) + (isMechaEnhanced ? 2 : 1);
+      traitCounts[t] = (traitCounts[t] || 0) + traitAmount(c, t);
     }
   }
 
