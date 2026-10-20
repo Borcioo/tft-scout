@@ -1,6 +1,11 @@
 import { statSync } from 'node:fs';
 
-import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import {
+    assertDbExists,
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    openDb,
+} from '../../lab/db';
 import { currentGitSha } from '../../lab/git';
 
 export async function runLabDoctor(argv: string[]): Promise<void> {
@@ -11,20 +16,21 @@ export async function runLabDoctor(argv: string[]): Promise<void> {
         const a = argv[i];
 
         if (a === '--db') {
-dbPath = argv[++i];
-} else {
-throw new Error(`Unknown flag for lab doctor: ${a}`);
-}
+            dbPath = argv[++i];
+        } else {
+            throw new Error(`Unknown flag for lab doctor: ${a}`);
+        }
     }
 
     assertDbExists(dbPath);
     const db = openDb(dbPath, true);
 
-    const version = (
-        db.prepare('SELECT version FROM schema_version LIMIT 1').get() as
-            | { version: number }
-            | undefined
-    )?.version ?? null;
+    const version =
+        (
+            db.prepare('SELECT version FROM schema_version LIMIT 1').get() as
+                | { version: number }
+                | undefined
+        )?.version ?? null;
 
     const counts: Record<string, number> = {};
 
@@ -36,7 +42,9 @@ throw new Error(`Unknown flag for lab doctor: ${a}`);
         'breakdown_components',
     ]) {
         counts[table] = (
-            db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as { c: number }
+            db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as {
+                c: number;
+            }
         ).c;
     }
 
@@ -69,6 +77,6 @@ throw new Error(`Unknown flag for lab doctor: ${a}`);
                 : null,
     };
 
-    process.stdout.write(JSON.stringify(out, null, 2) + '\n');
+    process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
     db.close();
 }

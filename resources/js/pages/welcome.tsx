@@ -1,11 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import {
-    Crosshair,
-    ShieldPlus,
-    Sparkles,
-    Target,
-    Users,
-} from 'lucide-react';
+import { Crosshair, ShieldPlus, Sparkles, Target, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,7 +35,7 @@ export default function Welcome({ canRegister = true }: WelcomeProps) {
                     </Badge>
 
                     <div className="flex flex-col gap-3">
-                        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+                        <h1 className="font-bold text-4xl tracking-tight md:text-5xl">
                             Build the perfect TFT comp,{' '}
                             <span className="bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
                                 powered by real data.
@@ -49,9 +43,9 @@ export default function Welcome({ canRegister = true }: WelcomeProps) {
                         </h1>
                         <p className="max-w-2xl text-lg text-muted-foreground">
                             Scout scans thousands of high-elo games to find the
-                            optimal composition for any locked champion or
-                            trait combo. Browse the full roster, save your
-                            favorite builds, and share plans with friends.
+                            optimal composition for any locked champion or trait
+                            combo. Browse the full roster, save your favorite
+                            builds, and share plans with friends.
                         </p>
                     </div>
 
@@ -70,7 +64,9 @@ export default function Welcome({ canRegister = true }: WelcomeProps) {
                         </Button>
                         {!auth.user && canRegister && (
                             <Button asChild size="lg" variant="ghost">
-                                <Link href={register()}>Create free account</Link>
+                                <Link href={register()}>
+                                    Create free account
+                                </Link>
                             </Button>
                         )}
                     </div>
@@ -96,7 +92,7 @@ export default function Welcome({ canRegister = true }: WelcomeProps) {
                 </section>
 
                 {/* ── Footer note ─────────────────────── */}
-                <section className="flex flex-wrap items-center justify-between gap-3 border-t pt-6 text-sm text-muted-foreground">
+                <section className="flex flex-wrap items-center justify-between gap-3 border-t pt-6 text-muted-foreground text-sm">
                     <p>
                         Data from{' '}
                         <a

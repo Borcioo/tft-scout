@@ -36,9 +36,15 @@ describe('buildActiveTraits', () => {
     it('counts a Lux form twice for its element', () => {
         const team = [
             { apiName: 'C1', traits: ['Coven'] },
-            { apiName: 'LuxCoven', traits: ['Coven', 'Avatar'], traitAmounts: { Coven: 2 } },
+            {
+                apiName: 'LuxCoven',
+                traits: ['Coven', 'Avatar'],
+                traitAmounts: { Coven: 2 },
+            },
         ];
-        const covenActive = buildActiveTraits(team, [coven], []).find((t: any) => t.apiName === 'Coven');
+        const covenActive = buildActiveTraits(team, [coven], []).find(
+            (t: any) => t.apiName === 'Coven',
+        );
 
         expect(covenActive?.count).toBe(3);
         expect(covenActive?.activeBreakpoint).toBe(3);
@@ -46,11 +52,19 @@ describe('buildActiveTraits', () => {
 
     it('counts Elder Dragon as two Riftbeast', () => {
         const team = [
-            { apiName: 'Elder', traits: ['Riftbeast'], traitAmounts: { Riftbeast: 2 } },
+            {
+                apiName: 'Elder',
+                traits: ['Riftbeast'],
+                traitAmounts: { Riftbeast: 2 },
+            },
             { apiName: 'R1', traits: ['Riftbeast'] },
         ];
 
-        expect(buildActiveTraits(team, [riftbeast], []).find((t: any) => t.apiName === 'Riftbeast')?.count).toBe(3);
+        expect(
+            buildActiveTraits(team, [riftbeast], []).find(
+                (t: any) => t.apiName === 'Riftbeast',
+            )?.count,
+        ).toBe(3);
     });
 
     it('caps emblems by champions that can hold them', () => {
@@ -60,13 +74,23 @@ describe('buildActiveTraits', () => {
             { apiName: 'X', traits: [] },
         ];
         // Two Coven emblems but only one non-Coven holder
-        const covenActive = buildActiveTraits(team, [coven], ['Coven', 'Coven']).find((t: any) => t.apiName === 'Coven');
+        const covenActive = buildActiveTraits(
+            team,
+            [coven],
+            ['Coven', 'Coven'],
+        ).find((t: any) => t.apiName === 'Coven');
 
         expect(covenActive?.count).toBe(3);
     });
 
     it('skips traits below their first breakpoint', () => {
-        expect(buildActiveTraits([{ apiName: 'C1', traits: ['Coven'] }], [coven], [])).toEqual([]);
+        expect(
+            buildActiveTraits(
+                [{ apiName: 'C1', traits: ['Coven'] }],
+                [coven],
+                [],
+            ),
+        ).toEqual([]);
     });
 });
 

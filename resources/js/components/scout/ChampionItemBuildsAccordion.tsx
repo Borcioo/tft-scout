@@ -66,7 +66,7 @@ export function ChampionItemBuildsAccordion({ champions, itemBuilds }: Props) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="flex w-full items-center justify-between font-medium text-muted-foreground text-sm transition-colors hover:text-foreground"
             >
                 <span>Item builds</span>
                 <ChevronDown
@@ -85,7 +85,11 @@ export function ChampionItemBuildsAccordion({ champions, itemBuilds }: Props) {
                             <ChampionBuildsRow
                                 key={champ.apiName}
                                 champ={champ}
-                                builds={itemBuilds[champ.baseApiName ?? champ.apiName] ?? []}
+                                builds={
+                                    itemBuilds[
+                                        champ.baseApiName ?? champ.apiName
+                                    ] ?? []
+                                }
                             />
                         ))}
                 </div>
@@ -120,7 +124,7 @@ function ChampionBuildsRow({
             </div>
 
             <div className="flex flex-1 flex-col gap-1">
-                <div className="text-xs font-semibold text-foreground/90">
+                <div className="font-semibold text-foreground/90 text-xs">
                     {champ.name}
                 </div>
 
@@ -144,7 +148,9 @@ function ChampionBuildsRow({
                                             title={build.names[j] ?? item}
                                             className="size-8 rounded border border-border/60 object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none';
                                             }}
                                         />
                                     ))}
@@ -157,7 +163,7 @@ function ChampionBuildsRow({
                                 {build.tier && (
                                     <span
                                         className={cn(
-                                            'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 text-[10px] font-bold',
+                                            'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 font-bold text-[10px]',
                                             TIER_STYLES[build.tier] ?? '',
                                         )}
                                     >

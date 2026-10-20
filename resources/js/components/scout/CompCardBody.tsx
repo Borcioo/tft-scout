@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
-
-import { ChampionItemBuildsAccordion, type ItemBuildsMap } from './ChampionItemBuildsAccordion';
+import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
+import { ChampionItemBuildsAccordion } from './ChampionItemBuildsAccordion';
 import { ChampionVariantBadge } from './ChampionVariantBadge';
 import { WhyThisComp } from './WhyThisComp';
 
@@ -70,22 +70,29 @@ export function CompCardBody({
         <Card className="flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    {headerLeft ?? titleTraits.map((t, i) => (
-                        <span
-                            key={t.apiName}
-                            className="flex items-center gap-1 text-sm font-semibold"
-                        >
-                            {t.icon && (
-                                <img src={t.icon} alt="" className="size-4" />
-                            )}
-                            <span className="truncate">
-                                {t.count} {t.name}
+                    {headerLeft ??
+                        titleTraits.map((t, i) => (
+                            <span
+                                key={t.apiName}
+                                className="flex items-center gap-1 font-semibold text-sm"
+                            >
+                                {t.icon && (
+                                    <img
+                                        src={t.icon}
+                                        alt=""
+                                        className="size-4"
+                                    />
+                                )}
+                                <span className="truncate">
+                                    {t.count} {t.name}
+                                </span>
+                                {i < titleTraits.length - 1 && (
+                                    <span className="text-muted-foreground">
+                                        +
+                                    </span>
+                                )}
                             </span>
-                            {i < titleTraits.length - 1 && (
-                                <span className="text-muted-foreground">+</span>
-                            )}
-                        </span>
-                    ))}
+                        ))}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                     {team.metaMatch && (
@@ -98,9 +105,9 @@ export function CompCardBody({
                             Meta · avg {team.metaMatch.avgPlace.toFixed(2)}
                         </Badge>
                     )}
-                    <span className="flex items-center gap-1.5 font-mono text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1.5 font-mono text-muted-foreground text-sm">
                         Score{' '}
-                        <span className="text-lg font-bold text-amber-300">
+                        <span className="font-bold text-amber-300 text-lg">
                             {team.score.toFixed(1)}
                         </span>
                         {scoreAddon}
@@ -110,7 +117,7 @@ export function CompCardBody({
             </div>
 
             {team.roles && (
-                <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                <div className="flex items-center gap-3 font-mono text-muted-foreground text-xs">
                     <span className="flex items-center gap-1 text-blue-400">
                         <Shield className="size-3.5" aria-label="Frontline" />
                         {team.roles.frontline}
@@ -152,7 +159,10 @@ export function CompCardBody({
                                     {c.name.slice(0, 3)}
                                 </span>
                             )}
-                            <ChampionVariantBadge variant={(c as any).variant} size="md" />
+                            <ChampionVariantBadge
+                                variant={(c as any).variant}
+                                size="md"
+                            />
                         </div>
                     ))}
             </div>
@@ -176,7 +186,11 @@ export function CompCardBody({
                                 )}
                             >
                                 {t.icon && (
-                                    <img src={t.icon} alt="" className="size-3" />
+                                    <img
+                                        src={t.icon}
+                                        alt=""
+                                        className="size-3"
+                                    />
                                 )}
                                 {t.count} {t.name}
                             </Badge>

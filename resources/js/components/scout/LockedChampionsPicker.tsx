@@ -58,8 +58,12 @@ export function LockedChampionsPicker({
                 : excludedSet.has(b.apiName)
                   ? 1
                   : 2;
-            if (aRank !== bRank) return aRank - bRank;
-            if (a.cost !== b.cost) return a.cost - b.cost;
+            if (aRank !== bRank) {
+                return aRank - bRank;
+            }
+            if (a.cost !== b.cost) {
+                return a.cost - b.cost;
+            }
             return a.name.localeCompare(b.name);
         });
 
@@ -68,7 +72,9 @@ export function LockedChampionsPicker({
             onChangeLocked(locked.filter((a) => a !== apiName));
             return;
         }
-        if (locked.length >= 10) return;
+        if (locked.length >= 10) {
+            return;
+        }
         // Lock wins over exclude.
         if (excludedSet.has(apiName)) {
             onChangeExcluded(excluded.filter((a) => a !== apiName));
@@ -90,7 +96,7 @@ export function LockedChampionsPicker({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border bg-card p-4">
-            <Label className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+            <Label className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wider">
                 Champions
                 <span className="font-normal normal-case">
                     · locked {locked.length}/10 · banned {excluded.length}
@@ -154,13 +160,15 @@ export function LockedChampionsPicker({
                             >
                                 {champ.name}
                             </span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-muted-foreground text-xs">
                                 {champ.cost}g
                             </span>
                             <button
                                 type="button"
                                 onClick={() => toggleLock(champ.apiName)}
-                                title={isLocked ? 'Unlock' : 'Lock (must include)'}
+                                title={
+                                    isLocked ? 'Unlock' : 'Lock (must include)'
+                                }
                                 className={cn(
                                     'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
                                     isLocked
@@ -173,7 +181,9 @@ export function LockedChampionsPicker({
                             <button
                                 type="button"
                                 onClick={() => toggleExclude(champ.apiName)}
-                                title={isExcluded ? 'Unban' : 'Ban (never include)'}
+                                title={
+                                    isExcluded ? 'Unban' : 'Ban (never include)'
+                                }
                                 className={cn(
                                     'flex size-6 shrink-0 items-center justify-center rounded border transition-colors',
                                     isExcluded

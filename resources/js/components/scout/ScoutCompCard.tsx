@@ -7,12 +7,13 @@ import { generatePlannerCode } from '@/lib/plannerCode';
 import { cn } from '@/lib/utils';
 import type { ScoredTeam } from '@/workers/scout/types';
 
-import { type ItemBuildsMap } from './ChampionItemBuildsAccordion';
+import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
 import { buildPlanName, CompCardBody } from './CompCardBody';
 
 function getCsrfToken(): string {
     return (
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
     );
 }
 
@@ -34,7 +35,9 @@ function flattenEmblems(emblems: EmblemEntry[]): string[] {
     const out: string[] = [];
     for (const e of emblems) {
         const count = Math.max(1, e.count | 0);
-        for (let i = 0; i < count; i++) out.push(e.apiName);
+        for (let i = 0; i < count; i++) {
+            out.push(e.apiName);
+        }
     }
     return out;
 }
@@ -47,16 +50,24 @@ export function ScoutCompCard({
     level,
     emblems,
 }: Props) {
-    const { auth, tftSet } = usePage<{ auth: { user: { id: number } | null }; tftSet?: number }>().props;
+    const { auth, tftSet } = usePage<{
+        auth: { user: { id: number } | null };
+        tftSet?: number;
+    }>().props;
     const isAuthed = !!auth?.user;
 
     const [copied, setCopied] = useState(false);
     const [saving, setSaving] = useState(false);
-    const plannerCode = generatePlannerCode(team.champions, tftSet != null ? String(tftSet) : null);
+    const plannerCode = generatePlannerCode(
+        team.champions,
+        tftSet != null ? String(tftSet) : null,
+    );
     const isSaved = plannerCode != null && savedCodes.has(plannerCode);
 
     const handleCopy = async () => {
-        if (!plannerCode) return;
+        if (!plannerCode) {
+            return;
+        }
         try {
             await navigator.clipboard.writeText(plannerCode);
             setCopied(true);
@@ -68,7 +79,9 @@ export function ScoutCompCard({
     };
 
     const handleSave = async () => {
-        if (saving || isSaved) return;
+        if (saving || isSaved) {
+            return;
+        }
         setSaving(true);
         try {
             const res = await fetch('/api/plans', {
@@ -150,7 +163,8 @@ export function ScoutCompCard({
                             disabled={saving || isSaved}
                             className={cn(
                                 'h-7 gap-1.5 text-xs',
-                                isSaved && 'border-amber-500/60 bg-amber-950/30',
+                                isSaved &&
+                                    'border-amber-500/60 bg-amber-950/30',
                             )}
                             title={
                                 isSaved

@@ -16,10 +16,10 @@ export default function AugmentsIndex() {
 
             <div className="flex flex-col gap-6 p-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
+                    <h1 className="font-bold text-2xl tracking-tight">
                         Augments
                     </h1>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                         All augments grouped by tier, with trait-gated
                         requirements.
                     </p>

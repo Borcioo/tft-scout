@@ -24,10 +24,14 @@ export function useUrlState<T>(
     // default. Inertia hydrates on the client so the effect below
     // reconciles the URL on first client render.
     const [value, setValue] = useState<T>(() => {
-        if (typeof window === 'undefined') return defaultValue;
+        if (typeof window === 'undefined') {
+            return defaultValue;
+        }
         const params = new URLSearchParams(window.location.search);
         const raw = params.get(key);
-        if (raw === null) return defaultValue;
+        if (raw === null) {
+            return defaultValue;
+        }
         try {
             return parse(raw);
         } catch {
@@ -43,7 +47,9 @@ export function useUrlState<T>(
             isFirstRender.current = false;
             return;
         }
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined') {
+            return;
+        }
         const params = new URLSearchParams(window.location.search);
         const serialized = serialize(value);
         if (serialized === null || serialized === '') {
@@ -54,7 +60,7 @@ export function useUrlState<T>(
         const qs = params.toString();
         const url =
             window.location.pathname +
-            (qs ? '?' + qs : '') +
+            (qs ? `?${qs}` : '') +
             window.location.hash;
         window.history.replaceState(null, '', url);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,8 +79,7 @@ export function intCodec(defaultValue: number) {
             const n = parseInt(raw, 10);
             return Number.isFinite(n) ? n : defaultValue;
         },
-        serialize: (v: number) =>
-            v === defaultValue ? null : String(v),
+        serialize: (v: number) => (v === defaultValue ? null : String(v)),
     };
 }
 
@@ -100,15 +105,23 @@ export const csvCodec = {
  */
 export function keyValueListCodec<K extends string>(valueKey: K) {
     return {
-        parse: (raw: string): Array<{ apiName: string } & Record<K, number>> => {
-            if (raw === '') return [];
+        parse: (
+            raw: string,
+        ): Array<{ apiName: string } & Record<K, number>> => {
+            if (raw === '') {
+                return [];
+            }
             return raw
                 .split(',')
                 .map((pair) => {
                     const [api, nStr] = pair.split(':');
                     const n = parseInt(nStr ?? '', 10);
-                    if (!api || !Number.isFinite(n)) return null;
-                    return { apiName: api, [valueKey]: n } as { apiName: string } & Record<K, number>;
+                    if (!api || !Number.isFinite(n)) {
+                        return null;
+                    }
+                    return { apiName: api, [valueKey]: n } as {
+                        apiName: string;
+                    } & Record<K, number>;
                 })
                 .filter(
                     (x): x is { apiName: string } & Record<K, number> =>

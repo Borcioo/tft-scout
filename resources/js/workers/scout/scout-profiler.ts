@@ -30,11 +30,18 @@ type Span = { name: string; durationMs: number; count: number };
 const spans = new Map<string, Span>();
 
 function isEnabled(): boolean {
-    if (typeof process !== 'undefined' && process.env && process.env.SCOUT_PROFILE === '1') {
+    if (
+        typeof process !== 'undefined' &&
+        process.env &&
+        process.env.SCOUT_PROFILE === '1'
+    ) {
         return true;
     }
 
-    if (typeof globalThis !== 'undefined' && (globalThis as any).__SCOUT_PROFILE__ === true) {
+    if (
+        typeof globalThis !== 'undefined' &&
+        (globalThis as any).__SCOUT_PROFILE__ === true
+    ) {
         return true;
     }
 

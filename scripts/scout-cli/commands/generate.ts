@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 // @ts-expect-error — engine.ts uses `// @ts-nocheck`, no public types
 import { generate } from '../../../resources/js/workers/scout/engine';
 import { loadContext } from '../context';
-import { summariseGenerate  } from '../format';
-import type {GenerateFilteredCounts} from '../format';
+import type { GenerateFilteredCounts } from '../format';
+import { summariseGenerate } from '../format';
 import { assertLabEnabled, openDb } from '../lab/db';
 import { currentGitSha } from '../lab/git';
 import { recordRun } from '../lab/ingest';
@@ -12,7 +12,10 @@ import { parseCommonArgs } from '../params';
 
 export async function runGenerate(argv: string[]): Promise<void> {
     const args = parseCommonArgs(argv);
-    const ctx = await loadContext({ live: args.live, snapshotPath: args.snapshotPath });
+    const ctx = await loadContext({
+        live: args.live,
+        snapshotPath: args.snapshotPath,
+    });
 
     if (args.rawInputPath) {
         const raw = JSON.parse(readFileSync(args.rawInputPath, 'utf8'));
@@ -103,7 +106,7 @@ export async function runGenerate(argv: string[]): Promise<void> {
 
 function printResults(results: any[], full: boolean): void {
     if (full) {
-        process.stdout.write(JSON.stringify(results, null, 2) + '\n');
+        process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
 
         return;
     }
@@ -118,5 +121,7 @@ function printResults(results: any[], full: boolean): void {
         afterValidComps: results.length,
         afterTopN: results.length,
     };
-    process.stdout.write(JSON.stringify(summariseGenerate(results, filtered), null, 2) + '\n');
+    process.stdout.write(
+        `${JSON.stringify(summariseGenerate(results, filtered), null, 2)}\n`,
+    );
 }

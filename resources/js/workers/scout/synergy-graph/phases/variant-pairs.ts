@@ -34,34 +34,37 @@ export function phaseVariantPairs(ctx: PhaseContext): void {
 
     for (const [api, node] of Object.entries(graph.nodes)) {
         if (!node) {
-continue;
-}
+            continue;
+        }
 
         if (excludedSet.has(api)) {
-continue;
-}
+            continue;
+        }
 
         if (node.variant === 'hero') {
-continue;
-}
+            continue;
+        }
 
         if (context.allowedSet && !context.allowedSet.has(api)) {
-continue;
-}
+            continue;
+        }
 
         const slots = node.slotsUsed ?? 1;
-        const maxAmount = Math.max(1, ...Object.values(node.traitAmounts ?? {}));
+        const maxAmount = Math.max(
+            1,
+            ...Object.values(node.traitAmounts ?? {}),
+        );
 
         if (slots < 2 && maxAmount < 2) {
-continue;
-}
+            continue;
+        }
 
         multiCount.push(api);
     }
 
     if (multiCount.length === 0) {
-return;
-}
+        return;
+    }
 
     // Deterministic order every run.
     multiCount.sort();
@@ -83,12 +86,12 @@ return;
             const [a, b] = [multiCount[i], multiCount[j]];
 
             if (conflicts(a, b)) {
-continue;
-}
+                continue;
+            }
 
             if (slotsOf(a) + slotsOf(b) > teamSize) {
-continue;
-}
+                continue;
+            }
 
             seedShapes.push([a, b]);
         }
@@ -97,7 +100,8 @@ continue;
     // Full set — only when every member is compatible and it fits the
     // slot budget (TFT17's three Enhanced Mechas).
     const allCompatible = multiCount.every((a, i) =>
-        multiCount.slice(i + 1).every(b => !conflicts(a, b)));
+        multiCount.slice(i + 1).every((b) => !conflicts(a, b)),
+    );
     const allSlots = multiCount.reduce((s, api) => s + slotsOf(api), 0);
 
     if (multiCount.length > 2 && allCompatible && allSlots <= teamSize) {

@@ -29,11 +29,11 @@ export function scopeRunIdSubquery(scope: Scope): {
         params.since = scope.since;
     }
 
-    const where = clauses.length > 0 ? 'WHERE ' + clauses.join(' AND ') : '';
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const limit =
         scope.all || scope.lastN === null
             ? ''
-            : ' ORDER BY ts DESC LIMIT ' + Number(scope.lastN);
+            : ` ORDER BY ts DESC LIMIT ${Number(scope.lastN)}`;
 
     return {
         sql: `SELECT id FROM runs ${where} ${limit}`,
@@ -269,17 +269,19 @@ export function rowsToMarkdown(
     rows: Record<string, unknown>[],
 ): string {
     if (rows.length === 0) {
-return '_(no rows)_\n';
-}
+        return '_(no rows)_\n';
+    }
 
-    const header = '| ' + columns.join(' | ') + ' |';
-    const sep = '| ' + columns.map(() => '---').join(' | ') + ' |';
+    const header = `| ${columns.join(' | ')} |`;
+    const sep = `| ${columns.map(() => '---').join(' | ')} |`;
     const body = rows
         .map(
             (r) =>
-                '| ' + columns.map((c) => String(r[c] ?? '')).join(' | ') + ' |',
+                '| ' +
+                columns.map((c) => String(r[c] ?? '')).join(' | ') +
+                ' |',
         )
         .join('\n');
 
-    return [header, sep, body].join('\n') + '\n';
+    return `${[header, sep, body].join('\n')}\n`;
 }

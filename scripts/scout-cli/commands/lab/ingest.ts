@@ -1,7 +1,7 @@
 import { openDb } from '../../lab/db';
 import { currentGitSha } from '../../lab/git';
-import { recordRun } from '../../lab/ingest';
 import type { RecordRunInput, RecordRunMeta } from '../../lab/ingest';
+import { recordRun } from '../../lab/ingest';
 
 type IngestBody = {
     params?: RecordRunInput['params'];
@@ -30,7 +30,9 @@ async function readStdinJson(): Promise<IngestBody> {
     try {
         return JSON.parse(raw) as IngestBody;
     } catch (err) {
-        throw new Error(`lab ingest: invalid JSON on stdin — ${(err as Error).message}`);
+        throw new Error(
+            `lab ingest: invalid JSON on stdin — ${(err as Error).message}`,
+        );
     }
 }
 
@@ -47,7 +49,9 @@ export async function runLabIngest(): Promise<void> {
     const body = await readStdinJson();
 
     if (!body.params || !Array.isArray(body.results)) {
-        throw new Error('lab ingest: body must include `params` and `results[]`');
+        throw new Error(
+            'lab ingest: body must include `params` and `results[]`',
+        );
     }
 
     const meta: RecordRunMeta = {
@@ -71,5 +75,8 @@ export async function runLabIngest(): Promise<void> {
         meta,
     );
 
-    process.stdout.write(JSON.stringify({ runId, source: meta.source, gitSha: meta.gitSha }) + '\n');
+    process.stdout.write(
+        JSON.stringify({ runId, source: meta.source, gitSha: meta.gitSha }) +
+            '\n',
+    );
 }

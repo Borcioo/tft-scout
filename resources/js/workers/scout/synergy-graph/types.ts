@@ -8,13 +8,13 @@
 // Fields reflect the actual monolith return value — do not rename them
 // (refactor is behavior-preserving).
 export type Graph = {
-  nodes: Record<string, any>;
-  traitMap: Record<string, string[]>;
-  adjacency: Record<string, any[]>;
-  traitBreakpoints: Record<string, number[]>;
-  traitStyles: Record<string, Record<number, string>>;
-  scoringCtx: any;
-  exclusionLookup: Record<string, Set<string>>;
+    nodes: Record<string, any>;
+    traitMap: Record<string, string[]>;
+    adjacency: Record<string, any[]>;
+    traitBreakpoints: Record<string, number[]>;
+    traitStyles: Record<string, Record<number, string>>;
+    scoringCtx: any;
+    exclusionLookup: Record<string, Set<string>>;
 };
 
 // Phase contract. All phases implement this signature post-Task 14.
@@ -23,23 +23,23 @@ export type Graph = {
 // parameters the 10 phase bodies destructure — add to it only if
 // a new phase needs a field none of the existing phases read.
 export type PhaseContext = {
-  graph: Graph;
-  teamSize: number;
-  startChamps: any[];
-  context: any;
-  rng: any;
-  maxResults: number;
-  results: any;
-  addResult: (team: any) => void;
-  excludedSet: Set<string>;
-  excludedTraits: string[];
-  emblems: string[];
+    graph: Graph;
+    teamSize: number;
+    startChamps: any[];
+    context: any;
+    rng: any;
+    maxResults: number;
+    results: any;
+    addResult: (team: any) => void;
+    excludedSet: Set<string>;
+    excludedTraits: string[];
+    emblems: string[];
 };
 
 export type Phase = (ctx: PhaseContext) => void;
 
 export type PhaseEntry = {
-  name: string;
-  phase: Phase;
-  skipWhen?: (ctx: PhaseContext) => boolean;
+    name: string;
+    phase: Phase;
+    skipWhen?: (ctx: PhaseContext) => boolean;
 };

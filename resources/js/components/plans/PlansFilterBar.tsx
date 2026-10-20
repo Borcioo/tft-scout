@@ -82,7 +82,7 @@ export function PlansFilterBar({
         <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
             <div className="flex flex-wrap items-center gap-2">
                 <div className="relative min-w-[220px] flex-1">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         type="search"
                         value={query}
@@ -130,7 +130,7 @@ export function PlansFilterBar({
                     </Button>
                 )}
 
-                <span className="ml-auto text-xs text-muted-foreground">
+                <span className="ml-auto text-muted-foreground text-xs">
                     {matchedCount} of {totalCount} plans
                 </span>
             </div>
@@ -138,8 +138,12 @@ export function PlansFilterBar({
             {(selectedChampions.length > 0 || selectedTraits.length > 0) && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     {selectedChampions.map((api) => {
-                        const c = championOptions.find((o) => o.apiName === api);
-                        if (!c) return null;
+                        const c = championOptions.find(
+                            (o) => o.apiName === api,
+                        );
+                        if (!c) {
+                            return null;
+                        }
                         return (
                             <Badge
                                 key={api}
@@ -147,14 +151,20 @@ export function PlansFilterBar({
                                 className="gap-1 pr-1"
                             >
                                 {c.icon && (
-                                    <img src={c.icon} alt="" className="size-3.5 rounded-sm" />
+                                    <img
+                                        src={c.icon}
+                                        alt=""
+                                        className="size-3.5 rounded-sm"
+                                    />
                                 )}
                                 {c.name}
                                 <button
                                     type="button"
                                     onClick={() =>
                                         onChampionsChange(
-                                            selectedChampions.filter((a) => a !== api),
+                                            selectedChampions.filter(
+                                                (a) => a !== api,
+                                            ),
                                         )
                                     }
                                     className="rounded-sm p-0.5 hover:bg-muted"
@@ -167,7 +177,9 @@ export function PlansFilterBar({
                     })}
                     {selectedTraits.map((api) => {
                         const t = traitOptions.find((o) => o.apiName === api);
-                        if (!t) return null;
+                        if (!t) {
+                            return null;
+                        }
                         return (
                             <Badge
                                 key={api}
@@ -175,14 +187,20 @@ export function PlansFilterBar({
                                 className="gap-1 pr-1"
                             >
                                 {t.icon && (
-                                    <img src={t.icon} alt="" className="size-3.5" />
+                                    <img
+                                        src={t.icon}
+                                        alt=""
+                                        className="size-3.5"
+                                    />
                                 )}
                                 {t.name}
                                 <button
                                     type="button"
                                     onClick={() =>
                                         onTraitsChange(
-                                            selectedTraits.filter((a) => a !== api),
+                                            selectedTraits.filter(
+                                                (a) => a !== api,
+                                            ),
                                         )
                                     }
                                     className="rounded-sm p-0.5 hover:bg-muted"
@@ -245,7 +263,7 @@ function MultiSelect({
                     <span className="truncate">
                         {label}
                         {selected.length > 0 && (
-                            <span className="ml-1 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            <span className="ml-1 rounded bg-primary/20 px-1.5 py-0.5 font-medium text-[10px] text-primary">
                                 {selected.length}
                             </span>
                         )}
@@ -255,7 +273,9 @@ function MultiSelect({
             </PopoverTrigger>
             <PopoverContent className="w-[280px] p-0" align="start">
                 <Command>
-                    <CommandInput placeholder={`Search ${label.toLowerCase()}…`} />
+                    <CommandInput
+                        placeholder={`Search ${label.toLowerCase()}…`}
+                    />
                     <CommandList>
                         <CommandEmpty>{emptyText}</CommandEmpty>
                         <CommandGroup>
@@ -280,11 +300,15 @@ function MultiSelect({
                                         ) : (
                                             <span className="size-5" />
                                         )}
-                                        <span className="flex-1">{opt.label}</span>
+                                        <span className="flex-1">
+                                            {opt.label}
+                                        </span>
                                         <Check
                                             className={cn(
                                                 'size-4',
-                                                isSelected ? 'opacity-100' : 'opacity-0',
+                                                isSelected
+                                                    ? 'opacity-100'
+                                                    : 'opacity-0',
                                             )}
                                         />
                                     </CommandItem>

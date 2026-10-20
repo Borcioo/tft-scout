@@ -102,7 +102,9 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
     // --params file wins for the keys it specifies; individual flags
     // fill in whatever the file did not set.
     if (paramsFile) {
-        const fileParams = JSON.parse(readFileSync(paramsFile, 'utf8')) as ScoutParams;
+        const fileParams = JSON.parse(
+            readFileSync(paramsFile, 'utf8'),
+        ) as ScoutParams;
         out.params = { ...out.params, ...fileParams };
     }
 
@@ -111,8 +113,8 @@ export function parseCommonArgs(argv: string[]): CommonArgs {
 
 function csv(value: string | undefined): string[] {
     if (!value) {
-return [];
-}
+        return [];
+    }
 
     return value
         .split(',')
@@ -120,19 +122,25 @@ return [];
         .filter((s) => s.length > 0);
 }
 
-function parseTraitLocks(value: string | undefined): { apiName: string; minUnits: number }[] {
+function parseTraitLocks(
+    value: string | undefined,
+): { apiName: string; minUnits: number }[] {
     return csv(value).map((entry) => {
         const [apiName, minUnits] = entry.split(':');
 
         if (!apiName || !minUnits) {
-            throw new Error(`--locked-trait expects "apiName:minUnits", got "${entry}"`);
+            throw new Error(
+                `--locked-trait expects "apiName:minUnits", got "${entry}"`,
+            );
         }
 
         return { apiName, minUnits: Number(minUnits) };
     });
 }
 
-function parseEmblems(value: string | undefined): { apiName: string; count: number }[] {
+function parseEmblems(
+    value: string | undefined,
+): { apiName: string; count: number }[] {
     return csv(value).map((entry) => {
         const [apiName, count] = entry.split(':');
 

@@ -1,8 +1,21 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertTriangle, Check, Copy, Minus, ShieldPlus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import {
+    AlertTriangle,
+    Check,
+    Copy,
+    Minus,
+    ShieldPlus,
+    Trash2,
+    TrendingDown,
+    TrendingUp,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { PlansFilterBar, type ChampOption, type TraitOption } from '@/components/plans/PlansFilterBar';
+import type {
+    ChampOption,
+    TraitOption,
+} from '@/components/plans/PlansFilterBar';
+import { PlansFilterBar } from '@/components/plans/PlansFilterBar';
 import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { CompCardBody } from '@/components/scout/CompCardBody';
 import { Button } from '@/components/ui/button';
@@ -61,7 +74,8 @@ type Props = {
 
 function getCsrfToken(): string {
     return (
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
     );
 }
 
@@ -112,7 +126,7 @@ function ScoreDelta({
     if (!live || live.status === 'loading') {
         return (
             <span
-                className="font-mono text-xs text-muted-foreground"
+                className="font-mono text-muted-foreground text-xs"
                 title="Recalculating with current data…"
             >
                 …
@@ -125,7 +139,7 @@ function ScoreDelta({
     if (live.score === null) {
         return (
             <span
-                className="inline-flex items-center gap-0.5 font-mono text-xs text-amber-400"
+                className="inline-flex items-center gap-0.5 font-mono text-amber-400 text-xs"
                 title={`${live.missing} champion${live.missing === 1 ? '' : 's'} missing from current pool (patch change?)`}
             >
                 <AlertTriangle className="size-3" />
@@ -141,11 +155,10 @@ function ScoreDelta({
     if (rounded === 0) {
         return (
             <span
-                className="inline-flex items-center gap-0.5 font-mono text-xs text-muted-foreground"
+                className="inline-flex items-center gap-0.5 font-mono text-muted-foreground text-xs"
                 title={`Live score ${live.score.toFixed(2)} matches snapshot`}
             >
-                <Minus className="size-3" />
-                0
+                <Minus className="size-3" />0
             </span>
         );
     }
@@ -193,13 +206,17 @@ export default function PlansIndex({
         const seen = new Set<string>();
         for (const p of plans) {
             for (const s of p.slots) {
-                if (s.champion_api_name) seen.add(s.champion_api_name);
+                if (s.champion_api_name) {
+                    seen.add(s.champion_api_name);
+                }
             }
         }
         return Array.from(seen)
             .map((api) => {
                 const info = championLookup[api];
-                if (!info) return null;
+                if (!info) {
+                    return null;
+                }
                 return {
                     apiName: info.apiName,
                     name: info.name,
@@ -227,12 +244,16 @@ export default function PlansIndex({
             // Multiselect: plan must contain EVERY selected champ/trait (AND).
             if (champSet.size > 0) {
                 for (const api of champSet) {
-                    if (!champApis.includes(api)) return false;
+                    if (!champApis.includes(api)) {
+                        return false;
+                    }
                 }
             }
             if (traitSet.size > 0) {
                 for (const api of traitSet) {
-                    if (!traitApis.includes(api)) return false;
+                    if (!traitApis.includes(api)) {
+                        return false;
+                    }
                 }
             }
 
@@ -241,13 +262,13 @@ export default function PlansIndex({
                 const haystack = [
                     plan.name,
                     ...(plan.meta?.activeTraits ?? []).map((t) => t.name),
-                    ...champApis.map(
-                        (api) => championLookup[api]?.name ?? api,
-                    ),
+                    ...champApis.map((api) => championLookup[api]?.name ?? api),
                 ]
                     .join(' ')
                     .toLowerCase();
-                if (!haystack.includes(q)) return false;
+                if (!haystack.includes(q)) {
+                    return false;
+                }
             }
 
             return true;
@@ -260,19 +281,25 @@ export default function PlansIndex({
     // in how the user configured Scout.
     useEffect(() => {
         let cancelled = false;
-        if (plans.length === 0) return;
+        if (plans.length === 0) {
+            return;
+        }
 
         setLiveScores((prev) => {
             const next = { ...prev };
             for (const p of plans) {
-                if (!next[p.id]) next[p.id] = { status: 'loading' };
+                if (!next[p.id]) {
+                    next[p.id] = { status: 'loading' };
+                }
             }
             return next;
         });
 
         (async () => {
             for (const plan of plans) {
-                if (cancelled) return;
+                if (cancelled) {
+                    return;
+                }
                 const params = plan.meta?.params;
                 const champs = plan.slots
                     .map((s) => s.champion_api_name)
@@ -293,7 +320,9 @@ export default function PlansIndex({
                         level: params.level,
                         emblems: params.emblems,
                     });
-                    if (cancelled) return;
+                    if (cancelled) {
+                        return;
+                    }
                     setLiveScores((prev) => ({
                         ...prev,
                         [plan.id]: {
@@ -303,7 +332,9 @@ export default function PlansIndex({
                         },
                     }));
                 } catch {
-                    if (cancelled) return;
+                    if (cancelled) {
+                        return;
+                    }
                     setLiveScores((prev) => ({
                         ...prev,
                         [plan.id]: { status: 'error' },
@@ -328,7 +359,8 @@ export default function PlansIndex({
                     .filter(Boolean)
                     .map((apiName) => ({
                         apiName,
-                        plannerCode: championLookup[apiName]?.plannerCode ?? null,
+                        plannerCode:
+                            championLookup[apiName]?.plannerCode ?? null,
                     })),
                 tftSet != null ? String(tftSet) : null,
             );
@@ -348,7 +380,9 @@ export default function PlansIndex({
     };
 
     const handleDelete = async (plan: Plan) => {
-        if (!confirm(`Delete "${plan.name}"?`)) return;
+        if (!confirm(`Delete "${plan.name}"?`)) {
+            return;
+        }
         setDeletingId(plan.id);
         try {
             const res = await fetch(`/api/plans/${plan.id}`, {
@@ -360,7 +394,9 @@ export default function PlansIndex({
                 },
                 credentials: 'same-origin',
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
             toast.success('Deleted');
             router.reload({ only: ['plans', 'championLookup'] });
         } catch {
@@ -375,11 +411,14 @@ export default function PlansIndex({
             <Head title="My Plans — TFT Scout" />
 
             <div className="flex flex-col gap-6 p-6">
-                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pt-6 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">My Plans</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Your saved team compositions. Save new ones from the Scout page.
+                        <h1 className="font-bold text-2xl tracking-tight">
+                            My Plans
+                        </h1>
+                        <p className="text-muted-foreground text-sm">
+                            Your saved team compositions. Save new ones from the
+                            Scout page.
                         </p>
                     </div>
 
@@ -404,39 +443,42 @@ export default function PlansIndex({
                         <div className="flex size-10 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                             <ShieldPlus className="size-5" />
                         </div>
-                        <h2 className="text-lg font-semibold">No plans yet</h2>
-                        <p className="max-w-md text-sm text-muted-foreground">
-                            Run Scout and click the ★ Save button on any comp to save it here.
+                        <h2 className="font-semibold text-lg">No plans yet</h2>
+                        <p className="max-w-md text-muted-foreground text-sm">
+                            Run Scout and click the ★ Save button on any comp to
+                            save it here.
+                        </p>
+                    </Card>
+                ) : filteredPlans.length === 0 ? (
+                    <Card className="flex flex-col items-center gap-2 p-8 text-center">
+                        <p className="font-medium text-sm">
+                            No plans match your filters
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                            Try clearing filters or adjusting your search.
                         </p>
                     </Card>
                 ) : (
-                    <>
-
-                        {filteredPlans.length === 0 ? (
-                            <Card className="flex flex-col items-center gap-2 p-8 text-center">
-                                <p className="text-sm font-medium">
-                                    No plans match your filters
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Try clearing filters or adjusting your search.
-                                </p>
-                            </Card>
-                        ) : (
-                            <div className="flex flex-col gap-4">
-                                {filteredPlans.map((plan) => {
+                    <div className="flex flex-col gap-4">
+                        {filteredPlans.map((plan) => {
                             const team = planToTeam(plan, championLookup);
 
                             return (
-                                <div key={plan.id} className="flex flex-col gap-1">
+                                <div
+                                    key={plan.id}
+                                    className="flex flex-col gap-1"
+                                >
                                     <div className="flex items-center justify-between gap-2 px-1">
                                         <div className="min-w-0">
-                                            <h3 className="truncate text-sm font-semibold">
+                                            <h3 className="truncate font-semibold text-sm">
                                                 {plan.name}
                                             </h3>
                                             {plan.updatedAt && (
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="text-muted-foreground text-xs">
                                                     Saved{' '}
-                                                    {new Date(plan.updatedAt).toLocaleString()}
+                                                    {new Date(
+                                                        plan.updatedAt,
+                                                    ).toLocaleString()}
                                                 </p>
                                             )}
                                         </div>
@@ -455,7 +497,9 @@ export default function PlansIndex({
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleCopy(plan)}
+                                                    onClick={() =>
+                                                        handleCopy(plan)
+                                                    }
                                                     className="h-7 gap-1.5 text-xs"
                                                     title="Copy TFT Team Planner code"
                                                 >
@@ -464,14 +508,20 @@ export default function PlansIndex({
                                                     ) : (
                                                         <Copy className="size-3.5" />
                                                     )}
-                                                    {copiedId === plan.id ? 'Copied' : 'Copy code'}
+                                                    {copiedId === plan.id
+                                                        ? 'Copied'
+                                                        : 'Copy code'}
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleDelete(plan)}
-                                                    disabled={deletingId === plan.id}
-                                                    className="h-7 gap-1.5 text-xs text-red-400 hover:text-red-300"
+                                                    onClick={() =>
+                                                        handleDelete(plan)
+                                                    }
+                                                    disabled={
+                                                        deletingId === plan.id
+                                                    }
+                                                    className="h-7 gap-1.5 text-red-400 text-xs hover:text-red-300"
                                                     title="Delete plan"
                                                 >
                                                     <Trash2 className="size-3.5" />
@@ -483,9 +533,7 @@ export default function PlansIndex({
                                 </div>
                             );
                         })}
-                            </div>
-                        )}
-                    </>
+                    </div>
                 )}
             </div>
         </>

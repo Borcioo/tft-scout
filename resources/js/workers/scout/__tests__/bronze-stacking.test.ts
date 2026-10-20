@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { applyBronzeStacking } from '../scorer';
 
-const bronze = (apiName: string, rawScore: number) => ({ apiName, activeIdx: 0, rawScore, near: false });
+const bronze = (apiName: string, rawScore: number) => ({
+    apiName,
+    activeIdx: 0,
+    rawScore,
+    near: false,
+});
 
 describe('applyBronzeStacking', () => {
     it('leaves a single Bronze at full value', () => {
@@ -10,7 +15,11 @@ describe('applyBronzeStacking', () => {
     });
 
     it('diminishes stacked Bronze by 0.6^k', () => {
-        const out = applyBronzeStacking([bronze('A', 10), bronze('B', 10), bronze('C', 10)]);
+        const out = applyBronzeStacking([
+            bronze('A', 10),
+            bronze('B', 10),
+            bronze('C', 10),
+        ]);
 
         expect(out.reduce((s, r) => s + r.score, 0)).toBeCloseTo(10 + 6 + 3.6);
     });
@@ -23,20 +32,27 @@ describe('applyBronzeStacking', () => {
             { apiName: 'G1', activeIdx: 2, rawScore: 30, near: false },
         ]);
 
-        expect(out.map(r => r.score)).toEqual([20, 20, 10, 30]);
+        expect(out.map((r) => r.score)).toEqual([20, 20, 10, 30]);
     });
 
     it('preserves input order but scales by descending raw score', () => {
-        const out = applyBronzeStacking([bronze('A', 5), bronze('B', 10), bronze('C', 3)]);
+        const out = applyBronzeStacking([
+            bronze('A', 5),
+            bronze('B', 10),
+            bronze('C', 3),
+        ]);
 
-        expect(out.map(r => r.apiName)).toEqual(['A', 'B', 'C']);
+        expect(out.map((r) => r.apiName)).toEqual(['A', 'B', 'C']);
         expect(out[1].score).toBeCloseTo(10);
         expect(out[0].score).toBeCloseTo(5 * 0.6);
         expect(out[2].score).toBeCloseTo(3 * 0.36);
     });
 
     it('keeps negative Bronze out of the ranking', () => {
-        const out = applyBronzeStacking([bronze('Bad', -5), bronze('Good', 10)]);
+        const out = applyBronzeStacking([
+            bronze('Bad', -5),
+            bronze('Good', 10),
+        ]);
 
         expect(out[0].score).toBeCloseTo(-5);
         expect(out[1].score).toBeCloseTo(10);

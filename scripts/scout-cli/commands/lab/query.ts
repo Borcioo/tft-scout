@@ -1,4 +1,9 @@
-import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import {
+    assertDbExists,
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    openDb,
+} from '../../lab/db';
 
 export async function runLabQuery(argv: string[]): Promise<void> {
     assertLabEnabled();
@@ -53,18 +58,19 @@ export async function runLabQuery(argv: string[]): Promise<void> {
                 lines.push(columns.map((c) => csvField(r[c])).join(','));
             }
 
-            process.stdout.write(lines.join('\n') + '\n');
+            process.stdout.write(`${lines.join('\n')}\n`);
         } else {
             process.stdout.write(
-                JSON.stringify(
+                `${JSON.stringify(
                     {
                         columns,
                         rows: sliced,
-                        truncated: rows.length > limit ? rows.length - limit : 0,
+                        truncated:
+                            rows.length > limit ? rows.length - limit : 0,
                     },
                     null,
                     2,
-                ) + '\n',
+                )}\n`,
             );
         }
     } finally {
@@ -74,13 +80,13 @@ export async function runLabQuery(argv: string[]): Promise<void> {
 
 function csvField(value: unknown): string {
     if (value === null || value === undefined) {
-return '';
-}
+        return '';
+    }
 
     const s = String(value);
 
     if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
+        return `"${s.replace(/"/g, '""')}"`;
     }
 
     return s;

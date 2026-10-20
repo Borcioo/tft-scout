@@ -1,12 +1,12 @@
 import { Head, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
+import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { EmblemPicker } from '@/components/scout/EmblemPicker';
 import { LockedChampionsPicker } from '@/components/scout/LockedChampionsPicker';
 import { LockedTraitsPicker } from '@/components/scout/LockedTraitsPicker';
 import { ScoutControls } from '@/components/scout/ScoutControls';
 import { ScoutDebugPanel } from '@/components/scout/ScoutDebugPanel';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
-import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
 import {
@@ -17,7 +17,12 @@ import {
     useUrlState,
 } from '@/hooks/use-url-state';
 import AppLayout from '@/layouts/app-layout';
-import type { Champion, ScoredTeam, ScoutContext, Trait } from '@/workers/scout/types';
+import type {
+    Champion,
+    ScoredTeam,
+    ScoutContext,
+    Trait,
+} from '@/workers/scout/types';
 
 type Props = {
     setNumber: number;
@@ -60,7 +65,9 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
     );
     const markSaved = useCallback((code: string) => {
         setSavedCodes((prev) => {
-            if (prev.has(code)) return prev;
+            if (prev.has(code)) {
+                return prev;
+            }
             const next = new Set(prev);
             next.add(code);
             return next;
@@ -86,8 +93,18 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
     // URL-persisted state — reload/refresh keeps all filters. Codecs
     // omit default values from the query string so a pristine /scout
     // URL stays clean; any changed param emits exactly one short key.
-    const [level, setLevel] = useUrlState('lvl', 9, intCodec(9).parse, intCodec(9).serialize);
-    const [topN, setTopN] = useUrlState('top', 10, intCodec(10).parse, intCodec(10).serialize);
+    const [level, setLevel] = useUrlState(
+        'lvl',
+        9,
+        intCodec(9).parse,
+        intCodec(9).serialize,
+    );
+    const [topN, setTopN] = useUrlState(
+        'top',
+        10,
+        intCodec(10).parse,
+        intCodec(10).serialize,
+    );
     const [max5Cost, setMax5Cost] = useUrlState<number | null>(
         'max5',
         null,
@@ -176,7 +193,9 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
                             source: 'ui',
                             command: 'ui-generate',
                             tag: 'ui-session',
-                            durationMs: Math.round(performance.now() - startedAt),
+                            durationMs: Math.round(
+                                performance.now() - startedAt,
+                            ),
                         }),
                     }).catch(() => {
                         // Lab ingest failures must not surface in the
@@ -189,7 +208,19 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
                 setError(err.message);
                 setIsRunning(false);
             });
-    }, [generate, labEnabled, level, topN, max5Cost, minFrontline, minDps, lockedChampions, excludedChampions, lockedTraits, emblems]);
+    }, [
+        generate,
+        labEnabled,
+        level,
+        topN,
+        max5Cost,
+        minFrontline,
+        minDps,
+        lockedChampions,
+        excludedChampions,
+        lockedTraits,
+        emblems,
+    ]);
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
@@ -210,8 +241,8 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
 
     useEffect(() => {
         if (champions.length === 0) {
-return;
-}
+            return;
+        }
 
         run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,9 +278,9 @@ return;
 
                 <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                     {contextStale && (
-                        <div className="shrink-0 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-300">
-                            Stats are updating in the background. Reload the page in a
-                            minute to see fresh numbers.
+                        <div className="shrink-0 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-amber-300 text-xs">
+                            Stats are updating in the background. Reload the
+                            page in a minute to see fresh numbers.
                         </div>
                     )}
                     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -285,7 +316,7 @@ return;
                     topN,
                     excludedChampions,
                     max5Cost,
-        
+
                     minFrontline,
                     minDps,
                     lockedChampions,

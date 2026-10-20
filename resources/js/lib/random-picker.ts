@@ -1,5 +1,5 @@
 import { traitAmount } from '@/workers/scout/trait-amount';
-import type { Champion, Trait, ScoredTeam } from '@/workers/scout/types';
+import type { Champion, ScoredTeam, Trait } from '@/workers/scout/types';
 
 export type CostTier = 'random' | 2 | 3 | 4;
 export type RandomTraitLock = { apiName: string; minUnits: number };
@@ -11,7 +11,9 @@ function defaultRng(): number {
 }
 
 function uniform<T>(pool: T[], rng: Rng): T | null {
-    if (pool.length === 0) return null;
+    if (pool.length === 0) {
+        return null;
+    }
     const idx = Math.floor(rng() * pool.length);
     // Math.random can return exactly 1 only on pathological runtimes, but
     // clamp anyway so rng()==1 doesn't land on pool[pool.length] (undefined).
@@ -33,9 +35,15 @@ export function pickRandomCarry(
     rng: Rng = defaultRng,
 ): Champion | null {
     const pool = champions.filter((c) => {
-        if (c.roleCategory === 'frontline') return false;
-        if (c.variant === 'hero') return false;
-        if (tier !== 'random' && c.cost !== tier) return false;
+        if (c.roleCategory === 'frontline') {
+            return false;
+        }
+        if (c.variant === 'hero') {
+            return false;
+        }
+        if (tier !== 'random' && c.cost !== tier) {
+            return false;
+        }
         return true;
     });
     return uniform(pool, rng);
@@ -56,18 +64,26 @@ function maxAchievableSlots(champions: Champion[], traitApi: string): number {
     const groupBest = new Map<string, number>();
 
     for (const c of champions) {
-        if (c.variant === 'hero') continue;
-        if (!c.traits.includes(traitApi)) continue;
+        if (c.variant === 'hero') {
+            continue;
+        }
+        if (!c.traits.includes(traitApi)) {
+            continue;
+        }
 
         const groupKey = c.baseApiName ?? c.apiName;
         const amount = traitAmount(c, traitApi);
         const prev = groupBest.get(groupKey) ?? 0;
 
-        if (amount > prev) groupBest.set(groupKey, amount);
+        if (amount > prev) {
+            groupBest.set(groupKey, amount);
+        }
     }
 
     let sum = 0;
-    for (const s of groupBest.values()) sum += s;
+    for (const s of groupBest.values()) {
+        sum += s;
+    }
 
     return sum;
 }
@@ -90,11 +106,17 @@ export function pickRandomTrait(
     const candidates: Candidate[] = [];
 
     for (const t of traits) {
-        if (t.category !== 'public') continue;
-        if (t.breakpoints.length === 0) continue;
+        if (t.category !== 'public') {
+            continue;
+        }
+        if (t.breakpoints.length === 0) {
+            continue;
+        }
 
         const maxSlots = maxAchievableSlots(champions, t.apiName);
-        if (maxSlots === 0) continue;
+        if (maxSlots === 0) {
+            continue;
+        }
 
         let bestBp = 0;
         for (const bp of t.breakpoints) {
@@ -103,11 +125,15 @@ export function pickRandomTrait(
             }
         }
 
-        if (bestBp > 0) candidates.push({ apiName: t.apiName, minUnits: bestBp });
+        if (bestBp > 0) {
+            candidates.push({ apiName: t.apiName, minUnits: bestBp });
+        }
     }
 
     const picked = uniform(candidates, rng);
-    if (!picked) return null;
+    if (!picked) {
+        return null;
+    }
 
     return { apiName: picked.apiName, minUnits: picked.minUnits };
 }

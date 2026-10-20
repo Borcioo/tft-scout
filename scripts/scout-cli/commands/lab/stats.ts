@@ -1,6 +1,11 @@
-import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
-import { rowsToMarkdown, STATS  } from '../../lab/queries';
-import type {Scope} from '../../lab/queries';
+import {
+    assertDbExists,
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    openDb,
+} from '../../lab/db';
+import type { Scope } from '../../lab/queries';
+import { rowsToMarkdown, STATS } from '../../lab/queries';
 
 export async function runLabStats(argv: string[]): Promise<void> {
     assertLabEnabled();
@@ -61,7 +66,7 @@ export async function runLabStats(argv: string[]): Promise<void> {
         lines.push(
             'Scope flags: --experiment <id> --tag <label> --last <N> (default 500) --since <iso> --all',
         );
-        process.stdout.write(lines.join('\n') + '\n');
+        process.stdout.write(`${lines.join('\n')}\n`);
 
         return;
     }
@@ -84,7 +89,7 @@ export async function runLabStats(argv: string[]): Promise<void> {
 
         if (asJson) {
             process.stdout.write(
-                JSON.stringify({ name, scope, columns, rows }, null, 2) + '\n',
+                `${JSON.stringify({ name, scope, columns, rows }, null, 2)}\n`,
             );
         } else {
             process.stdout.write(`# ${name}\n\n${def.description}\n\n`);

@@ -1,12 +1,18 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ItemIconStack } from './ItemIconStack';
 import type { Tier } from './ItemTierBadge';
 import { PlaceChangeBadge } from './PlaceChangeBadge';
 
 export type TopPickRow = {
-    items: string[];         // 1..3 api_names
-    names: string[];         // parallel display names
+    items: string[]; // 1..3 api_names
+    names: string[]; // parallel display names
     icons: (string | null)[]; // parallel icon paths
     avg_place: number;
     place_change: number | null;
@@ -31,19 +37,22 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
     const top = rows[0];
     const topByFreq = [...rows].sort((a, b) => b.frequency - a.frequency)[0];
 
-    const summary = top && topByFreq
-        ? `We recommend ${joinNames(top.names)} as the best build for ${championName}. Most popular: ${joinNames(topByFreq.names)}.`
-        : emptyHint;
+    const summary =
+        top && topByFreq
+            ? `We recommend ${joinNames(top.names)} as the best build for ${championName}. Most popular: ${joinNames(topByFreq.names)}.`
+            : emptyHint;
 
     return (
         <Card className="h-full">
             <CardHeader>
                 <CardTitle className="text-base">{title}</CardTitle>
-                <CardDescription className="text-xs leading-relaxed">{summary}</CardDescription>
+                <CardDescription className="text-xs leading-relaxed">
+                    {summary}
+                </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
                 {rows.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{emptyHint}</p>
+                    <p className="text-muted-foreground text-xs">{emptyHint}</p>
                 ) : (
                     rows.map((row, idx) => (
                         <div
@@ -59,14 +68,23 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
                                 size="sm"
                             />
                             <div className="grid grid-cols-3 gap-2 text-xs">
-                                <Stat label="Avg Place" value={row.avg_place.toFixed(2)} highlight />
+                                <Stat
+                                    label="Avg Place"
+                                    value={row.avg_place.toFixed(2)}
+                                    highlight
+                                />
                                 <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                                         Place Δ
                                     </span>
-                                    <PlaceChangeBadge value={row.place_change} />
+                                    <PlaceChangeBadge
+                                        value={row.place_change}
+                                    />
                                 </div>
-                                <Stat label="Play Rate" value={`${(row.frequency * 100).toFixed(1)}%`} />
+                                <Stat
+                                    label="Play Rate"
+                                    value={`${(row.frequency * 100).toFixed(1)}%`}
+                                />
                             </div>
                         </div>
                     ))
@@ -78,23 +96,35 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
 
 function joinNames(names: string[]): string {
     if (names.length === 0) {
-return '—';
-}
+        return '—';
+    }
 
     if (names.length === 1) {
-return names[0];
-}
+        return names[0];
+    }
 
     const head = names.slice(0, -1).join(', ');
 
     return `${head} and ${names[names.length - 1]}`;
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Stat({
+    label,
+    value,
+    highlight,
+}: {
+    label: string;
+    value: string;
+    highlight?: boolean;
+}) {
     return (
         <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-            <span className={cn('font-mono', highlight && 'text-amber-500')}>{value}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                {label}
+            </span>
+            <span className={cn('font-mono', highlight && 'text-amber-500')}>
+                {value}
+            </span>
         </div>
     );
 }

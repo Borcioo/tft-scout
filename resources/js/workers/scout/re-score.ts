@@ -23,20 +23,23 @@ import { teamScore } from './scorer';
  * @returns {{ score: number | null, missing: number, champions: object[], activeTraits: object[] }}
  */
 export function rescoreTeam({ championApis, level, emblems, context }: any) {
-  const { champions, traits, scoringCtx } = context;
+    const { champions, traits, scoringCtx } = context;
 
-  const champs = championApis
-    .map((api: any) => champions.find((c: any) => c.apiName === api))
-    .filter(Boolean);
+    const champs = championApis
+        .map((api: any) => champions.find((c: any) => c.apiName === api))
+        .filter(Boolean);
 
-  const missing = championApis.length - champs.length;
+    const missing = championApis.length - champs.length;
 
-  if (missing > 0) {
-    return { score: null, missing, champions: champs, activeTraits: [] };
-  }
+    if (missing > 0) {
+        return { score: null, missing, champions: champs, activeTraits: [] };
+    }
 
-  const activeTraits = buildActiveTraits(champs, traits, emblems);
-  const score = teamScore({ champions: champs, activeTraits, level }, scoringCtx);
+    const activeTraits = buildActiveTraits(champs, traits, emblems);
+    const score = teamScore(
+        { champions: champs, activeTraits, level },
+        scoringCtx,
+    );
 
-  return { score, missing: 0, champions: champs, activeTraits };
+    return { score, missing: 0, champions: champs, activeTraits };
 }

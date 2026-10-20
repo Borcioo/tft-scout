@@ -1,9 +1,17 @@
 import { loadContext } from '../context';
-import { assertLabEnabled, DEFAULT_DB_PATH, initSchema, openDb } from '../lab/db';
-import { runExperiment  } from '../lab/experiment';
-import type {ExperimentArgs} from '../lab/experiment';
+import {
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    initSchema,
+    openDb,
+} from '../lab/db';
+import type { ExperimentArgs } from '../lab/experiment';
+import { runExperiment } from '../lab/experiment';
 
-type ExperimentCliArgs = ExperimentArgs & { live: boolean; snapshotPath: string };
+type ExperimentCliArgs = ExperimentArgs & {
+    live: boolean;
+    snapshotPath: string;
+};
 
 function parseArgs(argv: string[]): ExperimentCliArgs {
     const out: ExperimentCliArgs = {
@@ -66,15 +74,25 @@ function parseArgs(argv: string[]): ExperimentCliArgs {
 export async function runExperimentCommand(argv: string[]): Promise<void> {
     assertLabEnabled();
     const args = parseArgs(argv);
-    const ctx = await loadContext({ live: args.live, snapshotPath: args.snapshotPath });
+    const ctx = await loadContext({
+        live: args.live,
+        snapshotPath: args.snapshotPath,
+    });
     const db = openDb(DEFAULT_DB_PATH);
     initSchema(db);
 
     try {
-        const result = await runExperiment(db, ctx, args, (done, total, combo) => {
-            process.stderr.write(`[${done}/${total}] ${JSON.stringify(combo)}\n`);
-        });
-        process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+        const result = await runExperiment(
+            db,
+            ctx,
+            args,
+            (done, total, combo) => {
+                process.stderr.write(
+                    `[${done}/${total}] ${JSON.stringify(combo)}\n`,
+                );
+            },
+        );
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } finally {
         db.close();
     }

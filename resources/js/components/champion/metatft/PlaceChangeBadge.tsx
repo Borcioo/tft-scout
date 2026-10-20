@@ -19,7 +19,7 @@ type Props = {
 export function PlaceChangeBadge({ value, className }: Props) {
     if (value === null || Number.isNaN(value)) {
         return (
-            <span className={cn('text-sm text-muted-foreground', className)}>
+            <span className={cn('text-muted-foreground text-sm', className)}>
                 —
             </span>
         );
@@ -27,7 +27,7 @@ export function PlaceChangeBadge({ value, className }: Props) {
 
     if (Math.abs(value) < 0.005) {
         return (
-            <span className={cn('text-sm text-muted-foreground', className)}>
+            <span className={cn('text-muted-foreground text-sm', className)}>
                 ±0.00
             </span>
         );
@@ -39,7 +39,13 @@ export function PlaceChangeBadge({ value, className }: Props) {
     const sign = value > 0 ? '+' : '';
 
     return (
-        <span className={cn('inline-flex items-center gap-0.5 text-sm font-medium', color, className)}>
+        <span
+            className={cn(
+                'inline-flex items-center gap-0.5 font-medium text-sm',
+                color,
+                className,
+            )}
+        >
             <Arrow className="size-3" strokeWidth={2.5} />
             {sign}
             {value.toFixed(2)}

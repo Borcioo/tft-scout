@@ -31,7 +31,10 @@ export function ItemIconStack({
                     src={`/icons/items/${api}.png`}
                     alt={names[i] ?? api}
                     title={names[i] ?? api}
-                    className={cn(dim, 'rounded border border-border/60 object-cover')}
+                    className={cn(
+                        dim,
+                        'rounded border border-border/60 object-cover',
+                    )}
                     onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                     }}

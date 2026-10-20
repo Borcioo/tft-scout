@@ -7,5 +7,5 @@
 // `import from './synergy-graph'` resolves here automatically via
 // folder/index.ts resolution.
 
-export { buildGraph } from './graph';
 export { findTeams } from './core';
+export { buildGraph } from './graph';

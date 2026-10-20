@@ -4,12 +4,12 @@
 
 import { SCORING_CONFIG } from '../../config';
 import {
-  FILLER_COST_WEIGHTS,
-  FILLER_PICK_DECAY,
-  FILLER_TOP_K_PER_ANCHOR,
-  FILLER_MAX_PICKS,
-  FILLER_BOOTSTRAP_ANCHORS,
-  FILLER_DEFAULT_FIVE_COST_CAP,
+    FILLER_BOOTSTRAP_ANCHORS,
+    FILLER_COST_WEIGHTS,
+    FILLER_DEFAULT_FIVE_COST_CAP,
+    FILLER_MAX_PICKS,
+    FILLER_PICK_DECAY,
+    FILLER_TOP_K_PER_ANCHOR,
 } from '../shared/const';
 import { buildOneTeam } from '../shared/team-builder';
 import type { PhaseContext } from '../types';
@@ -17,14 +17,23 @@ import type { PhaseContext } from '../types';
 const { thresholds } = SCORING_CONFIG;
 
 export function phaseCompanionSeeded(ctx: PhaseContext): void {
-  const { graph, teamSize, startChamps, context, rng, addResult } = ctx;
-  const picks = pickCompanionFillers(graph, context, startChamps);
+    const { graph, teamSize, startChamps, context, rng, addResult } = ctx;
+    const picks = pickCompanionFillers(graph, context, startChamps);
 
-  for (const filler of picks) {
-    const seeds = [...startChamps, filler];
+    for (const filler of picks) {
+        const seeds = [...startChamps, filler];
 
-    addResult(buildOneTeam(graph, teamSize, seeds, context, 0.2 + rng() * 0.3, rng));
-  }
+        addResult(
+            buildOneTeam(
+                graph,
+                teamSize,
+                seeds,
+                context,
+                0.2 + rng() * 0.3,
+                rng,
+            ),
+        );
+    }
 }
 
 // ── Companion filler ranker (Fix 1E) ───────────────
@@ -54,191 +63,201 @@ export function phaseCompanionSeeded(ctx: PhaseContext): void {
 //      topN guarantee to hold.
 
 function pickCompanionFillers(graph, context, anchorApis) {
-  const { nodes } = graph;
-  const companionData = graph.scoringCtx?.companions || {};
-  const unitRatings = graph.scoringCtx?.unitRatings || {};
+    const { nodes } = graph;
+    const companionData = graph.scoringCtx?.companions || {};
+    const unitRatings = graph.scoringCtx?.unitRatings || {};
 
-  const anchorSet = new Set(anchorApis);
-  const allowedSet = context.allowedSet;
-  const excludedSet = new Set(context.excludedChampions || []);
+    const anchorSet = new Set(anchorApis);
+    const allowedSet = context.allowedSet;
+    const excludedSet = new Set(context.excludedChampions || []);
 
-  let effectiveAnchors = anchorApis;
+    let effectiveAnchors = anchorApis;
 
-  if (effectiveAnchors.length === 0) {
-    const sorted = Object.keys(nodes)
-      .filter(api => {
-        const node = nodes[api];
+    if (effectiveAnchors.length === 0) {
+        const sorted = Object.keys(nodes)
+            .filter((api) => {
+                const node = nodes[api];
 
-        if (!node || node.variant === 'hero') {
-          return false;
-        }
+                if (!node || node.variant === 'hero') {
+                    return false;
+                }
 
-        if (excludedSet.has(api)) {
-          return false;
-        }
+                if (excludedSet.has(api)) {
+                    return false;
+                }
 
-        if (allowedSet && !allowedSet.has(api)) {
-          return false;
-        }
+                if (allowedSet && !allowedSet.has(api)) {
+                    return false;
+                }
 
-        return true;
-      })
-      .sort((a, b) => {
-        const ra = unitRatings[a]?.score ?? 0;
-        const rb = unitRatings[b]?.score ?? 0;
+                return true;
+            })
+            .sort((a, b) => {
+                const ra = unitRatings[a]?.score ?? 0;
+                const rb = unitRatings[b]?.score ?? 0;
 
-        if (ra !== rb) {
-          return rb - ra;
-        }
+                if (ra !== rb) {
+                    return rb - ra;
+                }
 
-        return a.localeCompare(b);
-      });
+                return a.localeCompare(b);
+            });
 
-    effectiveAnchors = sorted.slice(0, FILLER_BOOTSTRAP_ANCHORS);
-  }
-
-  const candidateScore = new Map();
-
-  for (const anchorApi of effectiveAnchors) {
-    const anchorNode = nodes[anchorApi];
-
-    if (!anchorNode) {
-      continue;
+        effectiveAnchors = sorted.slice(0, FILLER_BOOTSTRAP_ANCHORS);
     }
 
-    const weight = FILLER_COST_WEIGHTS[Math.max(0, Math.min(4, (anchorNode.cost || 1) - 1))];
-    const lookupApi = anchorNode.baseApiName || anchorApi;
-    const entries = companionData[lookupApi];
+    const candidateScore = new Map();
 
-    if (!entries) {
-      continue;
-    }
+    for (const anchorApi of effectiveAnchors) {
+        const anchorNode = nodes[anchorApi];
 
-    const top = [...entries]
-      .filter(c => c.games >= thresholds.companionMinGames && c.avgPlace <= thresholds.companionMaxAvg)
-      .sort((a, b) => a.avgPlace - b.avgPlace)
-      .slice(0, FILLER_TOP_K_PER_ANCHOR);
-
-    for (const comp of top) {
-      const compApi = comp.companion;
-
-      if (anchorSet.has(compApi)) {
-        continue;
-      }
-
-      if (excludedSet.has(compApi)) {
-        continue;
-      }
-
-      if (allowedSet && !allowedSet.has(compApi)) {
-        continue;
-      }
-
-      if (!nodes[compApi]) {
-        continue;
-      }
-
-      const contribution = weight * (1 - comp.avgPlace / 8);
-      candidateScore.set(compApi, (candidateScore.get(compApi) || 0) + contribution);
-    }
-  }
-
-  const fiveCostCap = Math.max(
-    0,
-    typeof context.max5Cost === 'number'
-      ? Math.min(context.max5Cost, FILLER_DEFAULT_FIVE_COST_CAP)
-      : FILLER_DEFAULT_FIVE_COST_CAP,
-  );
-  const picks = [];
-  const pickedSet = new Set();
-  let fiveCostPicks = 0;
-
-  while (picks.length < FILLER_MAX_PICKS && candidateScore.size > 0) {
-    let bestApi = null;
-    let bestScore = -Infinity;
-
-    for (const [api, score] of candidateScore) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestApi = api;
-      }
-    }
-
-    if (bestApi === null) {
-      break;
-    }
-
-    const bestNode = nodes[bestApi];
-    const isFiveCost = (bestNode?.cost || 0) === 5;
-
-    if (isFiveCost && fiveCostPicks >= fiveCostCap) {
-      candidateScore.delete(bestApi);
-      continue;
-    }
-
-    picks.push(bestApi);
-    pickedSet.add(bestApi);
-
-    if (isFiveCost) {
-      fiveCostPicks++;
-    }
-
-    candidateScore.set(bestApi, bestScore * FILLER_PICK_DECAY);
-  }
-
-  if (picks.length < FILLER_MAX_PICKS) {
-    const fallback = Object.keys(nodes)
-      .filter(api => {
-        if (pickedSet.has(api) || anchorSet.has(api)) {
-          return false;
+        if (!anchorNode) {
+            continue;
         }
 
-        const node = nodes[api];
+        const weight =
+            FILLER_COST_WEIGHTS[
+                Math.max(0, Math.min(4, (anchorNode.cost || 1) - 1))
+            ];
+        const lookupApi = anchorNode.baseApiName || anchorApi;
+        const entries = companionData[lookupApi];
 
-        if (!node || node.variant === 'hero') {
-          return false;
+        if (!entries) {
+            continue;
         }
 
-        if (excludedSet.has(api)) {
-          return false;
+        const top = [...entries]
+            .filter(
+                (c) =>
+                    c.games >= thresholds.companionMinGames &&
+                    c.avgPlace <= thresholds.companionMaxAvg,
+            )
+            .sort((a, b) => a.avgPlace - b.avgPlace)
+            .slice(0, FILLER_TOP_K_PER_ANCHOR);
+
+        for (const comp of top) {
+            const compApi = comp.companion;
+
+            if (anchorSet.has(compApi)) {
+                continue;
+            }
+
+            if (excludedSet.has(compApi)) {
+                continue;
+            }
+
+            if (allowedSet && !allowedSet.has(compApi)) {
+                continue;
+            }
+
+            if (!nodes[compApi]) {
+                continue;
+            }
+
+            const contribution = weight * (1 - comp.avgPlace / 8);
+            candidateScore.set(
+                compApi,
+                (candidateScore.get(compApi) || 0) + contribution,
+            );
         }
-
-        if (allowedSet && !allowedSet.has(api)) {
-          return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        const ra = unitRatings[a]?.score ?? 0;
-        const rb = unitRatings[b]?.score ?? 0;
-
-        if (ra !== rb) {
-          return rb - ra;
-        }
-
-        return a.localeCompare(b);
-      });
-
-    let idx = 0;
-
-    while (picks.length < FILLER_MAX_PICKS && idx < fallback.length) {
-      const api = fallback[idx++];
-      const node = nodes[api];
-      const isFiveCost = (node?.cost || 0) === 5;
-
-      if (isFiveCost && fiveCostPicks >= fiveCostCap) {
-        continue;
-      }
-
-      picks.push(api);
-      pickedSet.add(api);
-
-      if (isFiveCost) {
-        fiveCostPicks++;
-      }
     }
-  }
 
-  return picks;
+    const fiveCostCap = Math.max(
+        0,
+        typeof context.max5Cost === 'number'
+            ? Math.min(context.max5Cost, FILLER_DEFAULT_FIVE_COST_CAP)
+            : FILLER_DEFAULT_FIVE_COST_CAP,
+    );
+    const picks = [];
+    const pickedSet = new Set();
+    let fiveCostPicks = 0;
+
+    while (picks.length < FILLER_MAX_PICKS && candidateScore.size > 0) {
+        let bestApi = null;
+        let bestScore = -Infinity;
+
+        for (const [api, score] of candidateScore) {
+            if (score > bestScore) {
+                bestScore = score;
+                bestApi = api;
+            }
+        }
+
+        if (bestApi === null) {
+            break;
+        }
+
+        const bestNode = nodes[bestApi];
+        const isFiveCost = (bestNode?.cost || 0) === 5;
+
+        if (isFiveCost && fiveCostPicks >= fiveCostCap) {
+            candidateScore.delete(bestApi);
+            continue;
+        }
+
+        picks.push(bestApi);
+        pickedSet.add(bestApi);
+
+        if (isFiveCost) {
+            fiveCostPicks++;
+        }
+
+        candidateScore.set(bestApi, bestScore * FILLER_PICK_DECAY);
+    }
+
+    if (picks.length < FILLER_MAX_PICKS) {
+        const fallback = Object.keys(nodes)
+            .filter((api) => {
+                if (pickedSet.has(api) || anchorSet.has(api)) {
+                    return false;
+                }
+
+                const node = nodes[api];
+
+                if (!node || node.variant === 'hero') {
+                    return false;
+                }
+
+                if (excludedSet.has(api)) {
+                    return false;
+                }
+
+                if (allowedSet && !allowedSet.has(api)) {
+                    return false;
+                }
+
+                return true;
+            })
+            .sort((a, b) => {
+                const ra = unitRatings[a]?.score ?? 0;
+                const rb = unitRatings[b]?.score ?? 0;
+
+                if (ra !== rb) {
+                    return rb - ra;
+                }
+
+                return a.localeCompare(b);
+            });
+
+        let idx = 0;
+
+        while (picks.length < FILLER_MAX_PICKS && idx < fallback.length) {
+            const api = fallback[idx++];
+            const node = nodes[api];
+            const isFiveCost = (node?.cost || 0) === 5;
+
+            if (isFiveCost && fiveCostPicks >= fiveCostCap) {
+                continue;
+            }
+
+            picks.push(api);
+            pickedSet.add(api);
+
+            if (isFiveCost) {
+                fiveCostPicks++;
+            }
+        }
+    }
+
+    return picks;
 }

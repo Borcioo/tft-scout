@@ -23,26 +23,29 @@ type AffinityEntry = { trait: string; avgPlace: number; games: number };
  * out to avoid noise from low-sample trait combos.
  */
 export function collectAffinityMatches(
-  champion: { apiName: string; baseApiName?: string },
-  activeTraitApis: ReadonlySet<string>,
-  affinity: Record<string, readonly AffinityEntry[] | undefined>,
-  thresholds: { affinityMinGames: number },
-  weights: { affinityBonus: number },
+    champion: { apiName: string; baseApiName?: string },
+    activeTraitApis: ReadonlySet<string>,
+    affinity: Record<string, readonly AffinityEntry[] | undefined>,
+    thresholds: { affinityMinGames: number },
+    weights: { affinityBonus: number },
 ): number[] {
-  const lookupApi = champion.baseApiName ?? champion.apiName;
-  const data = affinity[lookupApi];
+    const lookupApi = champion.baseApiName ?? champion.apiName;
+    const data = affinity[lookupApi];
 
-  if (!data) {
-return [];
-}
-
-  const matches: number[] = [];
-
-  for (const aff of data) {
-    if (activeTraitApis.has(aff.trait) && aff.games >= thresholds.affinityMinGames) {
-      matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
+    if (!data) {
+        return [];
     }
-  }
 
-  return matches;
+    const matches: number[] = [];
+
+    for (const aff of data) {
+        if (
+            activeTraitApis.has(aff.trait) &&
+            aff.games >= thresholds.affinityMinGames
+        ) {
+            matches.push(weights.affinityBonus * (1 - aff.avgPlace / 8));
+        }
+    }
+
+    return matches;
 }

@@ -33,7 +33,7 @@ export function ScoutControls({
 }: Props) {
     return (
         <div className="flex shrink-0 flex-col gap-5 rounded-lg border bg-card p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wider">
                 Scout Settings
             </h2>
 
@@ -77,7 +77,9 @@ export function ScoutControls({
                     min={0}
                     max={5}
                     step={1}
-                    onValueChange={([v]) => onMax5CostChange(v === 5 ? null : v)}
+                    onValueChange={([v]) =>
+                        onMax5CostChange(v === 5 ? null : v)
+                    }
                 />
             </div>
 

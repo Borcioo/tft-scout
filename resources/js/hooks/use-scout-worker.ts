@@ -3,8 +3,8 @@ import ScoutWorker from '@/workers/scout/index?worker&inline';
 import type {
     RescoreParams,
     RescoreResult,
-    ScoutParams,
     ScoredTeam,
+    ScoutParams,
     WorkerOutMsg,
 } from '@/workers/scout/types';
 
@@ -52,10 +52,8 @@ function createWorker(): Worker {
         // error) — instead we wrap it in a same-origin blob that
         // dynamically imports it. Vite's CORS headers allow the
         // import; the blob's origin satisfies the Worker SOP check.
-        const workerUrl = new URL(
-            '../workers/scout/index.ts',
-            import.meta.url,
-        ).href;
+        const workerUrl = new URL('../workers/scout/index.ts', import.meta.url)
+            .href;
         const stub =
             `self.__API_BASE__=${JSON.stringify(location.origin)};` +
             `import ${JSON.stringify(workerUrl)};`;
@@ -83,8 +81,8 @@ function getWorker(): Worker {
             const handler = pending.get(msg.id);
 
             if (!handler) {
-return;
-}
+                return;
+            }
 
             pending.delete(msg.id);
 

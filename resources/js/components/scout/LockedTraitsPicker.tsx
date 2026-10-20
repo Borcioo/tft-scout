@@ -37,7 +37,7 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border bg-card p-4">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                 Locked traits ({locked.length})
             </Label>
             <Input
@@ -70,7 +70,8 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
                                     <Badge
                                         key={bp.position}
                                         variant={
-                                            lockedEntry?.minUnits === bp.minUnits
+                                            lockedEntry?.minUnits ===
+                                            bp.minUnits
                                                 ? 'default'
                                                 : 'outline'
                                         }
@@ -78,7 +79,8 @@ export function LockedTraitsPicker({ traits, locked, onChange }: Props) {
                                         onClick={() =>
                                             setMinUnits(
                                                 trait.apiName,
-                                                lockedEntry?.minUnits === bp.minUnits
+                                                lockedEntry?.minUnits ===
+                                                    bp.minUnits
                                                     ? 0
                                                     : bp.minUnits,
                                             )

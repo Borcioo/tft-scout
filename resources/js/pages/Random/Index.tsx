@@ -1,21 +1,21 @@
 import { Head } from '@inertiajs/react';
-import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CostTierPicker } from '@/components/random/CostTierPicker';
-import { RandomModeTabs } from '@/components/random/RandomModeTabs';
 import type { RandomMode } from '@/components/random/RandomModeTabs';
+import { RandomModeTabs } from '@/components/random/RandomModeTabs';
 import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { ScoutCompCard } from '@/components/scout/ScoutCompCard';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import { Button } from '@/components/ui/button';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
 import AppLayout from '@/layouts/app-layout';
+import type { CostTier } from '@/lib/random-picker';
 import {
     pickRandomCarry,
     pickRandomFromTeams,
     pickRandomTrait,
 } from '@/lib/random-picker';
-import type { CostTier } from '@/lib/random-picker';
 import type {
     Champion,
     ScoredTeam,
@@ -231,13 +231,13 @@ function RandomIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                 </div>
 
                 {error && (
-                    <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-sm text-red-300">
+                    <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-red-300 text-sm">
                         {error}
                     </div>
                 )}
 
                 {anchor && (
-                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
                         <span className="font-medium text-foreground">
                             {anchor.label}
                         </span>
@@ -256,7 +256,7 @@ function RandomIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                 )}
 
                 {!team && !isRunning && !error && (
-                    <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-border border-dashed p-8 text-center text-muted-foreground text-sm">
                         Wybierz tryb i kliknij Randomize.
                     </div>
                 )}

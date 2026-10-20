@@ -9,8 +9,15 @@ import {
 } from '../../../resources/js/workers/scout/candidates';
 // @ts-expect-error
 import { buildHeroExclusionGroup } from '../../../resources/js/workers/scout/hero-exclusion';
-import { teamRoleBalance, teamScore, teamScoreBreakdown } from '../../../resources/js/workers/scout/scorer';
-import { buildGraph, findTeams } from '../../../resources/js/workers/scout/synergy-graph';
+import {
+    teamRoleBalance,
+    teamScore,
+    teamScoreBreakdown,
+} from '../../../resources/js/workers/scout/scorer';
+import {
+    buildGraph,
+    findTeams,
+} from '../../../resources/js/workers/scout/synergy-graph';
 // @ts-expect-error
 // @ts-expect-error
 // @ts-expect-error
@@ -31,8 +38,8 @@ import { assertLabEnabled, openDb } from '../lab/db';
 import { currentGitSha } from '../lab/git';
 import { recordRun } from '../lab/ingest';
 import { findChampions } from '../lookup';
-import { parseCommonArgs  } from '../params';
-import type {CommonArgs} from '../params';
+import type { CommonArgs } from '../params';
+import { parseCommonArgs } from '../params';
 
 const PHASES = [
     'candidates',
@@ -50,11 +57,16 @@ export async function runPhase(argv: string[]): Promise<void> {
     const phase = argv[0] as PhaseName;
 
     if (!phase || !PHASES.includes(phase)) {
-        throw new Error(`Phase command expects one of: ${PHASES.join(', ')}. Got: ${phase}`);
+        throw new Error(
+            `Phase command expects one of: ${PHASES.join(', ')}. Got: ${phase}`,
+        );
     }
 
     const args = parseCommonArgs(argv.slice(1));
-    const ctx = await loadContext({ live: args.live, snapshotPath: args.snapshotPath });
+    const ctx = await loadContext({
+        live: args.live,
+        snapshotPath: args.snapshotPath,
+    });
 
     if (args.rawInputPath) {
         const raw = JSON.parse(readFileSync(args.rawInputPath, 'utf8'));
@@ -111,44 +123,86 @@ export async function runPhase(argv: string[]): Promise<void> {
 function runPhaseRawInput(phase: PhaseName, raw: any): any {
     switch (phase) {
         case 'candidates':
-            return filterCandidates(raw.champions, raw.constraints, raw.exclusionGroups);
+            return filterCandidates(
+                raw.champions,
+                raw.constraints,
+                raw.exclusionGroups,
+            );
         case 'graph':
-            return buildGraph(raw.champions, raw.traits, raw.scoringCtx, raw.exclusionLookup);
+            return buildGraph(
+                raw.champions,
+                raw.traits,
+                raw.scoringCtx,
+                raw.exclusionLookup,
+            );
         case 'find-teams':
             return findTeams(raw.graph, raw.options);
         case 'score':
             return teamScore(raw, raw.ctx ?? raw.scoringCtx);
         case 'active-traits':
-            return buildActiveTraits(raw.champions, raw.traits, raw.emblems ?? []);
+            return buildActiveTraits(
+                raw.champions,
+                raw.traits,
+                raw.emblems ?? [],
+            );
         case 'role-balance':
             return teamRoleBalance(raw.champions ?? raw);
         case 'insights':
-            return buildTeamInsights(raw.team, raw.ctx, raw.batchMedianScore ?? 0);
+            return buildTeamInsights(
+                raw.team,
+                raw.ctx,
+                raw.batchMedianScore ?? 0,
+            );
     }
 }
 
-async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: CommonArgs): Promise<any> {
+async function runPhaseAutoBuild(
+    phase: PhaseName,
+    ctx: ScoutContext,
+    args: CommonArgs,
+): Promise<any> {
     const constraints = constraintsFromArgs(args);
     const exclusionGroups = mergeHeroExclusion(ctx);
 
     if (phase === 'candidates') {
-        const candidates = filterCandidates(ctx.champions, constraints, exclusionGroups);
+        const candidates = filterCandidates(
+            ctx.champions,
+            constraints,
+            exclusionGroups,
+        );
 
         return args.full ? candidates : summariseCandidates(candidates);
     }
 
-    const candidates = filterCandidates(ctx.champions, constraints, exclusionGroups);
-    const locked = getLockedChampions(ctx.champions, constraints.lockedChampions ?? []);
+    const candidates = filterCandidates(
+        ctx.champions,
+        constraints,
+        exclusionGroups,
+    );
+    const locked = getLockedChampions(
+        ctx.champions,
+        constraints.lockedChampions ?? [],
+    );
     const eligible = [...locked, ...candidates];
     const exclusionLookup = buildExclusionLookup(exclusionGroups);
 
     if (phase === 'graph') {
-        const graph = buildGraph(eligible, ctx.traits, ctx.scoringCtx, exclusionLookup);
+        const graph = buildGraph(
+            eligible,
+            ctx.traits,
+            ctx.scoringCtx,
+            exclusionLookup,
+        );
 
         return args.full ? graph : summariseGraph(graph);
     }
 
-    const graph = buildGraph(eligible, ctx.traits, ctx.scoringCtx, exclusionLookup);
+    const graph = buildGraph(
+        eligible,
+        ctx.traits,
+        ctx.scoringCtx,
+        exclusionLookup,
+    );
 
     const level = (args.params.level ?? 8) as number;
     const teamSize = level - extraSlotsFromLocked(locked);
@@ -172,7 +226,9 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
 
     // The remaining phases all need a specific --team CSV.
     if (!args.team) {
-        throw new Error(`Phase ${phase} requires --team A,B,C,... (champion apiNames).`);
+        throw new Error(
+            `Phase ${phase} requires --team A,B,C,... (champion apiNames).`,
+        );
     }
 
     const teamChamps = findChampions(ctx, args.team);
@@ -183,7 +239,11 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
         return args.full ? balance : summariseRoleBalance(balance);
     }
 
-    const activeTraits = buildActiveTraits(teamChamps, ctx.traits, args.params.emblems ?? []);
+    const activeTraits = buildActiveTraits(
+        teamChamps,
+        ctx.traits,
+        args.params.emblems ?? [],
+    );
 
     if (phase === 'active-traits') {
         return args.full ? activeTraits : summariseActiveTraits(activeTraits);
@@ -203,30 +263,45 @@ async function runPhaseAutoBuild(phase: PhaseName, ctx: ScoutContext, args: Comm
             champions: teamChamps,
             activeTraits,
             level,
-            score: teamScore({ champions: teamChamps, activeTraits, level }, ctx.scoringCtx),
-            breakdown: teamScoreBreakdown({ champions: teamChamps, activeTraits, level }, ctx.scoringCtx),
+            score: teamScore(
+                { champions: teamChamps, activeTraits, level },
+                ctx.scoringCtx,
+            ),
+            breakdown: teamScoreBreakdown(
+                { champions: teamChamps, activeTraits, level },
+                ctx.scoringCtx,
+            ),
             roles: teamRoleBalance(teamChamps),
-            slotsUsed: teamChamps.reduce((s: number, c: any) => s + (c.slotsUsed ?? 1), 0),
+            slotsUsed: teamChamps.reduce(
+                (s: number, c: any) => s + (c.slotsUsed ?? 1),
+                0,
+            ),
         };
 
-        return buildTeamInsights(team, { ...ctx.scoringCtx, stale: ctx.stale }, 0);
+        return buildTeamInsights(
+            team,
+            { ...ctx.scoringCtx, stale: ctx.stale },
+            0,
+        );
     }
 }
 
 function mergeHeroExclusion(ctx: ScoutContext): string[][] {
     const heroGroup = buildHeroExclusionGroup(ctx.champions);
 
-    return heroGroup.length >= 2 ? [...(ctx.exclusionGroups ?? []), heroGroup] : ctx.exclusionGroups ?? [];
+    return heroGroup.length >= 2
+        ? [...(ctx.exclusionGroups ?? []), heroGroup]
+        : (ctx.exclusionGroups ?? []);
 }
 
 function extraSlotsFromLocked(locked: any[]): number {
     let extra = 0;
 
     for (const c of locked) {
-if ((c.slotsUsed ?? 1) > 1) {
-extra += (c.slotsUsed ?? 1) - 1;
-}
-}
+        if ((c.slotsUsed ?? 1) > 1) {
+            extra += (c.slotsUsed ?? 1) - 1;
+        }
+    }
 
     return extra;
 }
@@ -246,5 +321,5 @@ function constraintsFromArgs(args: CommonArgs): any {
 }
 
 function print(result: unknown): void {
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
