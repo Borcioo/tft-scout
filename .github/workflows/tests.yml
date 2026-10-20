@@ -19,7 +19,32 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php-version: ['8.3', '8.4', '8.5']
+        # Pest 5 / PHPUnit 13 and the locked Symfony 8 need PHP 8.4+
+        php-version: ['8.4', '8.5']
+
+    services:
+      # Migrations use Postgres-only DDL, so tests run on Postgres too
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: tftscout
+          POSTGRES_PASSWORD: tftscout
+          POSTGRES_DB: tftscout_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: tftscout_test
+      DB_USERNAME: tftscout
+      DB_PASSWORD: tftscout
 
     steps:
       - name: Checkout code
@@ -30,15 +55,16 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
-          coverage: xdebug
+          coverage: none
 
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install Node Dependencies
-        run: npm i
+        run: npm ci
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -52,5 +78,8 @@ jobs:
       - name: Build Assets
         run: npm run build
 
-      - name: Tests
-        run: ./vendor/bin/phpunit
+      - name: JS tests
+        run: npm test
+
+      - name: PHP tests
+        run: ./vendor/bin/pest --parallel

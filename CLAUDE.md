@@ -13,6 +13,8 @@ npm run lint:check    # ESLint (no fix)
 npm run types:check   # tsc --noEmit
 npm run format        # Prettier resources/
 npm run scout         # tsx scripts/scout-cli.ts  (scout debug CLI)
+npm test              # Vitest — resources/js/**/__tests__/*.test.ts
+vendor/bin/pest --parallel   # Pest 5 (PHPUnit 13), needs Postgres DB `tftscout_test`
 ```
 
 Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fail). Herd serwuje pod `https://tft-scout.test` (self-signed cert; Node fetch wymaga `NODE_TLS_REJECT_UNAUTHORIZED=0`, curl `-k`). `localhost` zwraca 404.
@@ -31,7 +33,8 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - `docs/knowledge-base/` — baza wiedzy aktualnego setu (Set 18; Set 17 w `set17/`)
 - `docs/champion-ability-pipeline.md` — end-to-end walkthrough (reference doc)
 - `legacy/` — stary Node stack, nie edytować
-- `tests/` — PHPUnit (phpunit.xml)
+- `tests/` — Pest 5 (phpunit.xml → Postgres `tftscout_test`); stare klasy PHPUnit działają bez zmian, nowe testy w składni Pest
+- `resources/js/**/__tests__/` — Vitest 5 (`vitest.config.ts`, osobno od `vite.config.ts`)
 
 ## Gotchas
 
