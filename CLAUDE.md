@@ -10,7 +10,7 @@ npm run build         # Vite production build
 npm run build:ssr     # Vite + SSR build
 npm run lint          # Biome check --write (lint + format + import order)
 npm run lint:check    # Biome check, read-only (CI: `biome ci`)
-npm run types:check   # tsc --noEmit
+npm run types:check   # tsc --noEmit (TypeScript 7, natywny kompilator)
 npm run format        # Biome format --write
 npm run scout         # tsx scripts/scout-cli.ts  (scout debug CLI)
 npm test              # Vitest — resources/js/**/__tests__/*.test.ts
