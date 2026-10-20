@@ -36,11 +36,9 @@ jobs:
       - name: Run Pint
         run: composer lint
 
-      - name: Format Frontend
-        run: npm run format
-
-      - name: Lint Frontend
-        run: npm run lint
+      # Biome = lint + format + import order in one read-only pass
+      - name: Lint & Format Frontend
+        run: npx biome ci --reporter=github
 
       # - name: Commit Changes
       #   uses: stefanzweifel/git-auto-commit-action@v7

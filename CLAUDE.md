@@ -8,10 +8,10 @@ Laravel 13 + Inertia + React + Postgres 18 scout tool dla TFT. Migracja z Node s
 npm run dev           # Vite dev server
 npm run build         # Vite production build
 npm run build:ssr     # Vite + SSR build
-npm run lint          # ESLint --fix
-npm run lint:check    # ESLint (no fix)
+npm run lint          # Biome check --write (lint + format + import order)
+npm run lint:check    # Biome check, read-only (CI: `biome ci`)
 npm run types:check   # tsc --noEmit
-npm run format        # Prettier resources/
+npm run format        # Biome format --write
 npm run scout         # tsx scripts/scout-cli.ts  (scout debug CLI)
 npm test              # Vitest — resources/js/**/__tests__/*.test.ts
 vendor/bin/pest --parallel   # Pest 5 (PHPUnit 13), needs Postgres DB `tftscout_test`
