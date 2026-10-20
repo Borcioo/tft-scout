@@ -47,12 +47,12 @@ export function ScoutCompCard({
     level,
     emblems,
 }: Props) {
-    const { auth } = usePage<{ auth: { user: { id: number } | null } }>().props;
+    const { auth, tftSet } = usePage<{ auth: { user: { id: number } | null }; tftSet?: number }>().props;
     const isAuthed = !!auth?.user;
 
     const [copied, setCopied] = useState(false);
     const [saving, setSaving] = useState(false);
-    const plannerCode = generatePlannerCode(team.champions);
+    const plannerCode = generatePlannerCode(team.champions, tftSet != null ? String(tftSet) : null);
     const isSaved = plannerCode != null && savedCodes.has(plannerCode);
 
     const handleCopy = async () => {

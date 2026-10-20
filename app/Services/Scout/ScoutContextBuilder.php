@@ -13,6 +13,7 @@ use App\Models\Set;
 use App\Models\TftTrait;
 use App\Models\TraitRating;
 use App\Models\TraitStyle;
+use App\Services\Tft\TraitTeamSize;
 
 /**
  * Assembles the JSON payload that the scout Web Worker consumes.
@@ -176,6 +177,12 @@ class ScoutContextBuilder
                 'cost' => $c->cost,
                 'traits' => $c->traits->pluck('api_name')->all(),
                 'traitNames' => $c->traits->pluck('name')->all(),
+                // Only non-1 contributions (Lux form ×2 on its element,
+                // Elder Dragon ×2 Riftbeast); the worker defaults to 1.
+                'traitAmounts' => (object) $c->traits
+                    ->filter(fn ($t) => (int) ($t->pivot->amount ?? 1) !== 1)
+                    ->mapWithKeys(fn ($t) => [$t->api_name => (int) $t->pivot->amount])
+                    ->all(),
                 'slotsUsed' => $c->slots_used,
                 'baseApiName' => $c->baseChampion?->api_name,
                 'variant' => $c->variant_label,
@@ -201,22 +208,32 @@ class ScoutContextBuilder
             ->whereIn('category', ['public', 'unique'])
             ->with('breakpoints')
             ->get()
-            ->map(fn (TftTrait $t) => [
-                'apiName' => $t->api_name,
-                'name' => $t->name,
-                'category' => $t->category,
-                'breakpoints' => $t->breakpoints
-                    ->sortBy('position')
-                    ->map(fn ($bp) => [
+            ->map(function (TftTrait $t) use ($styles) {
+                $breakpoints = $t->breakpoints->sortBy('position')->values();
+                $teamSize = TraitTeamSize::byPosition(
+                    (string) $t->description,
+                    $breakpoints->map(fn ($bp) => [
                         'position' => $bp->position,
-                        'minUnits' => $bp->min_units,
-                        'maxUnits' => $bp->max_units >= 25000 ? null : $bp->max_units,
-                        'style' => $styles[$bp->style_id] ?? null,
-                    ])
-                    ->values()
-                    ->all(),
-                'icon' => '/icons/traits/'.$t->api_name.'.png',
-            ])
+                        'effects' => $bp->effects ?? [],
+                    ])->all(),
+                );
+
+                return [
+                    'apiName' => $t->api_name,
+                    'name' => $t->name,
+                    'category' => $t->category,
+                    'breakpoints' => $breakpoints
+                        ->map(fn ($bp) => [
+                            'position' => $bp->position,
+                            'minUnits' => $bp->min_units,
+                            'maxUnits' => $bp->max_units >= 25000 ? null : $bp->max_units,
+                            'style' => $styles[$bp->style_id] ?? null,
+                            'teamSizeBonus' => $teamSize[$bp->position] ?? 0,
+                        ])
+                        ->all(),
+                    'icon' => '/icons/traits/'.$t->api_name.'.png',
+                ];
+            })
             ->values()
             ->all();
     }

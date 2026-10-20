@@ -8,9 +8,12 @@ export type Champion = {
     cost: number;
     traits: string[];        // trait api_names
     traitNames: string[];    // human-readable names (for UI rendering)
-    slotsUsed: number;       // 2 for Mecha Enhanced
+    /** Trait contributions other than 1 (Lux form → its element: 2,
+     *  Elder Dragon → Riftbeast: 2, Mecha Enhanced → Mecha: 2). */
+    traitAmounts?: Record<string, number>;
+    slotsUsed: number;       // 2 for Mecha Enhanced / Elder Dragon
     baseApiName: string | null;
-    variant: string | null;  // 'hero' | 'conduit' | 'challenger' | ...
+    variant: string | null;  // 'hero' | 'enhanced' | 'conduit' | 'coven' (Lux form) | ...
     role: string | null;
     damageType: string | null;
     roleCategory: string | null;
@@ -24,6 +27,8 @@ export type TraitBreakpoint = {
     minUnits: number;
     maxUnits: number | null;
     style: 'Bronze' | 'Silver' | 'Gold' | 'Prismatic' | 'Unique' | null;
+    /** Extra max team size granted at this breakpoint (Riftbeast 10: 2). */
+    teamSizeBonus?: number;
 };
 
 export type Trait = {

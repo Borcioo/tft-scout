@@ -13,6 +13,7 @@
 
 import { SCORING_CONFIG, MIN_LEVEL_BY_COST } from '../config';
 import { startSpan } from '../scout-profiler';
+import { traitAmount } from '../trait-amount';
 import { buildGraph } from './graph';
 import { phaseCompanionSeeded } from './phases/companion-seeded';
 import { phaseCrossover } from './phases/crossover';
@@ -90,7 +91,7 @@ function diversifyResults(results, maxResults, traitBreakpoints, emblems = []) {
 
     for (const c of team.champions) {
       for (const t of c.traits) {
-        traitCounts[t] = (traitCounts[t] || 0) + 1;
+        traitCounts[t] = (traitCounts[t] || 0) + traitAmount(c, t);
       }
     }
 

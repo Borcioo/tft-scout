@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Set;
 use App\Models\TftTrait;
 use App\Services\Tft\TraitDescriptionResolver;
 use Inertia\Inertia;
@@ -31,6 +32,7 @@ class TraitsController extends Controller
         // client-side. `hidden` traits (HPTank, FlexTrait) stay out — they
         // exist purely for MetaTFT grouping and aren't player-facing.
         $traits = TftTrait::query()
+            ->where('set_id', Set::currentId())
             ->whereIn('category', ['public', 'unique'])
             ->with([
                 'breakpoints.style',

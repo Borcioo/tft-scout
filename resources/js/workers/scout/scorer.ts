@@ -14,13 +14,18 @@
 import { SCORING_CONFIG } from './config';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
+import { traitAmount } from './trait-amount';
 
 const { weights, breakpointMultiplier, breakEvenByTier, bronzeStackFactor, traitReward, provenBonus: PROVEN_CFG, dedupeOverlapPct, nearBreakpointBonus, minGamesForReliable, expectedStarPower, thresholds, maxTraitContribution } = SCORING_CONFIG;
 
+// H* = hybrid damage. Riot ships HFighter; the HCarry / HCaster / HTank
+// shapes come from our own role inference (Set 18 has no roles in data,
+// see RoleInferenceHook) when an ability splits physical/magic evenly.
 const ROLE_CATEGORY = {
   ADCarry: 'dps', APCarry: 'dps', ADCaster: 'dps', APCaster: 'dps',
   ADReaper: 'dps', APReaper: 'dps', ADSpecialist: 'dps',
-  ADTank: 'frontline', APTank: 'frontline',
+  HCarry: 'dps', HCaster: 'dps',
+  ADTank: 'frontline', APTank: 'frontline', HTank: 'frontline',
   ADFighter: 'fighter', APFighter: 'fighter', HFighter: 'fighter',
 };
 
@@ -62,12 +67,14 @@ return 0;
 
   let penalty = 0;
 
-  // No frontline at all = heavy penalty (never works in meta)
+  // No frontline at all = heavy penalty (never works in meta). Set 18
+  // check (MetaTFT ranked, 60 meta comps): minimum effective frontline
+  // is 2, so 0 has to sink a comp outright and < 2 still costs. At 15
+  // a 0-frontline board of strong ranged units topped the level 8 slate.
   if (effectiveFrontline < 1) {
-    penalty += 15;
-  } else if (effectiveFrontline / teamSize < 0.2) {
-    // Less than ~25% frontline = soft penalty
-    penalty += 5;
+    penalty += 30;
+  } else if (effectiveFrontline < 2 || effectiveFrontline / teamSize < 0.2) {
+    penalty += 10;
   }
 
   // No DPS at all = heavy penalty
@@ -309,7 +316,7 @@ export function fillerCount(champions: any, activeTraitsByApi: Record<string, an
 
   for (const c of champions) {
     for (const t of c.traits) {
-      traitCounts[t] = (traitCounts[t] || 0) + 1;
+      traitCounts[t] = (traitCounts[t] || 0) + traitAmount(c, t);
     }
   }
 
@@ -338,7 +345,7 @@ export function fillerCount(champions: any, activeTraitsByApi: Record<string, an
         continue;
       }
 
-      const withoutIdx = activeBpIdx(trait, count - 1);
+      const withoutIdx = activeBpIdx(trait, count - traitAmount(c, t));
 
       if (withoutIdx < curIdx) {
         critical = true;

@@ -122,6 +122,13 @@ class CharacterAbilityEnrichHook implements PostImportHook
             return;
         }
 
+        // Some Set 18 spells (Lux, Mama Beak) still point at stub loc
+        // entries ("Placeholder Tooltip") while en_us.json carries the
+        // real text — never trade real text for a stub.
+        if (str_starts_with($template, 'Placeholder') || str_starts_with((string) ($resolved['name'] ?? ''), 'Placeholder')) {
+            return;
+        }
+
         $updates = [
             'ability_desc' => $template,
             'ability_stats' => $resolved['merged_stats'] ?? [],
@@ -205,7 +212,15 @@ class CharacterAbilityEnrichHook implements PostImportHook
             }
         }
 
-        return null;
+        // Set 18 bins have no spellNames and name spells after the
+        // character, not the api_name (`DA_18_Ahri` → `TFT18_AhriSpell`),
+        // so the `{apiName}Spell` guess misses. Fall back to the single
+        // localised `*Spell` SpellObject — attacks never carry loc keys.
+        $localised = array_values(array_filter($spells, fn (array $spell) => is_string($spell['script_name'] ?? null)
+            && str_ends_with(strtolower($spell['script_name']), 'spell')
+            && ($spell['loc_keys']['key_tooltip'] ?? null) !== null));
+
+        return count($localised) === 1 ? $localised[0] : null;
     }
 
     /**

@@ -29,7 +29,7 @@ class PlansController extends Controller
     public function index(): Response
     {
         $userId = (int) Auth::id();
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
 
         $plans = Plan::forUser($userId)
             ->orderByDesc('updated_at')
@@ -131,7 +131,7 @@ class PlansController extends Controller
             $data['champions'],
         );
 
-        $plannerCode = PlannerCode::generate($enriched);
+        $plannerCode = PlannerCode::generate($enriched, (string) $set->number);
 
         // Idempotent: if this user already saved this exact comp, return the
         // existing row (200) instead of creating a duplicate. Frontend treats

@@ -86,16 +86,29 @@ adjacency[api] = [];
   }
 
   // Add companion edges — champions that perform well together in real games
-  // These create "hidden" graph connections beyond shared traits
+  // These create "hidden" graph connections beyond shared traits.
+  //
+  // MetaTFT reports variant champions under their base id (every Lux
+  // form is `DA_Lux18_Base`, which isn't a node itself), so expand each
+  // side to the nodes sharing that base.
   const companionData = scoringCtx.companions || {};
+  const nodesByBase = {};
 
-  for (const [unitApi, companionList] of Object.entries(companionData)) {
-    if (!nodes[unitApi] || !companionList) {
+  for (const [api, node] of Object.entries(nodes)) {
+    (nodesByBase[node.baseApiName || api] ??= []).push(api);
+  }
+
+  for (const [unitBase, companionList] of Object.entries(companionData)) {
+    const units = nodesByBase[unitBase];
+
+    if (!units || !companionList) {
 continue;
 }
 
     for (const comp of companionList) {
-      if (!nodes[comp.companion]) {
+      const partners = nodesByBase[comp.companion];
+
+      if (!partners) {
 continue;
 }
 
@@ -103,22 +116,30 @@ continue;
 continue;
 }
 
-      // Only add edge if not already connected via traits
-      const existing = adjacency[unitApi]?.find(e => e.champ === comp.companion);
+      for (const unitApi of units) {
+        for (const partner of partners) {
+          if (partner === unitApi) {
+continue;
+}
 
-      if (!existing) {
-        adjacency[unitApi].push({
-          champ: comp.companion,
-          sharedTraits: 0,
-          traits: [],
-          companionScore: comp.avgPlace,
-        });
-        adjacency[comp.companion].push({
-          champ: unitApi,
-          sharedTraits: 0,
-          traits: [],
-          companionScore: comp.avgPlace,
-        });
+          // Only add edge if not already connected via traits
+          const existing = adjacency[unitApi]?.find(e => e.champ === partner);
+
+          if (!existing) {
+            adjacency[unitApi].push({
+              champ: partner,
+              sharedTraits: 0,
+              traits: [],
+              companionScore: comp.avgPlace,
+            });
+            adjacency[partner].push({
+              champ: unitApi,
+              sharedTraits: 0,
+              traits: [],
+              companionScore: comp.avgPlace,
+            });
+          }
+        }
       }
     }
   }

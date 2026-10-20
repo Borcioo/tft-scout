@@ -42,7 +42,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         id: 'tight-lock',
-        label: 'Tight lock ShieldTank:6, lvl 10, topN=30',
+        label: 'Tight lock Vanguard:6, lvl 10, topN=30',
         params: {
             level: 10,
             topN: 30,
@@ -50,7 +50,7 @@ const SCENARIOS: Scenario[] = [
             minFrontline: 0,
             minDps: 0,
             lockedChampions: [],
-            lockedTraits: [{ apiName: 'TFT17_ShieldTank', minUnits: 6 }],
+            lockedTraits: [{ apiName: 'DA_18_Vanguard', minUnits: 6 }],
             excludedChampions: [],
             excludedTraits: [],
             emblems: [],
@@ -59,7 +59,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         id: 'loose-lock-emblem',
-        label: 'Loose ShieldTank:6 + RangedTrait:4 + emblem, lvl 10, topN=30',
+        label: 'Loose Vanguard:6 + Rapidfire:4 + emblem, lvl 10, topN=30',
         params: {
             level: 10,
             topN: 30,
@@ -68,12 +68,12 @@ const SCENARIOS: Scenario[] = [
             minDps: 0,
             lockedChampions: [],
             lockedTraits: [
-                { apiName: 'TFT17_ShieldTank', minUnits: 6 },
-                { apiName: 'TFT17_RangedTrait', minUnits: 4 },
+                { apiName: 'DA_18_Vanguard', minUnits: 6 },
+                { apiName: 'DA_18_Rapidfire', minUnits: 4 },
             ],
             excludedChampions: [],
             excludedTraits: [],
-            emblems: [{ apiName: 'TFT17_RangedTrait', count: 1 }],
+            emblems: [{ apiName: 'DA_18_Rapidfire', count: 1 }],
             seed: 0,
         },
     },

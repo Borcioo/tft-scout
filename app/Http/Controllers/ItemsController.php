@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Emblem;
 use App\Models\Item;
+use App\Models\Set;
 use App\Services\Tft\ItemDescriptionResolver;
+use App\Support\SetProfile;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +30,15 @@ class ItemsController extends Controller
      */
     public function index(): Response
     {
+        // Current set's items, plus the cross-set TFT_Item_* pool
+        // (set_id NULL) only for sets that still equip it — Set 18 ships
+        // its own DA_* copies of every component and completed item.
+        $setId = Set::currentId();
+        $evergreen = SetProfile::current()->evergreenItems;
+
         $items = Item::query()
+            ->where(fn ($q) => $q->where('set_id', $setId)
+                ->when($evergreen, fn ($q) => $q->orWhereNull('set_id')))
             ->with(['component1:id,api_name,name', 'component2:id,api_name,name'])
             ->orderBy('type')
             ->orderBy('name')
@@ -40,6 +50,7 @@ class ItemsController extends Controller
         // pipeline can render them without a parallel data shape. The
         // associated trait name carries through as a label on the card.
         $emblems = Emblem::query()
+            ->where('set_id', $setId)
             ->with([
                 'trait:id,api_name,name',
                 'component1:id,api_name,name',

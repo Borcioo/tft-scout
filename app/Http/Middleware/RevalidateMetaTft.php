@@ -49,7 +49,7 @@ class RevalidateMetaTft
         }
 
         try {
-            $setNumber = (int) config('services.tft.set', 17);
+            $setNumber = (int) config('services.tft.set', 18);
             $setId = self::setIdFor($setNumber);
             if ($setId === null) {
                 return; // Set not imported yet — nothing to revalidate.

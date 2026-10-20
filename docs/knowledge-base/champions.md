@@ -1,149 +1,113 @@
-# TFT Set 17 — Champions Knowledge Base
+# TFT Set 18 — Champions Knowledge Base
 
-> Baza wiedzy dla AI — zawiera wszystkich championów z ich traitami, kosztami i specjalnymi mechanikami.
-> Warianty (Mecha Enhanced, Miss Fortune modes) są listowane jako osobne wpisy.
+> Baza wiedzy dla AI — wszyscy championowie Set 18 z traitami, kosztami i mechanikami.
+> Wygenerowane z bazy po `php artisan tft:import --set=18` (2026-10-20, CDragon `latest`).
+> Formy Lux (Avatar) są listowane jako osobne wpisy — wykluczają się nawzajem.
 
 ## Legenda
 
 - **Cost**: koszt w gold (1-5)
-- **Role**: rola w drużynie (ADCarry, APCaster, APTank, etc.)
-- **Traits**: aktywne traity championów
+- **Role**: rola **wyinferowana** przez `RoleInferenceHook` (Set 18 nie ma ról w danych Riot) — zasięg + typ obrażeń umiejętności
+- **Traits**: traity; `×2` = champion liczy się podwójnie do traitu (`mLinkedTraits[].Amount` z binu)
 - **Slot**: ile slotów zajmuje w drużynie (domyślnie 1)
-- **Exclusive**: z jakimi wariantami się wyklucza (nie mogą być w teamie jednocześnie)
 
 ---
 
 ## 1-Cost Champions
 
-| Champion | apiName | Cost | Role | Traits | Notes |
-|----------|---------|------|------|--------|-------|
-| Aatrox | TFT17_Aatrox | 1 | ADTank | Bastion, N.O.V.A. | |
-| Briar | TFT17_Briar | 1 | ADFighter | Anima, Rogue, Primordian | |
-| Caitlyn | TFT17_Caitlyn | 1 | ADSpecialist | Fateweaver, N.O.V.A. | |
-| Cho'Gath | TFT17_Chogath | 1 | APTank | Dark Star, Brawler | |
-| Ezreal | TFT17_Ezreal | 1 | ADCaster | Timebreaker, Sniper | |
-| Leona | TFT17_Leona | 1 | APTank | Vanguard, Arbiter | |
-| Lissandra | TFT17_Lissandra | 1 | APCaster | Replicator, Dark Star, Shepherd | |
-| Nasus | TFT17_Nasus | 1 | APTank | Vanguard, Space Groove | |
-| Poppy | TFT17_Poppy | 1 | APTank | Bastion, Meeple | |
-| Rek'Sai | TFT17_Reksai | 1 | APTank | Primordian, Brawler | |
-| Talon | TFT17_Talon | 1 | ADReaper | Rogue, Stargazer | |
-| Teemo | TFT17_Teemo | 1 | APCarry | Space Groove, Shepherd | |
-| Twisted Fate | TFT17_TwistedFate | 1 | APCaster | Fateweaver, Stargazer | |
-| Veigar | TFT17_Veigar | 1 | APCaster | Replicator, Meeple | |
+| Champion | apiName | Role | Traits | Slot | Notes |
+|----------|---------|------|--------|------|-------|
+| Akali | DA_18_Akali_AD | ADFighter | Adaptor, Inferno, Ravager | 1 |  |
+| Camille | DA_18_Camille | ADFighter | Coven, Ravager | 1 |  |
+| Cinderling | DA_Cinderling18 | ADCarry | Hunter, Riftbeast | 1 |  |
+| Karma | DA_Karma18 | APCaster | Blossom, Spellweaver | 1 |  |
+| Kobuko | DA_18_Kobuko | APTank | Brawler, Sprykin | 1 |  |
+| Leona | DA_18_Leona | APTank | Defender, Solar | 1 |  |
+| Ornn | DA_18_Ornn | APTank | Defender, Elderwood | 1 |  |
+| Pebbles | DA_18_Sentry | APCaster | Invoker, Riftbeast | 1 |  |
+| Rakan | DA_18_Rakan | APTank | Fae, Juggernaut, Vanguard | 1 |  |
+| Rek'Sai | DA_18_RekSai | APTank | Blackthorn, Brawler | 1 |  |
+| Varus | DA_18_Varus | ADCarry | Inferno, Rapidfire | 1 |  |
+| Veigar | DA_18_Veigar | APCaster | Blackthorn, Spellweaver, Sprykin | 1 |  |
+| Xayah | DA_18_Xayah | ADCarry | Elderwood, Fae, Rapidfire | 1 |  |
+| Yorick | DA_18_Yorick | ADTank | Blossom, Juggernaut, Summoner | 1 |  |
 
 ## 2-Cost Champions
 
-| Champion | apiName | Cost | Role | Traits | Notes |
-|----------|---------|------|------|--------|-------|
-| Akali | TFT17_Akali | 2 | ADFighter | Marauder, N.O.V.A. | |
-| Bel'Veth | TFT17_Belveth | 2 | ADFighter | Challenger, Marauder, Primordian | |
-| Gnar | TFT17_Gnar | 2 | ADSpecialist | Meeple, Sniper | |
-| Gragas | TFT17_Gragas | 2 | APTank | Psionic, Brawler | |
-| Gwen | TFT17_Gwen | 2 | APReaper | Rogue, Space Groove | |
-| Jax | TFT17_Jax | 2 | APTank | Bastion, Stargazer | |
-| Jinx | TFT17_Jinx | 2 | ADCarry | Challenger, Anima | |
-| Meepsie | TFT17_IvernMinion | 2 | APTank | Shepherd, Meeple, Voyager | |
-| Milio | TFT17_Milio | 2 | APCaster | Timebreaker, Fateweaver | |
-| Mordekaiser | TFT17_Mordekaiser | 2 | APTank | Vanguard, Dark Star, Conduit | |
-| Pantheon | TFT17_Pantheon | 2 | ADTank | Replicator, Timebreaker, Brawler | |
-| Pyke | TFT17_Pyke | 2 | ADReaper | Psionic, Voyager | |
-| Zoe | TFT17_Zoe | 2 | APCaster | Arbiter, Conduit | |
+| Champion | apiName | Role | Traits | Slot | Notes |
+|----------|---------|------|--------|------|-------|
+| Alistar | DA_18_Alistar | APTank | Brawler, Elderwood | 1 |  |
+| Caitlyn | DA_18_Caitlyn | ADCarry | Coven, Hunter | 1 |  |
+| Elise | DA_18_Elise | APTank | Coven, Vanguard | 1 |  |
+| Gromp | DA_Gromp18_AP | APCaster | Adaptor, Riftbeast | 1 |  |
+| Kayle | DA_18_Kayle | APCaster | Rapidfire, Solar | 1 |  |
+| LeBlanc | DA_18_LeBlanc | APCaster | Elderwood, Spellweaver | 1 |  |
+| Murkwolf | DA_Murkwolf18 | ADFighter | Ravager, Riftbeast | 1 |  |
+| Scuttlecrab | DA_Scuttlecrab18 | ADTank | Juggernaut, Riftbeast | 1 |  |
+| Sejuani | DA_18_Sejuani | APTank | Juggernaut, Solar | 1 |  |
+| Shen | DA_18_Shen | APTank | Defender, Inferno | 1 |  |
+| Teemo | DA_18_Teemo | APCaster | Invoker, Sprykin | 1 |  |
+| Warwick | DA_18_Warwick | ADFighter | Blackthorn, Ravager | 1 |  |
+| Yunara | DA_18_Yunara | ADCarry | Blossom, Executioner | 1 |  |
 
 ## 3-Cost Champions
 
-| Champion | apiName | Cost | Role | Traits | Notes |
-|----------|---------|------|------|--------|-------|
-| Aurora | TFT17_Aurora | 3 | APCaster | Anima, Voyager | |
-| Diana | TFT17_Diana | 3 | APFighter | Challenger, Arbiter | |
-| Fizz | TFT17_Fizz | 3 | APReaper | Rogue, Meeple | |
-| Illaoi | TFT17_Illaoi | 3 | APTank | Vanguard, Anima, Shepherd | |
-| Kai'Sa | TFT17_Kaisa | 3 | ADCaster | Rogue, Dark Star | |
-| Lulu | TFT17_Lulu | 3 | APCaster | Replicator, Stargazer | |
-| Maokai | TFT17_Maokai | 3 | APTank | Brawler, N.O.V.A. | |
-| Ornn | TFT17_Ornn | 3 | APTank | Space Groove, Bastion | |
-| Rhaast | TFT17_Rhaast | 3 | ADTank | Redeemer | Unique trait: scales with number of active traits in team |
-| Samira | TFT17_Samira | 3 | ADCaster | Space Groove, Sniper | |
-| Urgot | TFT17_Urgot | 3 | ADFighter | Marauder, Brawler, Mecha | Has Enhanced variant |
-| Viktor | TFT17_Viktor | 3 | APCaster | Psionic, Conduit | |
-
-### Miss Fortune — 3-Cost (Selectable Trait)
-
-Miss Fortune to specjalna postać z mechaniką **Choose Trait**. Gracz wybiera jeden z 3 trybów, który determinuje jej trait i ability. Traktowane jako 3 osobne warianty — **wzajemnie się wykluczające** (tylko jeden w drużynie):
-
-| Wariant | apiName | Cost | Role | Traits | Slot | Exclusive |
-|---------|---------|------|------|--------|------|-----------|
-| Miss Fortune (Conduit) | TFT17_MissFortune_Conduit | 3 | APCaster | **Conduit**, Gun Goddess | 1 | MF Challenger, MF Replicator |
-| Miss Fortune (Challenger) | TFT17_MissFortune_Challenger | 3 | ADCarry | **Challenger**, Gun Goddess | 1 | MF Conduit, MF Replicator |
-| Miss Fortune (Replicator) | TFT17_MissFortune_Replicator | 3 | APCaster | **Replicator**, Gun Goddess | 1 | MF Conduit, MF Challenger |
-
-> **Gun Goddess** to jej stały unique trait. Wybrany trait (Conduit/Challenger/Replicator) działa normalnie i liczy się do synergii.
+| Champion | apiName | Role | Traits | Slot | Notes |
+|----------|---------|------|--------|------|-------|
+| Azir | DA_18_Azir | APCaster | Blackthorn, Executioner, Summoner | 1 |  |
+| Cassiopeia | DA_18_Cassiopeia | APCaster | Coven, Spellweaver | 1 |  |
+| Diana | DA_18_Diana | APFighter | Lunar, Ravager, Vanguard | 1 |  |
+| Fiddlesticks | DA_Fiddlesticks18 | APTank | Defender, Flora Fatalis, Spellweaver | 1 |  |
+| Hecarim | DA_18_Hecarim | APTank | Elderwood, Vanguard | 1 |  |
+| Kha'Zix | DA_18_KhaZix | APFighter | Rival | 1 |  |
+| Kog'Maw | DA_KogMaw18_AD | ADCarry | Caustic, Adaptor, Invoker | 1 |  |
+| Krug | DA_Krug18 | HTank | Brawler, Riftbeast | 1 |  |
+| Mama Beak | DA_CrimsonRaptor18 | HCaster | Rapidfire, Riftbeast, Summoner | 1 |  |
+| Master Yi | DA_18_MasterYi_AD | APFighter | Adaptor, Blossom | 1 |  |
+| Rammus | DA_18_Rammus | ADTank | Defender, Sprykin | 1 |  |
+| Rengar | DA_18_Rengar | ADFighter | Rival | 1 |  |
+| Tristana | DA_18_Tristana | ADCarry | Fae, Hunter, Sprykin | 1 |  |
+| Vi | DA_Vi18 | APTank | Juggernaut, Primal | 1 |  |
 
 ## 4-Cost Champions
 
-| Champion | apiName | Cost | Role | Traits | Notes |
-|----------|---------|------|------|--------|-------|
-| Aurelion Sol | TFT17_AurelionSol | 4 | APCaster | Conduit, Mecha | Has Enhanced variant |
-| Corki | TFT17_Corki | 4 | ADCaster | Fateweaver, Meeple | |
-| Karma | TFT17_Karma | 4 | APCaster | Dark Star, Voyager | |
-| Kindred | TFT17_Kindred | 4 | ADCarry | Challenger, N.O.V.A. | |
-| LeBlanc | TFT17_Leblanc | 4 | APCarry | Arbiter, Shepherd | |
-| Master Yi | TFT17_MasterYi | 4 | ADFighter | Psionic, Marauder | |
-| Nami | TFT17_Nami | 4 | APCaster | Replicator, Space Groove | |
-| Nunu & Willump | TFT17_Nunu | 4 | APTank | Vanguard, Stargazer | |
-| Rammus | TFT17_Rammus | 4 | APTank | Bastion, Meeple | |
-| Riven | TFT17_Riven | 4 | HFighter | Timebreaker, Rogue | |
-| Tahm Kench | TFT17_TahmKench | 4 | APTank | Brawler, Oracle | Unique trait: gives rewards every X rounds |
-| The Mighty Mech | TFT17_Galio | 4 | ADTank | Mecha, Voyager | Has Enhanced variant |
-| Xayah | TFT17_Xayah | 4 | ADCarry | Stargazer, Sniper | |
+| Champion | apiName | Role | Traits | Slot | Notes |
+|----------|---------|------|--------|------|-------|
+| Ahri | DA_18_Ahri | APCaster | Blossom, Spellweaver | 1 |  |
+| Amumu | DA_Amumu18 | APTank | Inferno, Juggernaut | 1 |  |
+| Aphelios | DA_18_Aphelios | ADCarry | Lunar, Rapidfire | 1 |  |
+| Brambleback | DA_Brambleback18 | ADFighter | Ravager, Riftbeast | 1 |  |
+| Ezreal | DA_18_Ezreal | ADCarry | Elderwood, Executioner | 1 |  |
+| Lillia | DA_18_Lillia | APTank | Defender, Fae | 1 |  |
+| Malphite | DA_18_Malphite | APTank | Monolith, Blackthorn | 1 |  |
+| Morgana | DA_18_Morgana | APTank | Coven, Invoker | 1 |  |
+| Nidalee | DA_Nidalee18_AP | APFighter | Adaptor, Primal | 1 |  |
+| Sentinel | DA_Sentinel18 | APTank | Invoker, Riftbeast, Vanguard | 1 |  |
+| Sett | DA_18_Sett | ADTank | Blossom, Brawler | 1 |  |
+| Sivir | DA_18_Sivir | ADCarry | Hunter, Primal | 1 |  |
+| Soraka | DA_18_Soraka | APCaster | Executioner, Flora Fatalis | 1 |  |
+| Zyra | DA_18_Zyra | APCaster | Thornmaiden, Summoner | 1 |  |
 
 ## 5-Cost Champions
 
-| Champion | apiName | Cost | Role | Traits | Notes |
-|----------|---------|------|------|--------|-------|
-| Bard | TFT17_Bard | 5 | APCaster | Meeple, Conduit | |
-| Blitzcrank | TFT17_Blitzcrank | 5 | APFighter | Vanguard, Space Groove, Party Animal | Unique trait |
-| Fiora | TFT17_Fiora | 5 | ADFighter | Marauder, Anima, Divine Duelist | Unique trait: always wins 1v1 |
-| Graves | TFT17_Graves | 5 | ADCarry | Factory New | Unique trait: permanent upgrades via armory |
-| Jhin | TFT17_Jhin | 5 | ADCarry | Eradicator, Dark Star, Sniper | Unique trait: enemies lose resists |
-| Morgana | TFT17_Morgana | 5 | APFighter | Dark Lady | Unique trait: team ability damage reduction |
-| Shen | TFT17_Shen | 5 | APFighter | Bulwark, Bastion | Unique trait: placeable relic |
-| Sona | TFT17_Sona | 5 | APCaster | Psionic, Commander, Shepherd | Unique trait: Command Mods |
-| Vex | TFT17_Vex | 5 | APCarry | Doomer | Unique trait: steals AD/AP from enemies |
-| Zed | TFT17_Zed | 5 | ADFighter | Galaxy Hunter | Unique trait: from augment only |
-
----
-
-## Mecha Enhanced Variants
-
-Championów z traitem **Mecha** można transformować w Enhanced formę za pomocą itemu Mecha-Former. Enhanced forma:
-- Zajmuje **2 sloty** zamiast 1
-- Liczy się **2x** do traitu Mecha
-- Zyskuje +100% HP i ulepszoną ability
-
-Każdy wariant Enhanced jest **osobnym wpisem** — wyklucza się z wersją normalną:
-
-| Wariant | apiName | Cost | Role | Traits | Slot | Exclusive |
-|---------|---------|------|------|--------|------|-----------|
-| Urgot (Enhanced) | TFT17_Urgot_enhanced | 3 | ADFighter | Marauder, Brawler, Mecha | **2** | Urgot (normal) |
-| Aurelion Sol (Enhanced) | TFT17_AurelionSol_enhanced | 4 | APCaster | Conduit, Mecha | **2** | Aurelion Sol (normal) |
-| The Mighty Mech (Enhanced) | TFT17_Galio_enhanced | 4 | ADTank | Mecha, Voyager | **2** | The Mighty Mech (normal) |
-
-> **Mecha trait breakpoints**: 3 (silver), 4 (gold), 6 (prismatic: +1 max team size).
-> Enhanced champion counting 2x means: 1 Enhanced + 1 normal = 3 Mecha count.
-
----
-
-## Special Units (Not Playable)
-
-| Unit | apiName | Notes |
-|------|---------|-------|
-| Mini Black Hole | TFT17_DarkStar_FakeUnit | Summoned by Dark Star trait, not a real champion |
-
----
-
-## Exclusion Rules Summary
-
-1. **Miss Fortune variants**: Only one MF variant per team (Conduit OR Challenger OR Replicator)
-2. **Mecha Enhanced**: Enhanced version excludes normal version of same champion (same unit, different form)
-3. **Zed**: Only obtainable via Invader Zed augment — may not appear in normal shop
+| Champion | apiName | Role | Traits | Slot | Notes |
+|----------|---------|------|--------|------|-------|
+| Alune | DA_18_Alune | APCaster | Attuned, Lunar, Spellweaver | 1 |  |
+| Ashe | DA_18_Ashe | ADCarry | Blossom, Hunter | 1 |  |
+| Draven | DA_Draven18 | ADCarry | Bounty Seeker | 1 |  |
+| Elder Dragon | DA_18_ElderDragon | ADTank | Apex Predator, Riftbeast ×2 | 2 |  |
+| Gnar | DA_18_GnarSmall | ADTank | Brawler, Elderwood, Sprykin | 1 |  |
+| Ivern | DA_18_Ivern | APTank | Greenfather | 1 |  |
+| Kennen | DA_18_Kennen | APTank | Executioner, Inferno | 1 |  |
+| Lux | DA_Lux18_Base | HCaster | Avatar | 1 | rekord bazowy, niegrywalny (planner/MetaTFT) |
+| Lux (Blackthorn) | DA_Lux18_Blackthorn | APCaster | Avatar, Blackthorn ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Blossom) | DA_Lux18_Blossom | APCaster | Avatar, Blossom ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Coven) | DA_18_Lux_Coven | APCaster | Avatar, Coven ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Elderwood) | DA_18_Lux_Elderwood | APCaster | Avatar, Elderwood ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Fae) | DA_18_Lux_Fae | APCaster | Avatar, Fae ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Inferno) | DA_18_Lux_Inferno | APCaster | Avatar, Inferno ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Lunar) | DA_18_Lux_Moonbeam | APCaster | Avatar, Lunar ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Primal) | DA_18_Lux_Primal | APCaster | Avatar, Primal ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Lux (Solar) | DA_18_Lux_Sunbeam | APCaster | Avatar, Solar ×2 | 1 | forma `DA_Lux18_Base` (wyklucza inne formy) |
+| Maokai | DA_18_Maokai | APTank | Old Growth, Juggernaut | 1 |  |
+| Taric | DA_Taric18 | APTank | Emerald Aspect, Vanguard | 1 |  |

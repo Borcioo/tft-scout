@@ -89,7 +89,7 @@ class Champion extends Model
             'champion_trait',
             'champion_id',
             'trait_id'
-        );
+        )->withPivot('amount');
     }
 
     /**

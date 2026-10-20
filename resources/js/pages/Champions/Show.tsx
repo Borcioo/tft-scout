@@ -410,8 +410,9 @@ return null;
     // so N.O.V.A. Strike, Fateweaver Lucky, etc. stay visible in the
     // description — see the ShowIf handling in renderAbilityTokens below.
 
-    // Convert <br> to newlines before other tag stripping
-    text = text.replace(/<br\s*\/?>/gi, '\n');
+    // Convert <br> to newlines before other tag stripping. Set 18 text
+    // also ships escaped newlines (a literal backslash + "n").
+    text = text.replace(/<br\s*\/?>/gi, '\n').replace(/\\n/g, '\n');
 
     // Fix malformed scale icon markers in Riot's templates. Some stringtable
     // entries (observed: MF Set 17 Challenger Mode) close the final marker

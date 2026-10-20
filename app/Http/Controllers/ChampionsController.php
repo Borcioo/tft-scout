@@ -6,6 +6,7 @@ use App\Models\Champion;
 use App\Models\ChampionItemBuild;
 use App\Models\ChampionItemSet;
 use App\Models\Item;
+use App\Models\Set;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +30,7 @@ class ChampionsController extends Controller
     {
         $champions = Champion::query()
             ->base()
+            ->where('set_id', Set::currentId())
             ->with(['traits' => fn ($query) => $query->orderBy('api_name')])
             ->orderBy('cost')
             ->orderBy('name')

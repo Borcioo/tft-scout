@@ -1,157 +1,123 @@
-# TFT Set 17 — Trait Tier List (PBE)
+# TFT Set 18 — Trait Tier List
 
-> Źródło: MetaTFT API | Patch 17.1c | ~1792+ gier | Zaktualizowano: 2026-04-06
->
-> Traity oceniane **per breakpoint** — ten sam trait na różnych poziomach może mieć inny tier.
-> Style mapping: **1=Bronze, 3=Silver, 4=Unique, 5=Gold, 6=Prismatic**
-> Odfiltrowano traity z <5 gier.
+> Źródło: MetaTFT API (ranked queue 1100, GOLD+, ostatnie 3 dni) | sync 2026-10-20
+
+> Traity oceniane **per breakpoint**. Odfiltrowano breakpointy z < 500 gier.
 
 ---
 
-## S-Tier (Avg ≤ 3.80) — Dominujące synergii
+## S-Tier (Avg ≤ 3.80) — Najlepsze
 
 | # | Trait | Units | Style | Avg Place | Top4% | Win% | Games |
 |---|-------|-------|-------|-----------|-------|------|-------|
-| 1 | **Meeple** 10 | 10 | Prismatic | 1.00 | 100% | 100% | 7 |
-| 2 | **Stargazer (Serpent)** 7 | 7 | Gold | 3.29 | 71.4% | 28.6% | 7 |
-| 3 | **Voyager** 6 | 6 | Gold | 3.50 | 66.7% | 33.3% | 6 |
-| 4 | **Dark Star** 6 | 6 | Gold | 3.51 | 75.4% | 15.4% | 65 |
-| 5 | **Vanguard** 6 | 6 | Gold | 3.58 | 65.4% | 19.2% | 26 |
-| 6 | **Conduit** 3 | 3 | Silver | 3.67 | 66.0% | 22.3% | 103 |
-| 7 | **Mecha** 6 | 6 | Gold | 3.68 | 68.9% | 17.8% | 90 |
-| 8 | **Dark Lady** (Morgana) | 1 | Unique | 3.70 | 64.0% | 20.7% | 484 |
-| 9 | **Voyager** 3 | 3 | Silver | 3.73 | 63.6% | 20.8% | 77 |
-| 10 | **Rogue** 4 | 4 | Silver | 3.74 | 60.9% | 21.7% | 23 |
-| 11 | **Bulwark** (Shen) | 1 | Unique | 3.77 | 63.2% | 19.1% | 677 |
-| 12 | **Conduit** 4 | 4 | Silver | 3.79 | 68.4% | 15.8% | 19 |
-
-> **Brak prismatic traitów w top-tier!** Dark Star 6 i Mecha 6 to GOLD, nie prismatic. Prismatic breakpointy (Dark Star 9, Meeple 10, Space Groove 10) są ultra-rzadkie.
+| 1 | **Elderwood** 11 | 11 | Prismatic | 1.07 | 99.9% | 94.4% | 7,740 |
+| 2 | **Blossom** 11 | 11 | Prismatic | 1.30 | 98.3% | 85.0% | 4,338 |
+| 3 | **Riftbeast** 10 | 10 | Gold | 2.21 | 92.1% | 40.9% | 115,986 |
+| 4 | **Elderwood** 9 | 9 | Gold | 2.49 | 86.2% | 38.1% | 90,601 |
+| 5 | **Lunar** 5 | 5 | Gold | 2.90 | 80.1% | 28.7% | 53,393 |
+| 6 | **Eclipse** None | — | — | 3.25 | 73.4% | 24.3% | 239,806 |
+| 7 | **Lunar** 4 | 4 | Silver | 3.30 | 72.5% | 24.2% | 115,645 |
+| 8 | **Executioner** 4 | 4 | Gold | 3.43 | 70.8% | 20.1% | 320,416 |
+| 9 | **Blossom** 9 | 9 | Gold | 3.45 | 69.7% | 21.3% | 42,157 |
+| 10 | **Vanguard** 6 | 6 | Gold | 3.48 | 68.4% | 24.2% | 67,335 |
+| 11 | **Inferno** 7 | 7 | Gold | 3.50 | 68.5% | 22.3% | 32,325 |
+| 12 | **Avatar** (Lux) | 1 | Unique | 3.58 | 66.1% | 24.9% | 954,281 |
+| 13 | **Spellweaver** 6 | 6 | Gold | 3.61 | 66.7% | 19.9% | 72,503 |
+| 14 | **Lunar** 3 | 3 | Silver | 3.63 | 66.8% | 19.3% | 427,444 |
+| 15 | **Attuned** (Alune) | 1 | Unique | 3.70 | 64.6% | 21.0% | 1,229,318 |
 
 ## A-Tier (3.81 – 4.10) — Bardzo mocne
 
 | # | Trait | Units | Style | Avg Place | Top4% | Win% | Games |
 |---|-------|-------|-------|-----------|-------|------|-------|
-| 13 | **Shepherd** 7 | 7 | Gold | 3.81 | 62.5% | 12.5% | 16 |
-| 14 | **Stargazer (Wolf)** 6 | 6 | Gold | 3.85 | 61.5% | 15.4% | 13 |
-| 15 | **Shepherd** 5 | 5 | Silver | 3.87 | 61.9% | 11.1% | 63 |
-| 16 | **Voyager** 5 | 5 | Silver | 3.88 | 59.4% | 12.5% | 32 |
-| 17 | **Space Groove** 7 | 7 | Gold | 3.88 | 58.5% | 18.5% | 65 |
-| 18 | **N.O.V.A.** 5 | 5 | Gold | 3.90 | 62.5% | 14.7% | 259 |
-| 19 | **Shepherd** 3 | 3 | Bronze | 3.91 | 60.7% | 18.2% | 285 |
-| 20 | **Commander** (Sona) | 1 | Unique | 3.92 | 62.1% | 14.5% | 401 |
-| 21 | **Bastion** 4 | 4 | Silver | 3.93 | 61.4% | 15.9% | 132 |
-| 22 | **Party Animal** (Blitzcrank) | 1 | Unique | 3.94 | 60.4% | 18.9% | 583 |
-| 23 | **Eradicator** (Jhin) | 1 | Unique | 3.94 | 59.7% | 17.0% | 511 |
-| 24 | **Meeple** 3 | 3 | Bronze | 3.95 | 59.2% | 17.8% | 326 |
-| 25 | **Fateweaver** 4 | 4 | Gold | 3.95 | 58.7% | 14.3% | 63 |
-| 26 | **Divine Duelist** (Fiora) | 1 | Unique | 3.96 | 60.9% | 20.4% | 304 |
-| 27 | **Vanguard** 4 | 4 | Silver | 3.98 | 60.3% | 16.1% | 224 |
-| 28 | **Meeple** 7 | 7 | Gold | 3.99 | 60.9% | 18.4% | 179 |
-| 29 | **Dark Star** 2 | 2 | Bronze | 3.99 | 58.3% | 17.1% | 666 |
-| 30 | **Voyager** 2 | 2 | Bronze | 3.99 | 60.0% | 16.7% | 557 |
-| 31 | **Marauder** 4 | 4 | Silver | 4.00 | 64.0% | 18.7% | 75 |
-| 32 | **Stargazer (Huntress)** 3 | 3 | Bronze | 4.02 | 56.1% | 12.2% | 41 |
-| 33 | **Sniper** 2 | 2 | Bronze | 4.05 | 57.7% | 17.1% | 369 |
-| 34 | **Conduit** 2 | 2 | Bronze | 4.08 | 57.6% | 16.2% | 512 |
-| 35 | **Bastion** 2 | 2 | Bronze | 4.08 | 57.1% | 16.3% | 1213 |
-| 36 | **Doomer** (Vex) | 1 | Unique | 4.08 | 57.7% | 18.0% | 222 |
+| 16 | **Invoker** 5 | 5 | Gold | 3.81 | 63.6% | 16.3% | 74,151 |
+| 17 | **Apex Predator** (Elder Dragon) | 1 | Unique | 3.82 | 61.4% | 22.1% | 1,294,195 |
+| 18 | **Emerald Aspect** (Taric) | 1 | Unique | 3.84 | 61.1% | 21.8% | 2,227,114 |
+| 19 | **Executioner** 3 | 3 | Silver | 3.86 | 61.9% | 17.7% | 692,103 |
+| 20 | **Rapidfire** 5 | 5 | Gold | 3.87 | 63.4% | 13.7% | 38,966 |
+| 21 | **Hunter** 5 | 5 | Gold | 3.88 | 62.8% | 13.1% | 14,117 |
+| 22 | **Rapidfire** 4 | 4 | Silver | 3.89 | 62.2% | 15.5% | 59,227 |
+| 23 | **Rapidfire** 3 | 3 | Silver | 3.90 | 61.7% | 16.2% | 358,147 |
+| 24 | **Greenfather** (Ivern) | 1 | Unique | 3.91 | 59.4% | 22.4% | 1,485,681 |
+| 25 | **Sprykin** 7 | 7 | Gold | 3.94 | 62.3% | 10.6% | 26,834 |
+| 26 | **Brawler** 4 | 4 | Silver | 3.95 | 61.1% | 14.0% | 124,389 |
+| 27 | **Ravager** 6 | 6 | Gold | 4.04 | 60.9% | 8.9% | 46,584 |
+| 28 | **Brawler** 6 | 6 | Gold | 4.05 | 59.3% | 11.8% | 22,102 |
+| 29 | **Elderwood** 7 | 7 | Gold | 4.06 | 58.4% | 13.4% | 306,732 |
+| 30 | **Primal** 4 | 4 | Gold | 4.08 | 58.5% | 13.0% | 112,832 |
+| 31 | **Brawler** 2 | 2 | Bronze | 4.08 | 57.8% | 15.6% | 2,452,077 |
+| 32 | **Flora Fatalis** 2 | 2 | Gold | 4.10 | 57.8% | 14.4% | 1,436,225 |
 
 ## B-Tier (4.11 – 4.40) — Solidne
 
 | # | Trait | Units | Style | Avg Place | Top4% | Win% | Games |
 |---|-------|-------|-------|-----------|-------|------|-------|
-| 37 | **Brawler** 6 | 6 | Gold | 4.11 | 60.0% | 14.3% | 35 |
-| 38 | **Psionic** 4 | 4 | Gold | 4.15 | 58.8% | 10.3% | 136 |
-| 39 | **Arbiter** 3 | 3 | Gold | 4.16 | 56.1% | 17.2% | 221 |
-| 40 | **Psionic** 2 | 2 | Bronze | 4.17 | 58.4% | 14.7% | 327 |
-| 41 | **Marauder** 2 | 2 | Bronze | 4.21 | 56.4% | 14.1% | 454 |
-| 42 | **Challenger** 2 | 2 | Bronze | 4.30 | 53.3% | 13.6% | 338 |
-| 43 | **Fateweaver** 2 | 2 | Bronze | 4.30 | 54.0% | 13.6% | 287 |
-| 44 | **Factory New** (Graves) | 1 | Unique | 4.31 | 51.7% | 16.4% | 379 |
-| 45 | **Redeemer** (Rhaast) | 1 | Unique | 4.31 | 53.2% | 14.4% | 472 |
-| 46 | **Rogue** 3 | 3 | Silver | 4.33 | 50.4% | 10.4% | 115 |
-| 47 | **Oracle** (Tahm Kench) | 1 | Unique | 4.34 | 53.7% | 13.7% | 628 |
-| 48 | **Space Groove** 1 | 1 | Bronze | 4.35 | 53.6% | 13.3% | 1068 |
-| 49 | **Rogue** 2 | 2 | Bronze | 4.36 | 53.3% | 13.6% | 345 |
-| 50 | **N.O.V.A.** 2 | 2 | Bronze | 4.40 | 51.9% | 11.9% | 453 |
-| 51 | **Vanguard** 2 | 2 | Bronze | 4.40 | 50.5% | 15.1% | 773 |
-| 52 | **Timebreaker** 4 | 4 | Gold | 4.40 | 50.0% | 13.5% | 52 |
+| 33 | **Adaptor** 4 | 4 | Gold | 4.10 | 59.2% | 9.1% | 36,684 |
+| 34 | **Defender** 6 | 6 | Gold | 4.10 | 58.3% | 11.0% | 145,282 |
+| 35 | **Old Growth** (Maokai) | 1 | Unique | 4.11 | 55.8% | 19.3% | 1,709,503 |
+| 36 | **Inferno** 2 | 2 | Bronze | 4.14 | 56.5% | 16.2% | 1,717,854 |
+| 37 | **Riftbeast** 3 | 3 | Bronze | 4.14 | 55.8% | 17.6% | 1,294,500 |
+| 38 | **Blackthorn** 6 | 6 | Gold | 4.15 | 56.4% | 15.1% | 67,763 |
+| 39 | **Invoker** 4 | 4 | Silver | 4.15 | 56.8% | 14.1% | 168,927 |
+| 40 | **Hunter** 4 | 4 | Silver | 4.16 | 57.1% | 12.1% | 42,278 |
+| 41 | **Adaptor** 3 | 3 | Silver | 4.16 | 57.7% | 11.2% | 93,525 |
+| 42 | **Bounty Seeker** (Draven) | 1 | Unique | 4.16 | 54.0% | 21.2% | 1,076,363 |
+| 43 | **Summoner** 2 | 2 | Bronze | 4.18 | 56.3% | 14.3% | 1,013,359 |
+| 44 | **Invoker** 2 | 2 | Bronze | 4.18 | 56.1% | 14.3% | 1,990,097 |
+| 45 | **Sprykin** 3 | 3 | Bronze | 4.21 | 55.7% | 13.7% | 903,869 |
+| 46 | **Thornmaiden** (Zyra) | 1 | Unique | 4.21 | 55.6% | 13.8% | 1,125,098 |
+| 47 | **Riftbeast** 7 | 7 | Gold | 4.23 | 55.5% | 10.8% | 765,466 |
+| 48 | **Spellweaver** 4 | 4 | Silver | 4.24 | 54.8% | 12.8% | 375,431 |
+| 49 | **Summoner** 3 | 3 | Gold | 4.25 | 55.2% | 12.1% | 292,767 |
+| 50 | **Solar** 3 | 3 | Gold | 4.26 | 54.8% | 13.7% | 1,024,925 |
+| 51 | **Inferno** 5 | 5 | Gold | 4.28 | 53.3% | 14.5% | 114,637 |
+| 52 | **Caustic** (Kog'Maw) | 1 | Unique | 4.28 | 55.7% | 10.1% | 947,922 |
+| 53 | **Adaptor** 2 | 2 | Bronze | 4.28 | 55.8% | 9.3% | 717,906 |
+| 54 | **Invoker** 3 | 3 | Silver | 4.29 | 54.5% | 12.1% | 406,631 |
+| 55 | **Vanguard** 4 | 4 | Silver | 4.29 | 53.0% | 16.9% | 664,587 |
+| 56 | **Juggernaut** 6 | 6 | Gold | 4.29 | 53.8% | 12.7% | 198,628 |
+| 57 | **Juggernaut** 2 | 2 | Bronze | 4.29 | 53.7% | 14.8% | 3,264,292 |
+| 58 | **Lunar** 2 | 2 | Bronze | 4.29 | 54.1% | 13.2% | 1,330,305 |
+| 59 | **Vanguard** 2 | 2 | Bronze | 4.31 | 53.4% | 14.8% | 3,202,132 |
+| 60 | **Spellweaver** 2 | 2 | Bronze | 4.33 | 53.3% | 13.8% | 3,079,203 |
+| 61 | **Inferno** 3 | 3 | Silver | 4.34 | 53.0% | 14.5% | 444,702 |
+| 62 | **Ravager** 4 | 4 | Silver | 4.35 | 54.0% | 8.8% | 108,265 |
+| 63 | **Defender** 2 | 2 | Bronze | 4.38 | 52.4% | 13.1% | 2,888,360 |
+| 64 | **Elderwood** 3 | 3 | Bronze | 4.38 | 52.2% | 13.7% | 1,333,153 |
+| 65 | **Rapidfire** 2 | 2 | Bronze | 4.38 | 53.0% | 11.3% | 1,334,566 |
+| 66 | **Ravager** 2 | 2 | Bronze | 4.39 | 52.5% | 12.5% | 1,772,717 |
+| 67 | **Hunter** 3 | 3 | Silver | 4.39 | 51.9% | 11.9% | 135,388 |
+| 68 | **Blackthorn** 2 | 2 | Bronze | 4.40 | 52.2% | 12.2% | 1,284,294 |
 
-## C-Tier (4.41 – 4.70) — Średnie / sytuacyjne
+## C-Tier (4.41 – 4.70) — Sytuacyjne
 
 | # | Trait | Units | Style | Avg Place | Top4% | Win% | Games |
 |---|-------|-------|-------|-----------|-------|------|-------|
-| 53 | **Brawler** 2 | 2 | Bronze | 4.41 | 52.4% | 12.0% | 900 |
-| 54 | **Mecha** 3 | 3 | Bronze | 4.45 | 49.1% | 9.1% | 55 |
-| 55 | **Meeple** 5 | 5 | Silver | 4.46 | 50.0% | 13.1% | 122 |
-| 56 | **Timebreaker** 2 | 2 | Bronze | 4.51 | 48.9% | 15.3% | 229 |
-| 57 | **Brawler** 4 | 4 | Silver | 4.52 | 53.0% | 13.3% | 83 |
-| 58 | **Gun Goddess** (MF) | 1 | Unique | 4.53 | 48.5% | 11.4% | 307 |
-| 59 | **Bastion** 6 | 6 | Gold | 4.53 | 53.3% | 6.7% | 15 |
-| 60 | **Rogue** 5 | 5 | Gold | 4.56 | 53.1% | 12.5% | 32 |
-| 61 | **Replicator** 2 | 2 | Bronze | 4.59 | 47.3% | 12.5% | 273 |
-| 62 | **Replicator** 4 | 4 | Gold | 4.62 | 38.1% | 14.3% | 21 |
-| 63 | **Mecha** 4 | 4 | Silver | 4.67 | 43.1% | 13.7% | 51 |
-| 64 | **Challenger** 4 | 4 | Silver | 4.69 | 43.8% | 18.8% | 16 |
-| 65 | **Primordian** 3 | 3 | Gold | 4.69 | 49.7% | 6.1% | 179 |
-| 66 | **Galaxy Hunter** (Zed) | 1 | Unique | 4.69 | 42.9% | 14.3% | 35 |
+| 69 | **Primal** 2 | 2 | Bronze | 4.41 | 52.3% | 10.5% | 1,308,572 |
+| 70 | **Blackthorn** 4 | 4 | Silver | 4.48 | 50.6% | 11.0% | 223,929 |
+| 71 | **Coven** 3 | 3 | Bronze | 4.48 | 49.6% | 17.2% | 357,564 |
+| 72 | **Executioner** 2 | 2 | Bronze | 4.49 | 49.6% | 12.8% | 1,384,878 |
+| 73 | **Blossom** 3 | 3 | Bronze | 4.49 | 50.8% | 11.1% | 969,459 |
+| 74 | **Rival** 1 | 1 | Gold | 4.52 | 50.0% | 11.8% | 804,290 |
+| 75 | **Rival** 2 | 2 | Gold | 4.55 | 49.5% | 10.4% | 111,081 |
+| 76 | **Fae** 4 | 4 | Gold | 4.56 | 48.4% | 12.3% | 209,493 |
+| 77 | **Blossom** 7 | 7 | Gold | 4.56 | 48.6% | 9.1% | 133,213 |
+| 78 | **Hunter** 2 | 2 | Bronze | 4.57 | 48.4% | 11.7% | 542,037 |
+| 79 | **Sprykin** 5 | 5 | Silver | 4.60 | 48.4% | 6.5% | 145,198 |
+| 80 | **Monolith** (Malphite) | 1 | Unique | 4.67 | 47.1% | 8.7% | 590,605 |
+| 81 | **Defender** 4 | 4 | Silver | 4.68 | 46.7% | 8.4% | 133,174 |
 
-## D-Tier (Avg > 4.70) — Słabe / unikaj
+## D-Tier (> 4.70) — Słabe
 
 | # | Trait | Units | Style | Avg Place | Top4% | Win% | Games |
 |---|-------|-------|-------|-----------|-------|------|-------|
-| 67 | **Space Groove** 5 | 5 | Silver | 4.78 | 44.4% | 6.7% | 90 |
-| 68 | **Arbiter** 2 | 2 | Bronze | 4.79 | 43.4% | 10.4% | 173 |
-| 69 | **Sniper** 3 | 3 | Silver | 4.84 | 40.0% | 7.3% | 55 |
-| 70 | **Space Groove** 3 | 3 | Silver | 4.87 | 41.9% | 11.6% | 86 |
-| 71 | **Timebreaker** 3 | 3 | Silver | 4.94 | 45.2% | 12.9% | 31 |
-| 72 | **Sniper** 4 | 4 | Silver | 4.95 | 45.0% | 5.0% | 20 |
-| 73 | **Anima** 3 | 3 | Bronze | 5.12 | 40.0% | 12.2% | 180 |
-| 74 | **Marauder** 6 | 6 | Gold | 5.20 | 20.0% | 0.0% | 5 |
-| 75 | **Challenger** 3 | 3 | Silver | 5.50 | 36.5% | 1.9% | 52 |
-| 76 | **Dark Star** 4 | 4 | Silver | 5.53 | 26.5% | 5.9% | 68 |
-| 77 | **Challenger** 5 | 5 | Gold | 5.63 | 15.8% | 0.0% | 19 |
-| 78 | **Anima** 6 | 6 | Gold | 5.71 | 23.5% | 5.9% | 17 |
-| 79 | **Primordian** 2 | 2 | Bronze | 6.19 | 18.6% | 2.3% | 43 |
-
----
-
-## Kluczowe wnioski
-
-### Best verticals (high breakpoints)
-1. **Dark Star 6** (Gold, 3.51) — najlepszy vertical w grze
-2. **Vanguard 6** (Gold, 3.58) — defensywny powerhouse
-3. **Mecha 6** (Gold, 3.68) — +1 team size czyni go opłacalnym
-4. **Space Groove 7** (Gold, 3.88) — wymaga dużo unitów ale działa
-5. **Meeple 7** (Gold, 3.99) — solidny vertical
-
-### Best splashable traits (niski koszt, duża wartość)
-1. **Shepherd 3** (Bronze, 3.91) — najlepszy bronze trait
-2. **Meeple 3** (Bronze, 3.95) — łatwy splash
-3. **Dark Star 2** (Bronze, 3.99) — 2 unity dają dużo
-4. **Voyager 2** (Bronze, 3.99) — bardzo flex
-5. **Sniper 2** (Bronze, 4.05) — easy splash
-6. **Bastion 2** (Bronze, 4.08) — najczęściej grany trait (1213 gier!)
-7. **Conduit 2** (Bronze, 4.08) — mana support
-
-### Trap traits (unikaj!)
-1. **Primordian 2** (Bronze, 6.19) — **najgorszy trait w grze**
-2. **Anima 6** (Gold, 5.71) — full Anima nie działa
-3. **Challenger 5** (Gold, 5.63) — 0% winrate!
-4. **Dark Star 4** (Silver, 5.53) — pułapka: albo 2 albo 6
-5. **Challenger 3** (Silver, 5.50) — 1.9% winrate
-
-### "All or nothing" traits
-| Trait | Low breakpoint | Mid breakpoint | High breakpoint |
-|-------|---------------|----------------|-----------------|
-| **Dark Star** | 2 → 3.99 (A) | 4 → 5.53 (D!) | 6 → 3.51 (S) |
-| **Mecha** | 3 → 4.45 (C) | 4 → 4.67 (C) | 6 → 3.68 (S) |
-| **Challenger** | 2 → 4.30 (B) | 3 → 5.50 (D!) | 5 → 5.63 (D!) |
-| **Anima** | 3 → 5.12 (D) | — | 6 → 5.71 (D) |
-
-### Missing prismatic data
-Następujące prismatic breakpointy mają 0 lub <5 gier na PBE (zbyt rzadkie):
-- Dark Star 9 (Prismatic) — brak danych
-- Meeple 10 (Prismatic) — 7 gier, 100% winrate (za mało)
-- Space Groove 10 (Prismatic) — brak danych
-- Stargazer Mountain (Prismatic) — brak danych
+| 82 | **Fae** 2 | 2 | Bronze | 4.70 | 46.5% | 10.7% | 582,674 |
+| 83 | **Juggernaut** 4 | 4 | Silver | 4.71 | 45.6% | 10.3% | 310,500 |
+| 84 | **Flora Fatalis** 1 | 1 | Bronze | 4.82 | 43.8% | 9.8% | 1,381,291 |
+| 85 | **Blossom** 5 | 5 | Silver | 4.83 | 43.3% | 8.2% | 168,950 |
+| 86 | **Coven** 7 | 7 | Gold | 4.91 | 39.2% | 16.8% | 71,692 |
+| 87 | **Elderwood** 5 | 5 | Silver | 5.14 | 36.7% | 8.0% | 306,324 |
+| 88 | **Rival** 1 | 1 | Bronze | 5.29 | 35.7% | 4.1% | 2,769 |
+| 89 | **Coven** 5 | 5 | Silver | 5.58 | 28.4% | 7.2% | 239,189 |
+| 90 | **Coven** 4 | 4 | Silver | 5.80 | 25.4% | 6.7% | 146,340 |
+| 91 | **Riftbeast** 5 | 5 | Silver | 6.27 | 18.3% | 1.8% | 87,857 |

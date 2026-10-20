@@ -232,8 +232,9 @@ class AbilityDescriptionResolver
     }
 
     /**
-     * Hash a plaintext key, look it up in the stringtable entries.
-     * Null-safe — returns null for null input.
+     * Look a plaintext key up in the stringtable entries (plaintext or
+     * hashed, see StringtableCache::find). Null-safe — returns null for
+     * null input.
      */
     private function lookup(array $entries, ?string $key): ?string
     {
@@ -241,9 +242,7 @@ class AbilityDescriptionResolver
             return null;
         }
 
-        $hashKey = RstHasher::key($key);
-
-        return $entries[$hashKey] ?? null;
+        return StringtableCache::find($entries, $key);
     }
 
     /**

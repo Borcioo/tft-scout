@@ -24,7 +24,8 @@ import { teamScore, teamScoreBreakdown, teamRoleBalance } from './scorer';
 import { startSpan } from './scout-profiler';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
-import { teamSizeBonus } from './trait-rules';
+import { traitAmount } from './trait-amount';
+import { buildTeamSizeRules, teamSizeBonus } from './trait-rules';
 
 /**
  * Generate team compositions.
@@ -156,34 +157,37 @@ export function generate(input) {
     const lockedApiSet = new Set(locked.map(c => c.apiName));
 
     // Per-trait max-achievable count, honouring exclusion groups AND
-    // slotsUsed. Base + enhanced Mecha are mutually exclusive (same
+    // trait amounts. Base + enhanced Mecha are mutually exclusive (same
     // base_champion_id group), so a naive `filter.length` overcounts:
     // 6 Mecha champs in the catalogue but only 3 can field at once.
-    // Each can be base (1 slot) or enhanced (2 slots) → best case 3×2=6.
+    // Each can be base (counts 1) or enhanced (counts 2) → best case
+    // 3×2=6. Same for Set 18: one Lux form (counts 2 for its element),
+    // Elder Dragon counts 2 Riftbeast.
     //
     // Algorithm: group champs by exclusion group (singletons for
-    // anything outside a group); pick the member with max slotsUsed
-    // from each; sum.
+    // anything outside a group); pick the member contributing the most
+    // to the trait from each; sum.
+    const teamSizeRules = buildTeamSizeRules(traits);
     const exclusionMemberMap: Record<string, string[]> = {};
     for (const group of effectiveExclusionGroups) {
       for (const member of group) exclusionMemberMap[member] = group;
     }
     const maxTraitAchievable = (lockApi: string): { count: number; picks: string[] } => {
-      const groupBest: Record<string, { slots: number; api: string }> = {};
+      const groupBest: Record<string, { amount: number; api: string }> = {};
       for (const c of champions) {
         if (c.variant === 'hero') continue;
         if (excludedSet.has(c.apiName)) continue;
         if (!c.traits.includes(lockApi)) continue;
         const groupKey = exclusionMemberMap[c.apiName]?.slice().sort().join('|') ?? c.apiName;
-        const slots = c.slotsUsed ?? 1;
-        if (!groupBest[groupKey] || slots > groupBest[groupKey].slots) {
-          groupBest[groupKey] = { slots, api: c.apiName };
+        const amount = traitAmount(c, lockApi);
+        if (!groupBest[groupKey] || amount > groupBest[groupKey].amount) {
+          groupBest[groupKey] = { amount, api: c.apiName };
         }
       }
       let count = 0;
       const picks: string[] = [];
       for (const v of Object.values(groupBest)) {
-        count += v.slots;
+        count += v.amount;
         picks.push(v.api);
       }
       return { count, picks };
@@ -229,7 +233,7 @@ export function generate(input) {
     // fewer unique units than its slot budget. Team-builder honours
     // the budget natively (see shared/team-builder.ts) — no more
     // subtracting extra slots for locked enhanced up front.
-    const lockedTraitBonus = teamSizeBonus(traitLocks);
+    const lockedTraitBonus = teamSizeBonus(traitLocks, teamSizeRules);
     const effectiveTeamSize = level + lockedTraitBonus;
 
     // Build graph from eligible champions (locked + candidates).
@@ -326,7 +330,7 @@ export function generate(input) {
     // requested minUnits count.
     //
     // Slot budget = level + teamSizeBonus(activeTraits). Trait rules
-    // like Mecha @ 6 expand the board one slot per-comp; re-compute
+    // like Mecha 6 / Riftbeast 10 expand the board per-comp; re-compute
     // per result so non-locked comps that happen to hit the bonus
     // breakpoint get the benefit too.
     const minFrontline = constraints.minFrontline ?? 0;
@@ -335,7 +339,7 @@ export function generate(input) {
 
     const _endValidCompsFilter = startSpan('engine.validCompsFilter');
     const validComps = enriched.filter(r => {
-      const maxSlots = level + teamSizeBonus(r.activeTraits);
+      const maxSlots = level + teamSizeBonus(r.activeTraits, teamSizeRules);
       if (r.slotsUsed > maxSlots) {
         return false;
       }
@@ -386,7 +390,7 @@ export function generate(input) {
       const validKeys = new Set(validComps.map(t => t.champions.map(c => c.apiName).sort().join(',')));
       const backfillCandidates = enriched
         .filter(r => {
-          const maxSlots = level + teamSizeBonus(r.activeTraits);
+          const maxSlots = level + teamSizeBonus(r.activeTraits, teamSizeRules);
           if (r.slotsUsed > maxSlots) {
             return false;
           }
@@ -446,7 +450,7 @@ export function generate(input) {
       const enhancedCandidate = enriched
         .filter(r => {
           if (!r.champions?.some(c => c.variant === 'enhanced')) return false;
-          const maxSlots = level + teamSizeBonus(r.activeTraits);
+          const maxSlots = level + teamSizeBonus(r.activeTraits, teamSizeRules);
           if (r.slotsUsed > maxSlots) return false;
           // Respect trait-lock hard filter.
           for (const lock of traitLocks) {

@@ -2,8 +2,15 @@
 
 // @ts-nocheck
 
+import { traitAmount } from '../../trait-amount';
 import { buildOneTeam } from '../shared/team-builder';
 import type { PhaseContext } from '../types';
+
+// Champions can count more than once for a trait (Lux form ×2 on its
+// element, Elder Dragon ×2 Riftbeast), so "enough champions for the
+// lock" is a sum of contributions, not a head count.
+const amountOf = (graph, api, trait) => traitAmount(graph.nodes[api], trait);
+const sumAmounts = (graph, apis, trait) => apis.reduce((s, api) => s + amountOf(graph, api, trait), 0);
 
 export function phaseLockedTraitSeeded(ctx: PhaseContext): void {
   const { graph, teamSize, context, rng, addResult, excludedSet } = ctx;
@@ -123,7 +130,7 @@ function buildLockedTraitPool(lockedTraits, graph, excludedSet, allowedSet) {
       candidates.push(api);
     }
 
-    if (candidates.length < lock.minUnits) {
+    if (sumAmounts(graph, candidates, lock.apiName) < lock.minUnits) {
       return null;
     }
 
@@ -164,11 +171,13 @@ function pickSeedsTopUnitRating(pool, lockedTraits, graph, unitRatings, attemptI
     });
 
     const windowStart = attemptIndex % Math.max(1, sorted.length - lock.minUnits + 1);
+    let have = 0;
 
-    for (let i = 0; i < lock.minUnits; i++) {
+    for (let i = 0; i < sorted.length && have < lock.minUnits; i++) {
       const pick = sorted[(windowStart + i) % sorted.length];
 
       seeds.add(pick);
+      have += amountOf(graph, pick, lock.apiName);
     }
   }
 
@@ -253,8 +262,9 @@ function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, a
 
   for (const lock of lockedTraits) {
     const members = (pool.get(lock.apiName) ?? []).filter(api => seeds.has(api));
+    let have = sumAmounts(graph, members, lock.apiName);
 
-    if (members.length >= lock.minUnits) {
+    if (have >= lock.minUnits) {
       continue;
     }
 
@@ -271,10 +281,9 @@ function pickSeedsCompanionPair(pool, lockedTraits, graph, unitRatings, pairs, a
         return a.localeCompare(b);
       });
 
-    const needed = lock.minUnits - members.length;
-
-    for (let i = 0; i < needed && i < sorted.length; i++) {
+    for (let i = 0; have < lock.minUnits && i < sorted.length; i++) {
       seeds.add(sorted[i]);
+      have += amountOf(graph, sorted[i], lock.apiName);
     }
   }
 
@@ -316,6 +325,7 @@ function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
 
     const picks = new Set();
     const minUnits = lock.minUnits;
+    const picked = () => sumAmounts(graph, [...picks], lock.apiName);
 
     picks.add(byCost[0]);
 
@@ -342,7 +352,7 @@ function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
 
     let idx = 0;
 
-    while (picks.size < minUnits && idx < remaining.length) {
+    while (picked() < minUnits && idx < remaining.length) {
       picks.add(remaining[idx]);
       idx++;
     }

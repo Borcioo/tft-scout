@@ -36,7 +36,7 @@ class DiagnosticsController extends Controller
             abort(404); // Same 404 — no "wrong key" signal.
         }
 
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
 
         return response()->json([
             'server_time' => now()->toIso8601String(),

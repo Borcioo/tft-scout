@@ -10,10 +10,10 @@
  * existing `base_champion_id` group emitted by ScoutContextBuilder.
  * Nothing extra handled here for that case.
  *
- * TODO: promote to set-rules hook when Set 18 ships. At that point
- * introduce a per-set config file (e.g. set-rules/tft17.ts,
- * set-rules/tft18.ts) that exports { heroExemptApis, ... } and is
- * loaded at worker startup. For now a single hardcoded set is enough.
+ * Set 18 has no hero augments (no `hero` variants are imported), so
+ * this is a no-op there. If a later set brings them back, move the
+ * exemption list into config/tft.php `sets` and ship it in the scout
+ * context instead of hardcoding it here.
  */
 
 export const HERO_EXCLUSION_EXEMPT: ReadonlySet<string> = new Set([

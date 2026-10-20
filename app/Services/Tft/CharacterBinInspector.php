@@ -331,13 +331,19 @@ class CharacterBinInspector
      * Resolve each TraitData hash to a human-readable api_name by lookup in
      * the pre-computed map. Unresolved hashes are preserved with a null
      * api_name so we can spot traits missing from the DB.
+     *
+     * `amount` is the TFTTraitContributionData `Amount` field — how many
+     * units of the trait this champion counts as. Absent = 1. Set 18
+     * Lux variants carry `Amount: 2` on their element trait ("counted
+     * twice"), Elder Dragon `Amount: 2` on Riftbeast.
      */
     private function resolveLinkedTraits(array $linkedTraits, array $traitHashMap): array
     {
         return array_map(function (array $entry) use ($traitHashMap) {
             $ref = $entry['TraitData'] ?? null;
+            $amount = max(1, (int) ($entry['Amount'] ?? 1));
             if ($ref === null) {
-                return ['hash' => null, 'api_name' => null];
+                return ['hash' => null, 'api_name' => null, 'amount' => $amount];
             }
 
             // CDragon may have already resolved the FNV hash to a full
@@ -346,13 +352,14 @@ class CharacterBinInspector
             if (is_string($ref) && str_contains($ref, '/Traits/')) {
                 $apiName = substr($ref, strrpos($ref, '/') + 1);
 
-                return ['hash' => $ref, 'api_name' => $apiName];
+                return ['hash' => $ref, 'api_name' => $apiName, 'amount' => $amount];
             }
 
             // Fallback: numeric FNV hash → lookup in pre-computed map.
             return [
                 'hash' => $ref,
                 'api_name' => $traitHashMap[$ref] ?? null,
+                'amount' => $amount,
             ];
         }, $linkedTraits);
     }
@@ -383,9 +390,11 @@ class CharacterBinInspector
     }
 
     /**
-     * Extract the set number from an api_name like "TFT17_MissFortune" → 17.
-     * Falls back to 17 for set-less api_names since Set 17 is the current
-     * focus; callers can override by fetching from DB if they know better.
+     * Extract the set number from an api_name: "TFT17_MissFortune" → 17,
+     * Set 18's namespaced ids "DA_18_Ahri" / "DA_Amumu18" /
+     * "DA_Gromp18_AP" → 18. Falls back to the configured set for
+     * anything else; only used to build the hash fallback map (CDragon
+     * resolves most TraitData refs to full paths already).
      */
     private function extractSetNumber(string $apiName): int
     {
@@ -393,6 +402,10 @@ class CharacterBinInspector
             return (int) $matches[1];
         }
 
-        return 17;
+        if (preg_match('/^[A-Z]+_(?:(\d+)_|[A-Za-z]+?(\d+)(?:_|$))/', $apiName, $matches)) {
+            return (int) ($matches[1] !== '' ? $matches[1] : $matches[2]);
+        }
+
+        return (int) config('services.tft.set', 18);
     }
 }

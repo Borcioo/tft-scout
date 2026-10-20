@@ -28,7 +28,7 @@ class ScoutController extends Controller
      */
     public function index(): Response
     {
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
 
         // Prefetch top 3-item builds per champion directly in Inertia
         // props — UI accordion can render without a separate fetch.
@@ -60,7 +60,7 @@ class ScoutController extends Controller
      */
     public function context(): JsonResponse
     {
-        $setNumber = (int) config('services.tft.set', 17);
+        $setNumber = (int) config('services.tft.set', 18);
         $context = $this->builder->build($setNumber);
 
         return response()->json($context);

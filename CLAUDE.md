@@ -27,7 +27,8 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - `scripts/scout-cli/` — debug CLI (commands/, lab/, lookup, params, context, format)
 - `scripts/scout-cli.ts` — entry point (`npm run scout`)
 - `scripts/scout-audit/` — batch analysis
-- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data
+- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data, set18-data-shape
+- `docs/knowledge-base/` — baza wiedzy aktualnego setu (Set 18; Set 17 w `set17/`)
 - `docs/champion-ability-pipeline.md` — end-to-end walkthrough (reference doc)
 - `legacy/` — stary Node stack, nie edytować
 - `tests/` — PHPUnit (phpunit.xml)
@@ -38,12 +39,15 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **TFT data source = CommunityDragon**, NIE Data Dragon (patrz `docs/research/tft-data-sources.md`)
 - **Character bins path**: `game/characters/*.cdtb.bin.json` (nieoczywiste!)
 - **Variant mechanics**: `_traitclone` records, FNV1a resolver
-- **Hash resolution**: BIN = FNV1a-32 lowercase, RST = xxh3_64 lowercase & mask(38) dla TFT17
+- **Hash resolution**: BIN = FNV1a-32 lowercase, RST = xxh3_64 lowercase & mask(38); stringtable ma dziś większość kluczy jako lowercase plaintext — zawsze `StringtableCache::find()`
 - **Ability descriptions**: plaintext RST keys w `SpellObject.mClientData`
+- **Set 18 = namespace `DA_`** (DA_18_Ahri, DA_Amumu18, DA_InfinityEdge) — nigdy nie zakładaj `TFT{N}_`; prefiksy i quirki setu w `config/tft.php` `sets` → `App\Support\SetProfile`
+- **Trait amounts / team size są danymi**: `champion_trait.amount` (bin `mLinkedTraits[].Amount`: Lux ×2, Elder Dragon ×2) → worker `traitAmounts`; `breakpoint.teamSizeBonus` (Riftbeast 10 → +2) — bez hardkodów `TFT17_Mecha`
+- **Set 18 role są inferowane** (`RoleInferenceHook`) — Riot nie wystawia ról; heurystyka, nie prawda
 - **Locked traits = HARD filter** (nie tylko score penalty); **trap traits penalized**; **no sell-all comps**
-- **Post-R refactor** — każdy change w `synergy-graph/` musi przejść baseline-diff gate (patrz `scripts/refactor-R-checkpoint.sh`)
+- **Post-R refactor** — każdy change w `synergy-graph/` musi przejść baseline-diff gate (patrz `scripts/refactor-R-checkpoint.sh`; scenariusze Set 18, baseline po zmianie setu: `--capture` na kodzie sprzed zmiany)
 - **Correctness first** — bugi/behavior > optymalizacje/refactor/cleanup (user decision 2026-04-14)
-- **Perf target** — po Phase C: locked ~700ms, non-lock ~1.7s (201ms gap do zamknięcia)
+- **Perf target** — po Phase C (Set 17): locked ~700ms, non-lock ~1.7s; Set 18 snapshot w kontenerze CI-like: non-lock lvl 8 ~3.3s także na kodzie sprzed zmian (większa pula), locked ~1.5s
 - **pnpm-workspace.yaml istnieje**, ale scripts używają `npm` — sprawdź który package manager zanim zainstalujesz deps
 
 ## Debug workflows

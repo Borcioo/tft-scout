@@ -18,6 +18,7 @@ function champ(partial: Partial<Champion> & { apiName: string }): Champion {
         cost: partial.cost ?? 1,
         traits: partial.traits ?? [],
         traitNames: partial.traitNames ?? [],
+        traitAmounts: partial.traitAmounts,
         slotsUsed: partial.slotsUsed ?? 1,
         baseApiName: partial.baseApiName ?? null,
         variant: partial.variant ?? null,
@@ -105,19 +106,31 @@ function fixedRng(values: number[]): () => number {
     const thin = pickRandomTrait(traits, champsThin, fixedRng([0]));
     assert.deepEqual(thin, { apiName: 'Vanguard', minUnits: 2 });
 
-    // Mecha-like: 3 unique bases × enhanced variants (slotsUsed=2) →
+    // Mecha-like: 3 unique bases × enhanced variants (count 2 Mecha) →
     // reach bp=6 without emblems.
     const mechaTrait: Trait = { apiName: 'Mecha', name: 'Mecha', category: 'public', breakpoints: [{ position: 0, minUnits: 3, maxUnits: null, style: 'Bronze' }, { position: 1, minUnits: 6, maxUnits: null, style: 'Gold' }], icon: '' };
     const mechaChamps: Champion[] = [
         champ({ apiName: 'M1', baseApiName: 'M1', traits: ['Mecha'], slotsUsed: 1 }),
-        champ({ apiName: 'M1_enh', baseApiName: 'M1', traits: ['Mecha'], slotsUsed: 2 }),
+        champ({ apiName: 'M1_enh', baseApiName: 'M1', traits: ['Mecha'], traitAmounts: { Mecha: 2 }, slotsUsed: 2 }),
         champ({ apiName: 'M2', baseApiName: 'M2', traits: ['Mecha'], slotsUsed: 1 }),
-        champ({ apiName: 'M2_enh', baseApiName: 'M2', traits: ['Mecha'], slotsUsed: 2 }),
+        champ({ apiName: 'M2_enh', baseApiName: 'M2', traits: ['Mecha'], traitAmounts: { Mecha: 2 }, slotsUsed: 2 }),
         champ({ apiName: 'M3', baseApiName: 'M3', traits: ['Mecha'], slotsUsed: 1 }),
-        champ({ apiName: 'M3_enh', baseApiName: 'M3', traits: ['Mecha'], slotsUsed: 2 }),
+        champ({ apiName: 'M3_enh', baseApiName: 'M3', traits: ['Mecha'], traitAmounts: { Mecha: 2 }, slotsUsed: 2 }),
     ];
     const mecha = pickRandomTrait([mechaTrait], mechaChamps, fixedRng([0]));
     assert.deepEqual(mecha, { apiName: 'Mecha', minUnits: 6 }, 'Mecha:6 reachable via 3 enhanced ×2 slots');
+
+    // Set 18: one Lux form counts its element twice, forms are exclusive
+    // (shared base) so only the best one per base counts.
+    const covenTrait: Trait = { apiName: 'Coven', name: 'Coven', category: 'public', breakpoints: [{ position: 1, minUnits: 3, maxUnits: null, style: 'Bronze' }, { position: 2, minUnits: 4, maxUnits: null, style: 'Silver' }], icon: '' };
+    const covenChamps: Champion[] = [
+        champ({ apiName: 'C1', traits: ['Coven'] }),
+        champ({ apiName: 'C2', traits: ['Coven'] }),
+        champ({ apiName: 'LuxCoven', baseApiName: 'Lux', variant: 'coven', traits: ['Coven', 'Avatar'], traitAmounts: { Coven: 2 } }),
+        champ({ apiName: 'LuxFae', baseApiName: 'Lux', variant: 'fae', traits: ['Fae', 'Avatar'], traitAmounts: { Fae: 2 } }),
+    ];
+    const coven = pickRandomTrait([covenTrait], covenChamps, fixedRng([0]));
+    assert.deepEqual(coven, { apiName: 'Coven', minUnits: 4 }, 'Coven:4 = 2 units + Lux (Coven) ×2');
 
     // Hero variants excluded from the count.
     const heroTrait: Trait = { apiName: 'Lone', name: 'Lone', category: 'public', breakpoints: [{ position: 0, minUnits: 1, maxUnits: null, style: 'Bronze' }], icon: '' };

@@ -63,6 +63,18 @@ class Set extends Model
         return $this->hasMany(Emblem::class);
     }
 
+    /**
+     * Id of the set the app runs on (TFT_SET). Champion / trait / item
+     * listings scope to it so a previous set's rows (kept for history
+     * after importing a new one) don't leak into the UI.
+     */
+    public static function currentId(): ?int
+    {
+        return self::query()
+            ->where('number', (int) config('services.tft.set', 18))
+            ->value('id');
+    }
+
     // ── Scopes ─────────────────────────────────────
 
     public function scopeActive($query)

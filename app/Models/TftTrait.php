@@ -61,7 +61,7 @@ class TftTrait extends Model
             'champion_trait',
             'trait_id',
             'champion_id'
-        );
+        )->withPivot('amount');
     }
 
     public function emblems(): HasMany

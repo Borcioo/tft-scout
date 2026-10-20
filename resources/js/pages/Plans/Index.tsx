@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, Check, Copy, Minus, ShieldPlus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -180,6 +180,7 @@ export default function PlansIndex({
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [liveScores, setLiveScores] = useState<Record<number, LiveScore>>({});
     const { rescore } = useScoutWorker();
+    const { tftSet } = usePage<{ tftSet?: number }>().props;
 
     // ── Filters ─────────────────────────────────────────────────
     const [query, setQuery] = useState('');
@@ -329,6 +330,7 @@ export default function PlansIndex({
                         apiName,
                         plannerCode: championLookup[apiName]?.plannerCode ?? null,
                     })),
+                tftSet != null ? String(tftSet) : null,
             );
 
         if (!code) {
