@@ -152,9 +152,9 @@ export function ScoutDebugPanel({ params, results }: Props) {
                     <div className="space-y-4 px-4 pb-2">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="font-semibold text-muted-foreground text-xs uppercase">
+                                <h3 className="font-semibold text-muted-foreground text-xs uppercase">
                                     scout-cli command
-                                </label>
+                                </h3>
                                 <Button
                                     size="sm"
                                     variant="secondary"
@@ -177,9 +177,9 @@ export function ScoutDebugPanel({ params, results }: Props) {
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="font-semibold text-muted-foreground text-xs uppercase">
+                                <h3 className="font-semibold text-muted-foreground text-xs uppercase">
                                     full JSON snapshot
-                                </label>
+                                </h3>
                                 <Button
                                     size="sm"
                                     variant="secondary"

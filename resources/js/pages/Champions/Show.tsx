@@ -210,7 +210,6 @@ function humanizeShowIfCondition(condition: string): string {
  *
  * Stats parameter is unused but kept so callers don't need to change.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function detectStatOffset(_stats: AbilityStat[]): number {
     return 1;
 }

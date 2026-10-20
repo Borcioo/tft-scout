@@ -52,7 +52,7 @@ export default function ScoutIndex(props: Props) {
     );
 }
 
-function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
+function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
     const { generate } = useScoutWorker();
     const page = usePage<{ scoutLabEnabled?: boolean }>();
     const labEnabled = page.props.scoutLabEnabled === true;
@@ -239,13 +239,15 @@ function ScoutIndexInner({ setNumber, itemBuilds, savedPlannerCodes }: Props) {
     });
     const debouncedParamsKey = useDebounced(paramsKey, 300);
 
+    // Re-run only when the debounced params or the champion pool change;
+    // `run` is recreated every render and would loop the worker.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: debounced key is the intended trigger
     useEffect(() => {
         if (champions.length === 0) {
             return;
         }
 
         run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedParamsKey, champions.length]);
 
     return (

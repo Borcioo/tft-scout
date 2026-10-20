@@ -61,7 +61,9 @@ export function filterCandidates(
         const conflicts = exclusionLookup[locked];
 
         if (conflicts) {
-            conflicts.forEach((c: any) => excludedSet.add(c));
+            for (const c of conflicts) {
+                excludedSet.add(c);
+            }
         }
     }
 
@@ -72,7 +74,9 @@ export function filterCandidates(
 
     for (const champ of allChampions) {
         if (lockedSet.has(champ.apiName)) {
-            champ.traits.forEach((t: any) => relevantTraits.add(t));
+            for (const t of champ.traits) {
+                relevantTraits.add(t);
+            }
         }
     }
 

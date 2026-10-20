@@ -5,6 +5,7 @@ import type {
     RescoreResult,
     ScoredTeam,
     ScoutParams,
+    WorkerInMsg,
     WorkerOutMsg,
 } from '@/workers/scout/types';
 
@@ -112,28 +113,39 @@ function releaseWorker() {
     }
 }
 
+function post(
+    msg: WorkerInMsg,
+    resolve: (v: never) => void,
+    reject: (e: Error) => void,
+) {
+    if (!sharedWorker) {
+        reject(new Error('Scout worker is not running'));
+
+        return;
+    }
+
+    pending.set(msg.id, {
+        resolve: resolve as (v: WorkerReply) => void,
+        reject,
+    });
+    sharedWorker.postMessage(msg);
+}
+
 function sendGenerate(params: ScoutParams) {
     const id = ++msgId;
+
     return new Promise<{ results: ScoredTeam[]; insights: unknown }>(
-        (resolve, reject) => {
-            pending.set(id, {
-                resolve: resolve as (v: WorkerReply) => void,
-                reject,
-            });
-            sharedWorker!.postMessage({ type: 'generate', id, params });
-        },
+        (resolve, reject) =>
+            post({ type: 'generate', id, params }, resolve, reject),
     );
 }
 
 function sendRescore(params: RescoreParams) {
     const id = ++msgId;
-    return new Promise<RescoreResult>((resolve, reject) => {
-        pending.set(id, {
-            resolve: resolve as (v: WorkerReply) => void,
-            reject,
-        });
-        sharedWorker!.postMessage({ type: 'rescore', id, params });
-    });
+
+    return new Promise<RescoreResult>((resolve, reject) =>
+        post({ type: 'rescore', id, params }, resolve, reject),
+    );
 }
 
 export function useScoutWorker() {

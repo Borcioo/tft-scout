@@ -185,7 +185,9 @@ export function buildOneTeam(
         const conflicts = exclusionLookup[api];
 
         if (conflicts) {
-            conflicts.forEach((c) => excludedSet.add(c));
+            for (const c of conflicts) {
+                excludedSet.add(c);
+            }
         }
 
         if ((nodes[api]?.cost || 0) === 5) {
@@ -323,7 +325,9 @@ export function buildOneTeam(
         const conflicts = exclusionLookup[pick.champ];
 
         if (conflicts) {
-            conflicts.forEach((c) => excludedSet.add(c));
+            for (const c of conflicts) {
+                excludedSet.add(c);
+            }
         }
     }
 

@@ -91,6 +91,7 @@ export default function TwoFactorChallenge() {
                                                     { length: OTP_MAX_LENGTH },
                                                     (_, index) => (
                                                         <InputOTPSlot
+                                                            // biome-ignore lint/suspicious/noArrayIndexKey: one slot per OTP digit position
                                                             key={index}
                                                             index={index}
                                                         />

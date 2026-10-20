@@ -145,10 +145,15 @@ function tokenize(text: string): React.ReactNode[] {
     const nodes: React.ReactNode[] = [];
     const tagRegex = /<(\/?)([A-Za-z_][A-Za-z0-9_]*)(?:\s[^>]*)?>/g;
     let lastIndex = 0;
-    let match: RegExpExecArray | null;
     let keyCounter = 0;
 
-    while ((match = tagRegex.exec(text)) !== null) {
+    for (;;) {
+        const match = tagRegex.exec(text);
+
+        if (match === null) {
+            break;
+        }
+
         const [full, closingSlash, tagName] = match;
         const start = match.index;
 
@@ -205,6 +210,7 @@ function tokenize(text: string): React.ReactNode[] {
         const out: React.ReactNode[] = [];
         parts.forEach((part, pi) => {
             if (pi > 0) {
+                // biome-ignore lint/suspicious/noArrayIndexKey: line breaks of a static description, position is the identity
                 out.push(<br key={`br-${i}-${pi}`} />);
             }
 

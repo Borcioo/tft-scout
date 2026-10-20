@@ -51,9 +51,9 @@ export function ScoutResultsList({
 
     return (
         <div className="flex flex-col gap-4">
-            {teams.map((team, i) => (
+            {teams.map((team) => (
                 <ScoutCompCard
-                    key={i}
+                    key={team.champions.map((c) => c.apiName).join(',')}
                     team={team}
                     itemBuilds={itemBuilds}
                     savedCodes={savedCodes}

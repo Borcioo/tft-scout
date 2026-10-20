@@ -374,7 +374,7 @@ function pickSeedsCompanionPair(
  * per attempt — without it every attempt would pick the same stratified
  * seed and we'd lose the diversity we're paying for.
  */
-function pickSeedsCostStratified(pool, lockedTraits, graph, unitRatings, rng) {
+function pickSeedsCostStratified(pool, lockedTraits, graph, _unitRatings, rng) {
     const seeds = new Set();
 
     for (const lock of lockedTraits) {

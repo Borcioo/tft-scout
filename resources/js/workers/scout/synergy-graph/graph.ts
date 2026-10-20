@@ -40,7 +40,11 @@ export function buildGraph(
 
         for (const c of champions) {
             for (const t of c.traits) {
-                (traitMap[t] ??= []).push(c.apiName);
+                if (!traitMap[t]) {
+                    traitMap[t] = [];
+                }
+
+                traitMap[t].push(c.apiName);
             }
         }
 
@@ -109,7 +113,13 @@ export function buildGraph(
         const nodesByBase = {};
 
         for (const [api, node] of Object.entries(nodes)) {
-            (nodesByBase[node.baseApiName || api] ??= []).push(api);
+            const base = node.baseApiName || api;
+
+            if (!nodesByBase[base]) {
+                nodesByBase[base] = [];
+            }
+
+            nodesByBase[base].push(api);
         }
 
         for (const [unitBase, companionList] of Object.entries(companionData)) {

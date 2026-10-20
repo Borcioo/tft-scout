@@ -134,15 +134,17 @@ function ChampionBuildsRow({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-1">
-                        {builds.map((build, i) => (
+                        {builds.map((build) => (
                             <div
-                                key={build.items.join('|') + i}
+                                key={build.items.join('|')}
                                 className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded border border-border/60 bg-muted/20 px-2 py-1 text-xs"
                             >
                                 <div className="flex items-center gap-1">
                                     {build.items.map((item, j) => (
                                         <img
-                                            key={item + j}
+                                            // Same item can sit in two slots; position is the identity
+                                            // biome-ignore lint/suspicious/noArrayIndexKey: fixed ≤3-slot build, never reordered
+                                            key={`${item}-${j}`}
                                             src={`/icons/items/${item}.png`}
                                             alt={build.names[j] ?? item}
                                             title={build.names[j] ?? item}

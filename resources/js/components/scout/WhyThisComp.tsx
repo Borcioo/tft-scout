@@ -40,6 +40,7 @@ export function WhyThisComp({ insights }: Props) {
                                 </h4>
                                 <ul className="flex flex-col gap-1 text-muted-foreground">
                                     {strengths.map((item, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: derived list, rebuilt per render, never reordered
                                         <li key={i} className="leading-snug">
                                             {renderInsight(item)}
                                         </li>
@@ -54,6 +55,7 @@ export function WhyThisComp({ insights }: Props) {
                                 </h4>
                                 <ul className="flex flex-col gap-1 text-muted-foreground">
                                     {concerns.map((item, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: derived list, rebuilt per render, never reordered
                                         <li key={i} className="leading-snug">
                                             {renderInsight(item)}
                                         </li>

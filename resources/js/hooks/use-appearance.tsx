@@ -26,6 +26,8 @@ const setCookie = (name: string, value: string, days = 365): void => {
     }
 
     const maxAge = days * 24 * 60 * 60;
+    // HandleAppearance middleware reads this cookie for the SSR theme
+    // biome-ignore lint/suspicious/noDocumentCookie: synchronous write needed before navigation; Cookie Store API isn't in Firefox/Safari
     document.cookie = `${name}=${value};path=/;max-age=${maxAge};SameSite=Lax`;
 };
 
@@ -58,7 +60,11 @@ const subscribe = (callback: () => void) => {
     return () => listeners.delete(callback);
 };
 
-const notify = (): void => listeners.forEach((listener) => listener());
+const notify = (): void => {
+    for (const listener of listeners) {
+        listener();
+    }
+};
 
 const mediaQuery = (): MediaQueryList | null => {
     if (typeof window === 'undefined') {

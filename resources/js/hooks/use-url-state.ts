@@ -42,6 +42,9 @@ export function useUrlState<T>(
     // Skip the first effect run — initial state already reflects URL,
     // writing it back would be a no-op + one extra history entry.
     const isFirstRender = useRef(true);
+    // `serialize` is usually an inline lambda; listing it would rewrite
+    // the URL on every render.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: write only when key/value change
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
@@ -63,7 +66,6 @@ export function useUrlState<T>(
             (qs ? `?${qs}` : '') +
             window.location.hash;
         window.history.replaceState(null, '', url);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, value]);
 
     const set = useCallback((v: T) => setValue(v), []);

@@ -199,7 +199,7 @@ export function traitScore(trait: any, ctx: any) {
         ];
 
     const rating = ctx.traitRatings?.[apiName]?.[bpPosition];
-    let basePts;
+    let basePts: number;
 
     if (rating && rating.games >= minGamesForReliable) {
         // Non-linear reward: (neutralAvg - avgPlace)^exponent * weight * bpMult

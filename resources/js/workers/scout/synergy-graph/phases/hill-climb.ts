@@ -48,7 +48,9 @@ export function phaseHillClimb(ctx: PhaseContext): void {
                     const c = exclusionLookup[api];
 
                     if (c) {
-                        c.forEach((x) => conflicts.add(x));
+                        for (const x of c) {
+                            conflicts.add(x);
+                        }
                     }
                 }
 

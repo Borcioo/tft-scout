@@ -120,7 +120,6 @@ function formatSpanTable(
     return lines.join('\n');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function runProfile(_argv: string[]): Promise<void> {
     if (process.env.SCOUT_PROFILE !== '1') {
         throw new Error(

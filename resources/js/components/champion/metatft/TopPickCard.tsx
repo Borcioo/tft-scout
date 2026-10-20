@@ -54,9 +54,9 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
                 {rows.length === 0 ? (
                     <p className="text-muted-foreground text-xs">{emptyHint}</p>
                 ) : (
-                    rows.map((row, idx) => (
+                    rows.map((row) => (
                         <div
-                            key={row.items.join('|') + idx}
+                            key={row.items.join('|')}
                             className={cn(
                                 'grid grid-cols-[auto_1fr] items-center gap-3 rounded border border-border/60 bg-muted/20 p-2',
                             )}
@@ -64,7 +64,6 @@ export function TopPickCard({ title, rows, championName, emptyHint }: Props) {
                             <ItemIconStack
                                 apiNames={row.items}
                                 names={row.names}
-                                icons={row.icons}
                                 size="sm"
                             />
                             <div className="grid grid-cols-3 gap-2 text-xs">

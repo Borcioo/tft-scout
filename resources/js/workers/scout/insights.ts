@@ -45,7 +45,11 @@ export function generateInsights({
 
     for (const c of champions) {
         for (const t of c.traits) {
-            (champsByTrait[t] ??= []).push(c);
+            if (!champsByTrait[t]) {
+                champsByTrait[t] = [];
+            }
+
+            champsByTrait[t].push(c);
         }
     }
 

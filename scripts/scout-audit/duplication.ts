@@ -1,5 +1,4 @@
 // @ts-nocheck
-/* eslint-disable */
 /**
  * Duplication scanner for the scout worker.
  *
@@ -78,11 +77,10 @@ for (const file of walk(ROOT)) {
             preview: raw[i].trim().slice(0, 80),
         };
 
-        if (!buckets.has(h)) {
-            buckets.set(h, []);
-        }
+        const bucket = buckets.get(h) ?? [];
 
-        buckets.get(h)!.push(hit);
+        bucket.push(hit);
+        buckets.set(h, bucket);
     }
 }
 

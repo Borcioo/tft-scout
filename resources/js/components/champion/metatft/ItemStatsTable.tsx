@@ -173,16 +173,15 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
                                             'opacity-60 transition-opacity',
                                     )}
                                 >
-                                    {rows.map((row, idx) => (
+                                    {rows.map((row) => (
                                         <tr
-                                            key={row.items.join('|') + idx}
+                                            key={row.items.join('|')}
                                             className="border-border/40 border-b hover:bg-muted/30"
                                         >
                                             <td className="py-2 pr-4">
                                                 <ItemIconStack
                                                     apiNames={row.items}
                                                     names={row.names}
-                                                    icons={row.icons}
                                                     size="sm"
                                                 />
                                             </td>

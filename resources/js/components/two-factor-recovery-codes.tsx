@@ -111,28 +111,32 @@ export default function TwoFactorRecoveryCodes({
                                 <div
                                     ref={codesSectionRef}
                                     className="grid gap-1 rounded-lg bg-muted p-4 font-mono text-sm"
-                                    role="list"
-                                    aria-label="Recovery codes"
                                 >
                                     {recoveryCodesList.length ? (
-                                        recoveryCodesList.map((code, index) => (
-                                            <div
-                                                key={index}
-                                                role="listitem"
-                                                className="select-text"
-                                            >
-                                                {code}
-                                            </div>
-                                        ))
+                                        <ul
+                                            aria-label="Recovery codes"
+                                            className="grid gap-1"
+                                        >
+                                            {recoveryCodesList.map((code) => (
+                                                <li
+                                                    key={code}
+                                                    className="select-text"
+                                                >
+                                                    {code}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     ) : (
                                         <div
                                             className="space-y-2"
+                                            role="status"
                                             aria-label="Loading recovery codes"
                                         >
                                             {Array.from(
                                                 { length: 8 },
                                                 (_, index) => (
                                                     <div
+                                                        // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton rows
                                                         key={index}
                                                         className="h-4 animate-pulse rounded bg-muted-foreground/20"
                                                         aria-hidden="true"
