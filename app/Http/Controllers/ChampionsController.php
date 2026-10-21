@@ -273,12 +273,12 @@ class ChampionsController extends Controller
             // uses these to mark the active column and decide whether to
             // show the "Load more" button.
             'builds_meta' => [
-                    'sort' => $buildsSort,
-                    'dir' => $buildsDir,
-                    'limit' => $buildsLimit,
-                    'total' => $itemSetTotal,
-                    'has_more' => $itemSetTotal > $buildsLimit,
-                ],
+                'sort' => $buildsSort,
+                'dir' => $buildsDir,
+                'limit' => $buildsLimit,
+                'total' => $itemSetTotal,
+                'has_more' => $itemSetTotal > $buildsLimit,
+            ],
         ];
 
         return Inertia::render('Champions/Show', [
