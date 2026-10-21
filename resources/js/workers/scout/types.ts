@@ -176,6 +176,9 @@ export type RescoreResult = {
 };
 
 export type WorkerInMsg =
+    // Prod workers are inline blobs without an origin; the page sends it
+    // once right after construction (see use-scout-worker.ts).
+    | { type: '__init__'; origin: string }
     | { type: 'generate'; id: number; params: ScoutParams }
     | { type: 'rescore'; id: number; params: RescoreParams }
     | { type: 'roadTo'; id: number; params: unknown };

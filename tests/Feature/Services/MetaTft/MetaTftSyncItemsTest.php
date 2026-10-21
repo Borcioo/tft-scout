@@ -32,6 +32,7 @@ class MetaTftSyncItemsTest extends TestCase
         ]);
 
         $client = Mockery::mock(MetaTftClient::class);
+        $client->shouldReceive('resetRunCache');
         $client->shouldReceive('fetchUnits')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
@@ -85,6 +86,7 @@ class MetaTftSyncItemsTest extends TestCase
         $stats = [$run1, $run2];
 
         $client = Mockery::mock(MetaTftClient::class);
+        $client->shouldReceive('resetRunCache');
         $client->shouldReceive('fetchUnits')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
@@ -130,6 +132,7 @@ class MetaTftSyncItemsTest extends TestCase
         $runs = [$run1, $run2];
 
         $client = Mockery::mock(MetaTftClient::class);
+        $client->shouldReceive('resetRunCache');
         $client->shouldReceive('fetchUnits')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
@@ -142,6 +145,9 @@ class MetaTftSyncItemsTest extends TestCase
 
         $sync = new MetaTftSync($client);
         $sync->run(17);
+        // synced_at is stored at second precision; a second run inside
+        // the same second can't tell its own rows from the stale ones.
+        $this->travel(2)->seconds();
         $sync->run(17);
 
         $this->assertDatabaseHas('champion_item_builds', [
@@ -162,6 +168,7 @@ class MetaTftSyncItemsTest extends TestCase
         ]);
 
         $client = Mockery::mock(MetaTftClient::class);
+        $client->shouldReceive('resetRunCache');
         $client->shouldReceive('fetchUnits')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
@@ -218,6 +225,7 @@ class MetaTftSyncItemsTest extends TestCase
         ]);
 
         $client = Mockery::mock(MetaTftClient::class);
+        $client->shouldReceive('resetRunCache');
         $client->shouldReceive('fetchUnits')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);

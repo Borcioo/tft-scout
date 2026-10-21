@@ -20,7 +20,6 @@ export type ScoutDebugParams = {
     level: number;
     topN: number;
     max5Cost: number | null;
-    roleBalance: boolean;
     minFrontline: number;
     minDps: number;
     lockedChampions: string[];

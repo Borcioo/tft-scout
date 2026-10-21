@@ -318,7 +318,6 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                     topN,
                     excludedChampions,
                     max5Cost,
-
                     minFrontline,
                     minDps,
                     lockedChampions,

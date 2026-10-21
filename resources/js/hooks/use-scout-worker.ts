@@ -114,7 +114,7 @@ function releaseWorker() {
 }
 
 function post(
-    msg: WorkerInMsg,
+    msg: Extract<WorkerInMsg, { id: number }>,
     resolve: (v: never) => void,
     reject: (e: Error) => void,
 ) {
