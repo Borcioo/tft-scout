@@ -16,15 +16,15 @@
  * Fetches once, through metatft-http (cached, one request per 2 s,
  * budgeted per run and per day): progress lives in the output file, a
  * rerun only asks what is missing, and past the budget the run saves and
- * stops. A full run is ~650 requests — over two days' budget; that is
- * the point. Prints a summary, not the data.
+ * stops. A full run is ~650 requests, ~22 minutes at that pace. Prints
+ * a summary, not the data.
  *
  * Usage:
  *   npm run scout -- oracle [--snapshot tmp/scout-eval/context-18.4b.json]
  *                           [--out tmp/scout-eval/oracle-18.4b.json]
  *                           [--patch 18.4b] [--levels 8,9] [--min-games 30]
  *                           [--rank MASTER,GRANDMASTER,CHALLENGER]
- *                           [--budget 300]
+ *                           [--budget 1000]
  *
  * --rank narrows the sample to those tiers. Lobbies are matched by rank,
  * so placements within a tier average 4.5 — a board that places well

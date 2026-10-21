@@ -2,8 +2,8 @@
  * The one way CLI tools talk to MetaTFT: cached on disk, throttled,
  * budgeted.
  *
- * MetaTFT's API is unofficial and shared with its own site — hammering
- * it gets us banned. Every response is copied to tmp/metatft-cache and
+ * MetaTFT's API is unofficial and shared with its own site — bursts of
+ * requests, or asking the same thing over and over, get us banned. Every response is copied to tmp/metatft-cache and
  * served from there while fresh, so a rerun or another tool asking the
  * same thing costs nothing. Network requests are spaced (one per 2 s)
  * and counted against a per-run and a per-day budget; past the budget a
@@ -25,14 +25,14 @@ const SPACING_MS = 2000;
 const DAY_MS = 86_400_000;
 
 export const METATFT_BUDGET = {
-    /** Network requests one run may make. */
-    perRun: 300,
+    /** Network requests one run may make (a full `oracle` is ~650). */
+    perRun: 1000,
     /**
      * Network requests all runs together may make per UTC day — a safety
      * cap; the spacing is what keeps the load gentle. METATFT_DAY_BUDGET
      * raises it for a run on purpose.
      */
-    perDay: Number(process.env.METATFT_DAY_BUDGET ?? 600),
+    perDay: Number(process.env.METATFT_DAY_BUDGET ?? 3000),
 };
 
 export class MetaTftBudgetError extends Error {}

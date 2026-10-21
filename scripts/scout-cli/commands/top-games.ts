@@ -34,7 +34,7 @@
  *
  * Usage:
  *   npm run scout -- top-games [--source metatft|riot] [--pro] [--set 18]
- *       [--top 200] [--days 14] [--lobbies] [--budget 300]
+ *       [--top 200] [--days 14] [--lobbies] [--budget 1000]
  *       [--out tmp/scout-eval/top-games-18.json]
  *       riot only: [--platforms kr,euw1,na1,…] [--matches 20]
  */
