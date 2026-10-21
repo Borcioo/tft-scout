@@ -20,6 +20,11 @@
  *   npm run scout -- oracle [--snapshot tmp/scout-eval/context-18.4b.json]
  *                           [--out tmp/scout-eval/oracle-18.4b.json]
  *                           [--patch 18.4b] [--levels 8,9] [--min-games 30]
+ *                           [--rank MASTER,GRANDMASTER,CHALLENGER]
+ *
+ * --rank narrows the sample to those tiers. Lobbies are matched by rank,
+ * so placements within a tier average 4.5 — a board that places well
+ * there beats players of that skill, not just weaker ones.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -31,7 +36,8 @@ import { loadContext } from '../context';
 const EXPLORER = 'https://api-hc.metatft.com/tft-explorer-api/units_unique';
 // Same sample as the sync (MetaTftClient): ranked, Gold+, 2 days, one
 // patch, no rank widening
-const RANK = 'GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
+const DEFAULT_RANK =
+    'GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
 
 type Observation = {
     /** MetaTFT unit names, sorted. */
@@ -42,6 +48,8 @@ type Observation = {
 
 type OracleFile = {
     patch: string;
+    /** Rank tiers sampled (absent in files from before --rank: Gold+). */
+    rank?: string;
     fetchedAt: string;
     /** Sorted unit sets already asked about, joined by ','. */
     done: string[];
@@ -57,6 +65,7 @@ function parseArgs(argv: string[]) {
         patch: '18.4b',
         levels: [8, 9],
         minGames: 30,
+        rank: DEFAULT_RANK,
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -70,6 +79,8 @@ function parseArgs(argv: string[]) {
             args.patch = argv[++i];
         } else if (a === '--levels') {
             args.levels = argv[++i].split(',').map(Number);
+        } else if (a === '--rank') {
+            args.rank = argv[++i];
         } else if (a === '--min-games') {
             args.minGames = Number(argv[++i]);
         } else {
@@ -92,11 +103,11 @@ function patchQuery(label: string): string {
 }
 
 /** curl rather than fetch: it honours the proxy settings everywhere. */
-function fetchCompletions(units: string[], patch: string) {
+function fetchCompletions(units: string[], patch: string, rank: string) {
     const filters = units
         .map((u) => `unit_tier_numitems_unique=${u}-1_.*_.*`)
         .join('&');
-    const url = `${EXPLORER}?queue=1100&${patchQuery(patch)}&days=2&rank=${RANK}&permit_filter_adjustment=false&formatnoarray=true&compact=true&${filters}`;
+    const url = `${EXPLORER}?queue=1100&${patchQuery(patch)}&days=2&rank=${rank}&permit_filter_adjustment=false&formatnoarray=true&compact=true&${filters}`;
     const body = execFileSync('curl', ['-sS', '--max-time', '60', url], {
         encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024,
@@ -120,6 +131,7 @@ export async function runOracle(argv: string[]): Promise<void> {
         ? JSON.parse(readFileSync(args.out, 'utf8'))
         : {
               patch: args.patch,
+              rank: args.rank,
               fetchedAt: new Date().toISOString(),
               done: [],
               boards: {},
@@ -129,6 +141,12 @@ export async function runOracle(argv: string[]): Promise<void> {
     if (file.patch !== args.patch) {
         throw new Error(
             `${args.out} holds patch ${file.patch}, not ${args.patch}`,
+        );
+    }
+
+    if ((file.rank ?? DEFAULT_RANK) !== args.rank) {
+        throw new Error(
+            `${args.out} holds ranks ${file.rank ?? DEFAULT_RANK}, not ${args.rank}`,
         );
     }
 
@@ -181,7 +199,7 @@ export async function runOracle(argv: string[]): Promise<void> {
     );
 
     for (const [i, subset] of todo.entries()) {
-        const rows = fetchCompletions(subset, args.patch);
+        const rows = fetchCompletions(subset, args.patch, args.rank);
 
         for (const row of rows) {
             const unit = /^(.*)-1$/.exec(row.units_unique ?? '')?.[1];
