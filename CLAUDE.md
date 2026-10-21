@@ -47,6 +47,7 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **Set 18 = namespace `DA_`** (DA_18_Ahri, DA_Amumu18, DA_InfinityEdge) — nigdy nie zakładaj `TFT{N}_`; prefiksy i quirki setu w `config/tft.php` `sets` → `App\Support\SetProfile`
 - **Trait amounts / team size są danymi**: `champion_trait.amount` (bin `mLinkedTraits[].Amount`: Lux ×2, Elder Dragon ×2) → worker `traitAmounts`; `breakpoint.teamSizeBonus` (Riftbeast 10 → +2) — bez hardkodów `TFT17_Mecha`
 - **Set 18 role są inferowane** (`RoleInferenceHook`) — Riot nie wystawia ról; heurystyka, nie prawda
+- **Kha'Zix = 16 wpisów** (base + 15 kombinacji ewolucji, `sets.18.evolutions`); komplet 4 jest `lockOnly` (scout bierze tylko po locku), a Rival u niego jest w `unscoredTraits` (aktywny, widoczny, bez punktów). Zmiana logiki importu → podbij `TFT_DATA_REVISION` w `deploy.yml`, inaczej prod nie re-importuje
 - **Locked traits = HARD filter** (nie tylko score penalty); **trap traits penalized**; **no sell-all comps**
 - **Level gate = HARD** (`MIN_LEVEL_BY_COST`: 4-cost od lvl 7, 5-cost od lvl 9 — próg ~10% szans w sklepie); omija go tylko jawny lock championa, nigdy auto-promocja z locka cechy (user decision 2026-10-21)
 - **Post-R refactor** — każdy change w `synergy-graph/` musi przejść baseline-diff gate (patrz `scripts/refactor-R-checkpoint.sh`; scenariusze Set 18, baseline po zmianie setu: `--capture` na kodzie sprzed zmiany)

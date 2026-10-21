@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-
+import { buildActiveTraits } from '../active-traits';
 import { buildExclusionLookup, filterCandidates } from '../candidates';
-import { fillerCount, roleBalancePenalty, teamRoleBalance } from '../scorer';
+import {
+    fillerCount,
+    roleBalancePenalty,
+    teamRoleBalance,
+    teamScore,
+    teamScoreBreakdown,
+} from '../scorer';
 import { buildGraph } from '../synergy-graph';
+import { unscoredTraits } from '../trait-amount';
 import * as mini from './fixtures/mini-set';
 
 const byApi = Object.fromEntries(mini.champions.map((c) => [c.apiName, c]));
@@ -147,6 +154,18 @@ describe('candidates', () => {
         expect(apis).toContain('Rb2');
     });
 
+    it('drops lock-only units unless locked', () => {
+        const kzAll = { ...byApi.Rb6, apiName: 'KzAll', lockOnly: true };
+        const pool = (locked: string[]) =>
+            filterCandidates([...mini.champions, kzAll], {
+                lockedChampions: locked,
+            }).map((c: any) => c.apiName);
+
+        expect(pool([])).not.toContain('KzAll');
+        // Locked units reach the team-builder via getLockedChampions
+        expect(pool(['KzAll'])).not.toContain('KzAll');
+    });
+
     it('drops hero variants from the pool', () => {
         const hero = { ...byApi.Cv3, apiName: 'Cv3_hero', variant: 'hero' };
         const apis = filterCandidates([...mini.champions, hero], {}).map(
@@ -175,5 +194,69 @@ describe('candidates', () => {
                         !c.traits.includes('Sniper'),
                 ),
         ).toBe(true);
+    });
+});
+
+describe("unscored traits (Set 18 Rival on Kha'Zix)", () => {
+    const rival = {
+        ...mini.traitOf('Avatar'),
+        apiName: 'Rival',
+        name: 'Rival',
+    };
+    const kz = {
+        ...mini.championOf('Rb6'),
+        apiName: 'Kz',
+        traits: ['Rival', 'Sniper'],
+        unscoredTraits: ['Rival'],
+    };
+    const rengar = {
+        ...mini.championOf('Rb7'),
+        apiName: 'Rengar',
+        traits: ['Rival'],
+    };
+    const board = (...champs: any[]) => {
+        const traits = [...mini.traits, rival];
+        return {
+            champions: champs,
+            activeTraits: buildActiveTraits(champs, traits, []),
+            level: 8,
+        };
+    };
+
+    it('marks a trait unscored only while every holder unscores it', () => {
+        expect([...unscoredTraits([kz, byApi.Rb3])]).toEqual(['Rival']);
+        expect([...unscoredTraits([kz, rengar])]).toEqual([]);
+        expect([...unscoredTraits([byApi.Rb3])]).toEqual([]);
+    });
+
+    it('keeps the trait active but adds no score for it', () => {
+        const others = pick('Rb1', 'Rb3', 'Rb4', 'Cv2', 'Fa1', 'Rb5', 'Rb2');
+        const team = board(kz, ...others);
+        const scoredKz = { ...kz, unscoredTraits: [] };
+
+        expect(team.activeTraits.map((t: any) => t.apiName)).toContain('Rival');
+        expect(teamScore(team, mini.scoringCtx)).toBeLessThan(
+            teamScore(board(scoredKz, ...others), mini.scoringCtx),
+        );
+        expect(teamScoreBreakdown(team, mini.scoringCtx).traits).toBe(
+            teamScoreBreakdown(
+                board({ ...kz, traits: ['Sniper'] }, ...others),
+                mini.scoringCtx,
+            ).traits,
+        );
+    });
+
+    it('scores it again once Rengar is on the board', () => {
+        const others = pick('Rb1', 'Rb3', 'Rb4', 'Cv2', 'Fa1', 'Rb5');
+        const withRengar = board(kz, rengar, ...others);
+        const allScored = board(
+            { ...kz, unscoredTraits: [] },
+            rengar,
+            ...others,
+        );
+
+        expect(teamScore(withRengar, mini.scoringCtx)).toBe(
+            teamScore(allScored, mini.scoringCtx),
+        );
     });
 });

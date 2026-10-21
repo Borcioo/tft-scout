@@ -13,6 +13,7 @@ import type { Champion, LockIssue, Trait } from './types';
 type ReachChampion = Pick<Champion, 'apiName' | 'cost' | 'traits'> & {
     traitAmounts?: Record<string, number> | null;
     variant?: string | null;
+    lockOnly?: boolean;
 };
 
 type EmblemInput = string | { apiName: string; count?: number };
@@ -60,8 +61,9 @@ export function minLevelForCost(cost: number): number {
  * Best-case count of `trait` and the units that reach it: one member per
  * exclusion group (the one contributing most — Lux forms, Mecha base vs
  * enhanced), weighted by trait amounts. Hero variants and bans never
- * count. With a `level`, units the shop does not offer yet only count
- * when the player locked them; `level: null` lifts the gate.
+ * count. With a `level`, gated units — not offered by the shop yet, or
+ * lock-only — count only when the player locked them; `level: null`
+ * lifts both gates.
  */
 export function traitReach<C extends ReachChampion>(
     champions: C[],
@@ -91,7 +93,7 @@ export function traitReach<C extends ReachChampion>(
         if (
             opts.level &&
             !opts.locked.has(c.apiName) &&
-            opts.level < minLevelForCost(c.cost)
+            gateReason(c, opts.level) !== null
         ) {
             continue;
         }
@@ -119,10 +121,23 @@ export function traitReach<C extends ReachChampion>(
     return { count, picks };
 }
 
+/** Why the scout won't field `c` on its own at `level`, if it won't. */
+function gateReason(
+    c: ReachChampion,
+    level: number,
+): 'level' | 'lockOnly' | null {
+    if (c.lockOnly) {
+        return 'lockOnly';
+    }
+
+    return level < minLevelForCost(c.cost) ? 'level' : null;
+}
+
 /**
  * Trait locks the current constraints cannot reach, with what would close
- * the gap: units the level gate keeps out (the player may already own one
- * — locking it lifts the gate) or nothing at all (pool, bans, emblems).
+ * the gap: units the scout won't field on its own — kept out by the level
+ * gate or lock-only (the player may already own one; locking it lifts the
+ * gate) — or nothing at all (pool, bans, emblems).
  */
 export function findLockIssues(input: {
     champions: (ReachChampion &
@@ -193,19 +208,24 @@ export function findLockIssues(input: {
             minUnits: lock.minUnits,
             reach: atLevel.count + boost,
             reachIgnoringLevel: ungated.count + boost,
-            gatedUnits: ungated.picks
-                .filter(
-                    (c) =>
-                        !locked.has(c.apiName) &&
-                        level < minLevelForCost(c.cost),
-                )
-                .map((c) => ({
-                    apiName: c.apiName,
-                    name: c.name,
-                    cost: c.cost,
-                    amount: traitAmount(c, lock.apiName),
-                    fromLevel: minLevelForCost(c.cost),
-                })),
+            gatedUnits: ungated.picks.flatMap((c) => {
+                const reason = locked.has(c.apiName)
+                    ? null
+                    : gateReason(c, level);
+
+                return reason === null
+                    ? []
+                    : [
+                          {
+                              apiName: c.apiName,
+                              name: c.name,
+                              cost: c.cost,
+                              amount: traitAmount(c, lock.apiName),
+                              fromLevel: minLevelForCost(c.cost),
+                              reason,
+                          },
+                      ];
+            }),
         });
     }
 

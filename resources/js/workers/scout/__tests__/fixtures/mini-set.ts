@@ -157,3 +157,23 @@ export const scoringCtx: ScoringContext = {
         Prismatic: 1.5,
     },
 };
+
+export function championOf(apiName: string): Champion {
+    const champion = champions.find((c) => c.apiName === apiName);
+
+    if (!champion) {
+        throw new Error(`mini-set has no champion ${apiName}`);
+    }
+
+    return champion;
+}
+
+export function traitOf(apiName: string): Trait {
+    const trait = traits.find((t) => t.apiName === apiName);
+
+    if (!trait) {
+        throw new Error(`mini-set has no trait ${apiName}`);
+    }
+
+    return trait;
+}

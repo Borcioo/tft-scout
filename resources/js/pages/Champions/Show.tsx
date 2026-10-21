@@ -1223,11 +1223,19 @@ function VariantList({
             <div className="flex flex-wrap gap-2">
                 {variants.map((variant) => {
                     const isCurrent = variant.api_name === currentApiName;
-                    // Base champions have variant_label=null → show "Base"
-                    // Variants show their capitalized label ("Enhanced", "Conduit", ...)
+                    // Base champions have variant_label=null → show "Base".
+                    // Forms show the part of their name in parentheses
+                    // ("Lux (Coven)" → "Coven", "Kha'Zix (Executioner +
+                    // Ravager)" → "Executioner + Ravager"); heroes are
+                    // named after their spell, so they keep "Hero".
+                    const formName =
+                        variant.variant_label !== 'hero'
+                            ? variant.name.match(/\(([^)]+)\)$/)?.[1]
+                            : undefined;
                     const label = variant.variant_label
-                        ? variant.variant_label.charAt(0).toUpperCase() +
-                          variant.variant_label.slice(1)
+                        ? (formName ??
+                          variant.variant_label.charAt(0).toUpperCase() +
+                              variant.variant_label.slice(1))
                         : 'Base';
 
                     return (

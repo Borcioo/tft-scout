@@ -14,6 +14,12 @@ export type Champion = {
     slotsUsed: number; // 2 for Mecha Enhanced / Elder Dragon
     baseApiName: string | null;
     variant: string | null; // 'hero' | 'enhanced' | 'conduit' | 'coven' (Lux form) | ...
+    /** Fielded only when the player locks it (Kha'Zix with all four
+     *  evolutions) — legal, but too rare to assume for a comp. */
+    lockOnly?: boolean;
+    /** Traits this unit activates without earning score for them
+     *  (Kha'Zix's Rival only feeds his evolutions). */
+    unscoredTraits?: string[];
     role: string | null;
     damageType: string | null;
     roleCategory: string | null;
@@ -192,13 +198,15 @@ export type LockIssue = {
     reach: number;
     /** Best case if the player owned every level-gated unit. */
     reachIgnoringLevel: number;
-    /** Units the level gate keeps out; locking one lifts the gate. */
+    /** Units the scout won't field on its own — the level gate keeps
+     *  them out, or they are lock-only; locking one lifts the gate. */
     gatedUnits: {
         apiName: string;
         name: string;
         cost: number;
         amount: number;
         fromLevel: number;
+        reason: 'level' | 'lockOnly';
     }[];
 };
 

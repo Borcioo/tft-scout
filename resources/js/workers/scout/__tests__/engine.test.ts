@@ -368,3 +368,78 @@ describe('engine.generate — meta comp match', () => {
         );
     });
 });
+
+describe('engine.generate — lock-only forms', () => {
+    // An evolving unit: the base, a one-trait form the scout may field on
+    // its own, and a fully evolved form it may only field when locked
+    // (Set 18 Kha'Zix with all four evolutions).
+    const kz = (apiName: string, traits: string[], lockOnly = false) => ({
+        ...mini.championOf('Rb6'),
+        apiName,
+        name: apiName,
+        cost: 3,
+        role: 'ADFighter',
+        traits: ['Rival', ...traits],
+        traitNames: ['Rival', ...traits],
+        baseApiName: apiName === 'Kz' ? null : 'Kz',
+        variant: apiName === 'Kz' ? null : 'evolved',
+        lockOnly,
+    });
+    const champions = [
+        ...mini.champions,
+        kz('Kz', []),
+        kz('KzSniper', ['Sniper']),
+        kz('KzAll', ['Sniper', 'Arcanist', 'Bruiser'], true),
+    ];
+    const traits = [
+        ...mini.traits,
+        {
+            ...mini.traitOf('Avatar'),
+            apiName: 'Rival',
+            name: 'Rival',
+        },
+    ];
+    const exclusionGroups = [
+        ...mini.exclusionGroups,
+        ['Kz', 'KzSniper', 'KzAll'],
+    ];
+    const runKz = (level: number, constraints: Constraints = {}) =>
+        generate({
+            champions,
+            traits,
+            scoringCtx: mini.scoringCtx,
+            exclusionGroups,
+            level,
+            topN: 10,
+            constraints,
+        }) as unknown as ScoredTeam[];
+
+    it('never fields a lock-only form on its own', () => {
+        for (const level of [8, 9, 10]) {
+            for (const team of runKz(level)) {
+                expect(apis(team)).not.toContain('KzAll');
+            }
+        }
+    });
+
+    it('fields it when the player locks it', () => {
+        const teams = runKz(8, { lockedChampions: ['KzAll'] });
+
+        expect(teams.length).toBeGreaterThan(0);
+        for (const team of teams) {
+            expect(apis(team)).toContain('KzAll');
+            expect(apis(team)).not.toContain('KzSniper');
+        }
+    });
+
+    it('does not let a trait lock pull it in by itself', () => {
+        // Bruiser units on level 9: Rb1 Rb4 Rb8 Cv2 Fa2 Big5 = 6; the
+        // 7th Bruiser exists only on the lock-only form
+        const lock = { lockedTraits: [{ apiName: 'Bruiser', minUnits: 7 }] };
+
+        expect(runKz(9, lock)).toEqual([]);
+        expect(
+            runKz(9, { ...lock, lockedChampions: ['KzAll'] }).length,
+        ).toBeGreaterThan(0);
+    });
+});
