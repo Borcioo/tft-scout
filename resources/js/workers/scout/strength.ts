@@ -111,7 +111,9 @@ export const STRENGTH = {
 
 /**
  * Display estimate of a board's average placement, from its raw place
- * and size (units on the board).
+ * and size: the player's level where known — an 8-unit board with Elder
+ * Dragon (2 slots) is a level 9 board — else the units on the board (the
+ * fit's own measure: explorer boards carry no level).
  */
 export function estimatedAvgPlace(rawPlace: number, size: number): number {
     const { slope, intercepts, floor } = STRENGTH.calibration;

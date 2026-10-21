@@ -37,7 +37,7 @@ import {
     teamScoreBreakdown,
 } from './scorer';
 import { startSpan } from './scout-profiler';
-import { pickSlate } from './slate';
+import { pickSlate, titleTraits } from './slate';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
 import { buildTeamSizeRules, teamSizeBonus } from './trait-rules';
@@ -587,17 +587,24 @@ export function generate(input) {
         }
 
         // Pick the slate (slate.ts): best first, no near-duplicates, at
-        // most perFamily teams per family. Cores leave locked units out —
-        // they are on every team, and counting them made 6 locks out of 8
-        // return a single team. Polishing during the walk, with boards the
-        // slate rules out forbidden: polished before the dedupe, nearby
-        // teams converged on one board, the dedupe dropped the copies and
-        // unpolished teams from further down refilled the slate (8 of 10
-        // still one swap from better). Relaxed and variant picks keep
-        // their exact board.
+        // most perFamily teams per family and perLabel per title trait.
+        // Cores leave locked units out — they are on every team, and
+        // counting them made 6 locks out of 8 return a single team; labels
+        // leave out what the player locked. Polishing during the walk,
+        // with boards the slate rules out forbidden: polished before the
+        // dedupe, nearby teams converged on one board, the dedupe dropped
+        // the copies and unpolished teams from further down refilled the
+        // slate (8 of 10 still one swap from better). Relaxed and variant
+        // picks keep their exact board.
         const _endSelect = startSpan('engine.polishSelect');
         validComps.sort((a, b) => b.score - a.score);
 
+        const lockedLabels = new Set<string>([
+            ...traitLocks.map((l) => l.apiName),
+            ...(focus
+                ? [...focus].flatMap((api) => championByApi[api]?.traits ?? [])
+                : []),
+        ]);
         const finalComps = pickSlate(
             validComps,
             { topN, ...SCORING_CONFIG },
@@ -618,6 +625,10 @@ export function generate(input) {
                               return r && allowed(r) ? r : null;
                           },
                       }),
+            (team) =>
+                titleTraits(team.activeTraits, (t) => t.activeStyle)
+                    .map((t) => t.apiName)
+                    .filter((api) => !lockedLabels.has(api)),
         );
 
         finalComps.sort((a, b) => b.score - a.score);
