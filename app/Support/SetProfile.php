@@ -22,6 +22,7 @@ final class SetProfile
      * @param  array<string, int>  $slotsByTrait
      * @param  array<string, string>  $metatftUnitAliases
      * @param  list<string>  $fighterTraits
+     * @param  array<string, list<string>>  $evolutions
      */
     private function __construct(
         public readonly int $number,
@@ -31,6 +32,7 @@ final class SetProfile
         public readonly array $slotsByTrait,
         public readonly array $metatftUnitAliases,
         public readonly array $fighterTraits,
+        public readonly array $evolutions,
     ) {}
 
     public static function for(int $setNumber): self
@@ -45,6 +47,7 @@ final class SetProfile
             slotsByTrait: $cfg['slots_by_trait'] ?? [],
             metatftUnitAliases: $cfg['metatft_unit_aliases'] ?? [],
             fighterTraits: array_values($cfg['fighter_traits'] ?? []),
+            evolutions: array_map('array_values', $cfg['evolutions'] ?? []),
         );
     }
 

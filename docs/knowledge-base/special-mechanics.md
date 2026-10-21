@@ -61,8 +61,11 @@ składane do championa z CDragon w ratingach jednostek, companions i meta compac
 fielded together, and their abilities grant each other bonuses". Co odblokowuje wariant z dwoma Rivalami, z danych
 nie wynika. Kha'Zix ewoluuje (wybór Executioner/Rapidfire/Ravager/Spellweaver), Rengar daje gold i AD.
 
-**Modelowanie:** trait `public` z breakpointem 1 — traktowany jak unikat. Ewolucje Kha'Zixa (dodatkowy trait
-w trakcie gry) **nie są modelowane** — brak ich w danych CDragon.
+**Modelowanie:** trait `public` z breakpointem 1 — traktowany jak unikat. Ewolucje Kha'Zixa: bin linkuje tylko
+Rival, wybór jest wyłącznie w opisie traita → `config/tft.php` `sets.18.evolutions` + `TraitEvolutionHook` tworzy
+4 formy (`DA_18_KhaZix_Executioner|Rapidfire|Ravager|Spellweaver`, base + trait wyboru). Base zostaje grywalny
+(nieewoluowany Kha'Zix jest legalny), formy są w jednej grupie wykluczeń z basem; ratingi MetaTFT idą po base.
+Warunek odblokowania 2 Rivali dalej nie wynika z danych.
 
 ## 6. Pozostałe unikalne traity (1 champion)
 

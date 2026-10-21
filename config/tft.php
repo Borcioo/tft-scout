@@ -70,6 +70,20 @@ return [
             'metatft_unit_aliases' => [
                 'DA_NidaleeCougar18_AD' => 'DA_Nidalee18_AP',
             ],
+            // Champions that permanently gain a trait of the player's
+            // choice mid-game. Rival: "Takedowns evolve Kha'Zix, permanently
+            // granting him your choice of Executioner, Rapidfire, Ravager,
+            // or Spellweaver." Only the trait description says so — the
+            // bin links just Rival — so TraitEvolutionHook adds one form
+            // per choice (mutually exclusive with the unevolved base).
+            'evolutions' => [
+                'DA_18_KhaZix' => [
+                    'DA_18_Executioner',
+                    'DA_18_Rapidfire',
+                    'DA_18_Slayer',       // Ravager
+                    'DA_18_Spellweaver',
+                ],
+            ],
         ],
     ],
 
