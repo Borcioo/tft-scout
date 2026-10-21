@@ -27,9 +27,9 @@
  *
  * The result is on the placement scale but is not a placement: the lifts
  * overlap (a pair's lift already holds the rest of its usual board), so
- * weight 5 spreads boards ~4× wider than real averages, and a strong board
- * can come out below 1. It ranks boards; estimatedAvgPlace() turns it into
- * a number to show.
+ * weight 5 spreads boards ~2× wider than real averages of played boards,
+ * and a strong board can come out below 1. It ranks boards;
+ * estimatedAvgPlace() turns it into a number to show.
  */
 
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
@@ -42,23 +42,44 @@ export const STRENGTH = {
     unitPrior: 500,
     /** Pseudo-games pulling a lift towards 0. */
     liftPrior: 100,
-    /** Chosen by 10-fold cross-validation on meta comps (scout-cli eval). */
+    /**
+     * Chosen by 10-fold cross-validation on meta comps; on 3.9k played
+     * boards (scout-cli oracle) least squares puts pairs at 6.3× units,
+     * within noise of 5.
+     */
     pairWeight: 5,
-    /** Product requirement, see the header; CV alone would pick 0. */
+    /**
+     * Product requirement, see the header. Played boards put it at 1.4×
+     * units; ranking which unit to add alone would pick 0.
+     */
     traitWeight: 1,
     /**
-     * Raw place → real average placement: least squares on the 60 meta
-     * comps of 18.4b (raw 1.6–5.2 vs real 4.1–6.3). scout-cli eval prints
-     * the current fit; refit when it drifts.
+     * Raw place → real average placement: least squares (games-weighted)
+     * of 3.9k boards played ≥300 times in 18.4b (scout-cli oracle) on raw
+     * place, one intercept per board size — at equal raw place a bigger
+     * board places better, reaching level 9 being itself a sign of
+     * winning. Linear across the whole range (top decile 2.39 predicted,
+     * 2.41 real). Floor: the best real average of any of those boards;
+     * the search reaches raw places no played board has (level 9 ~0.8 vs
+     * 1.28), and the estimate doesn't extrapolate past what was seen.
+     * scout-cli eval prints the current fit; refit when it drifts.
      */
-    calibration: { intercept: 3.83, slope: 0.25 },
+    calibration: {
+        slope: 0.51,
+        intercepts: { 7: 1.34, 8: 1.21, 9: 0.77 },
+        floor: 1.5,
+    },
 } as const;
 
-/** Display estimate of a board's average placement, from its raw place. */
-export function estimatedAvgPlace(rawPlace: number): number {
-    const { intercept, slope } = STRENGTH.calibration;
+/**
+ * Display estimate of a board's average placement, from its raw place
+ * and size (units on the board).
+ */
+export function estimatedAvgPlace(rawPlace: number, size: number): number {
+    const { slope, intercepts, floor } = STRENGTH.calibration;
+    const intercept = intercepts[Math.min(9, Math.max(7, size)) as 7 | 8 | 9];
 
-    return Math.min(8, Math.max(1, intercept + slope * rawPlace));
+    return Math.min(8, Math.max(floor, intercept + slope * rawPlace));
 }
 
 type UnitStat = { avgPlace: number; games: number };

@@ -140,7 +140,11 @@ describe('teamScore', () => {
         const parts = teamScoreBreakdown(team, ctx);
 
         close(parts.place, 4.3);
-        expect(parts.avgPlace).toBeCloseTo(estimatedAvgPlace(parts.place), 2);
+        expect(parts.avgPlace).toBeCloseTo(
+            estimatedAvgPlace(parts.place, 4),
+            2,
+        );
+        expect(parts.beyondData).toBe(0);
         expect(teamScore(team, ctx)).toBeCloseTo(20, 1);
         expect(parts.total).toBe(teamScore(team, ctx));
     });
@@ -163,14 +167,18 @@ describe('teamScore', () => {
 });
 
 describe('estimatedAvgPlace', () => {
-    it('maps the raw scale onto real placements, inside 1–8', () => {
-        const { intercept, slope } = STRENGTH.calibration;
+    it('maps the raw scale onto real placements, floor to 8', () => {
+        const { intercepts, slope, floor } = STRENGTH.calibration;
 
-        close(estimatedAvgPlace(4), intercept + 4 * slope);
-        // Raw places below 1 (boards the search pushes past anything
-        // played) still read as a placement
-        expect(estimatedAvgPlace(-20)).toBe(1);
-        expect(estimatedAvgPlace(40)).toBe(8);
-        expect(estimatedAvgPlace(1)).toBeLessThan(estimatedAvgPlace(2));
+        close(estimatedAvgPlace(4, 8), intercepts[8] + 4 * slope);
+        // Size 7..9; smaller and bigger boards use the nearest fit
+        close(estimatedAvgPlace(4, 4), estimatedAvgPlace(4, 7));
+        close(estimatedAvgPlace(4, 10), estimatedAvgPlace(4, 9));
+        // At equal raw place a level-9 board places better
+        expect(estimatedAvgPlace(3, 9)).toBeLessThan(estimatedAvgPlace(3, 8));
+        // Raw places past anything played stop at the best real board
+        expect(estimatedAvgPlace(-20, 8)).toBe(floor);
+        expect(estimatedAvgPlace(40, 8)).toBe(8);
+        expect(estimatedAvgPlace(2, 8)).toBeLessThan(estimatedAvgPlace(3, 8));
     });
 });

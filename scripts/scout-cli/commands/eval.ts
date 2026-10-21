@@ -6,9 +6,10 @@
  *   - strength: how well the scorer ranks real boards — MetaTFT meta
  *     comps with their actual avgPlace — as Spearman with a bootstrap
  *     90% interval. Meta comps are the test set here, never a target:
- *     the engine must not score boards by resemblance to them. Also the
- *     least-squares fit of real placement on raw place, which is where
- *     STRENGTH.calibration (the shown avgPlace) comes from.
+ *     the engine must not score boards by resemblance to them.
+ *   - oracle (when `scout oracle` data exists): the model against ~4k
+ *     boards people actually played — see eval-oracle.ts. Its per-size
+ *     fit is where STRENGTH.calibration (the shown avgPlace) comes from.
  *   - search: per level and seed, runtime, how many results a single
  *     unit swap would still improve under the engine's own scorer, and
  *     the spread of the top-1 score across seeds.
@@ -20,6 +21,8 @@
  *   npm run scout -- eval [--snapshot tmp/scout-eval/context-18.4b.json]
  *                         [--levels 8,9] [--seeds 1,2,3] [--json]
  */
+
+import { existsSync } from 'node:fs';
 
 import { buildActiveTraits } from '../../../resources/js/workers/scout/active-traits';
 import {
@@ -35,11 +38,14 @@ import {
     teamSizeBonus,
 } from '../../../resources/js/workers/scout/trait-rules';
 import { loadContext } from '../context';
+import { evalOracle } from './eval-oracle';
 
 const DEFAULT_EVAL_SNAPSHOT = 'tmp/scout-eval/context-18.4b.json';
+const DEFAULT_ORACLE = 'tmp/scout-eval/oracle-18.4b.json';
 
 type EvalArgs = {
     snapshotPath: string;
+    oraclePath: string;
     levels: number[];
     seeds: number[];
     json: boolean;
@@ -48,6 +54,7 @@ type EvalArgs = {
 function parseArgs(argv: string[]): EvalArgs {
     const args: EvalArgs = {
         snapshotPath: DEFAULT_EVAL_SNAPSHOT,
+        oraclePath: DEFAULT_ORACLE,
         levels: [8, 9],
         seeds: [1, 2, 3],
         json: false,
@@ -58,6 +65,8 @@ function parseArgs(argv: string[]): EvalArgs {
 
         if (a === '--snapshot') {
             args.snapshotPath = argv[++i];
+        } else if (a === '--oracle') {
+            args.oraclePath = argv[++i];
         } else if (a === '--levels') {
             args.levels = argv[++i].split(',').map(Number);
         } else if (a === '--seeds') {
@@ -191,21 +200,10 @@ function evalStrength(ctx: any) {
     }
 
     const [lo, hi] = bootstrapInterval(predicted, actual);
-    // Least-squares fit of real placement on raw place, the source of
-    // STRENGTH.calibration
-    const raw = predicted.map((score) => STRENGTH.baseline - score / 100);
-    const real = actual.map((a) => -a);
-    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-    const [mx, my] = [mean(raw), mean(real)];
-    const slope =
-        raw.reduce((s, x, i) => s + (x - mx) * (real[i] - my), 0) /
-        raw.reduce((s, x) => s + (x - mx) ** 2, 0);
-
     return {
         comps: predicted.length,
         spearman: spearman(predicted, actual),
         interval: [lo, hi],
-        calibration: { intercept: my - slope * mx, slope },
         // What real boards look like — the reference for the sanity checks
         deadUnitsPerBoard:
             sanity.reduce((s, x) => s + x.deadUnits, 0) / sanity.length,
@@ -396,6 +394,9 @@ export async function runEval(argv: string[]): Promise<void> {
         snapshot: args.snapshotPath,
         syncedAt: ctx.syncedAt,
         strength: evalStrength(ctx),
+        oracle: existsSync(args.oraclePath)
+            ? evalOracle(ctx, args.oraclePath)
+            : null,
         search: evalSearch(ctx, args.levels, args.seeds),
     };
 
@@ -409,9 +410,34 @@ export async function runEval(argv: string[]): Promise<void> {
     const lines = [
         `snapshot ${report.snapshot} (synced ${report.syncedAt})`,
         `strength  Spearman vs real placement of ${s.comps} meta comps: ${s.spearman.toFixed(3)}  90% [${s.interval[0].toFixed(2)}, ${s.interval[1].toFixed(2)}]`,
-        `calibration fit: real = ${s.calibration.intercept.toFixed(2)} + ${s.calibration.slope.toFixed(3)}·raw (in use: ${STRENGTH.calibration.intercept} + ${STRENGTH.calibration.slope}·raw)`,
         `real boards (meta comps, no emblems): dead units ${s.deadUnitsPerBoard.toFixed(2)}/board | traits one short ${s.oneShortPerBoard.toFixed(2)}/board`,
     ];
+
+    const o = report.oracle;
+
+    if (o) {
+        const played = o.engine.filter((e) => e.games > 0);
+        lines.push(
+            `oracle    ${o.boards} real boards (≥300 games): Spearman ${o.overallSpearman.toFixed(3)} | fit real = ${o.calibration.intercept.toFixed(2)} + ${o.calibration.slope.toFixed(3)}·raw`,
+            `  fit/size (STRENGTH.calibration: slope ${STRENGTH.calibration.slope}, intercepts ${JSON.stringify(STRENGTH.calibration.intercepts)}) slope ${o.calibrationBySize.slope.toFixed(3)}, intercepts ${Object.entries(
+                o.calibrationBySize.intercepts,
+            )
+                .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+                .join(', ')}`,
+            `  choice  ${o.current.groups} "which unit to add" groups: Spearman ${o.current.spearman.toFixed(3)} | regret ${o.current.regret.toFixed(3)} places | top-1 ${(o.current.top1 * 100).toFixed(0)}%`,
+            `  vs      random pick regret ${o.baselines.randomRegret.toFixed(3)} | units only (no synergy) regret ${o.baselines.unitsOnly.regret.toFixed(3)} | the crowd's most-played pick regret ${o.baselines.crowd.regret.toFixed(3)}, top-1 ${(o.baselines.crowd.top1 * 100).toFixed(0)}%`,
+            `  cv      refit on held-out boards (pair/trait picks ${o.cv.picks.join(' ')}): Spearman ${o.cv.spearman.toFixed(3)} vs current ${o.cv.currentSpearman.toFixed(3)} | regret ${o.cv.regret.toFixed(3)} vs ${o.cv.currentRegret.toFixed(3)}`,
+            `  grid    best on all groups: ${o.grid.map((g) => `${g.pairWeight}/${g.traitWeight} ρ ${g.spearman.toFixed(3)}`).join(', ')}`,
+            `  engine  boards people played: ${played.length}/${o.engine.length}${played.length ? `, real avg ${(played.reduce((s, e) => s + e.real, 0) / played.length).toFixed(2)}` : ''} | meta comps played as listed: ${o.metaPlayed.boards}, real avg ${o.metaPlayed.meanReal.toFixed(2)}`,
+            ...o.engine
+                .filter((e) => e.games > 0 || e.neighbours > 0)
+                .map(
+                    (e) =>
+                        `    ${e.label.padEnd(12)} ${e.games ? `played ${e.games}× avg ${e.real.toFixed(2)}` : 'never played'} | ${e.neighbours} played boards one unit away: avg ${e.neighbourReal?.toFixed(2) ?? '–'}, best ${e.bestNeighbour?.toFixed(2) ?? '–'}`,
+                ),
+            `    (other ${o.engine.filter((e) => !e.games && !e.neighbours).length} engine boards: nothing played within one unit)`,
+        );
+    }
 
     for (const r of report.search) {
         lines.push(

@@ -164,9 +164,12 @@ export function teamScore(team: ScoredBoard, ctx: any) {
 export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
     const { strength, roles, cost, place } = evaluate(team, ctx);
     const r = (x: number) => Math.round(x * 1000) / 1000;
+    const avgPlace = estimatedAvgPlace(place, team.champions.length);
 
     return {
-        avgPlace: Math.round(estimatedAvgPlace(place) * 100) / 100,
+        avgPlace: Math.round(avgPlace * 100) / 100,
+        // Rated above every board people played: avgPlace is the cap
+        beyondData: avgPlace === STRENGTH.calibration.floor ? 1 : 0,
         place: r(place),
         units: r(strength.units),
         pairs: r(strength.pairs),

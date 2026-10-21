@@ -36,7 +36,6 @@ type PlanMeta = {
     score?: number;
     /** SCORE_MODEL at save time; absent = the old points scorer. */
     scoreModel?: number;
-    avgPlace?: number | null;
     activeTraits?: Trait[];
     roles?: ScoredTeam['roles'];
     insights?: ScoredTeam['insights'];
@@ -119,7 +118,7 @@ function planToTeam(plan: Plan, lookup: Record<string, ChampInfo>): ScoredTeam {
         activeTraits: meta.activeTraits ?? [],
         roles: meta.roles ?? null,
         score: meta.score ?? 0,
-        breakdown: meta.avgPlace != null ? { avgPlace: meta.avgPlace } : null,
+        breakdown: null,
         insights: meta.insights ?? [],
         metaMatch: meta.metaMatch ?? null,
     } as unknown as ScoredTeam;
@@ -505,17 +504,22 @@ export default function PlansIndex({
                             const live = liveScores[plan.id];
                             const otherModel = isOtherModel(plan, live);
                             const saved = planToTeam(plan, championLookup);
-                            const team =
-                                otherModel && live?.status === 'ready'
-                                    ? {
-                                          ...saved,
-                                          score: live.score ?? 0,
-                                          breakdown:
-                                              live.avgPlace != null
-                                                  ? { avgPlace: live.avgPlace }
-                                                  : null,
-                                      }
-                                    : saved;
+                            // The estimate always comes from the live
+                            // rescore (its calibration moves with the data);
+                            // the score only when the snapshot's scale is
+                            // another model's
+                            const ready =
+                                live?.status === 'ready' ? live : null;
+                            const team = {
+                                ...saved,
+                                score: otherModel
+                                    ? (ready?.score ?? 0)
+                                    : saved.score,
+                                breakdown:
+                                    ready?.avgPlace != null
+                                        ? { avgPlace: ready.avgPlace }
+                                        : null,
+                            };
 
                             return (
                                 <div
