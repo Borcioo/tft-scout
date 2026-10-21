@@ -18,10 +18,15 @@ jobs:
     # TFT_DATA_REVISION: bump it when a change alters what the importer
     # derives (hooks, config/tft.php `sets`) so the next deploy re-imports
     # the live set. 2 = Kha'Zix evolution combinations.
+    #
+    # METATFT_DATA_REVISION: bump it when the MetaTFT sample changes
+    # (services.metatft rank/days) so the next deploy resyncs once instead
+    # of serving the old sample until it goes stale. 1 = Emerald+, 7 days.
     env:
       TFT_SET: '18'
       METATFT_QUEUE: '1100'
       TFT_DATA_REVISION: '2'
+      METATFT_DATA_REVISION: '1'
     steps:
       - uses: actions/checkout@v6
 
@@ -148,6 +153,19 @@ jobs:
           fi
           if [ -n "$DATA_FAILED" ]; then
             echo "::error::$DATA_FAILED"
+          fi
+
+          # MetaTFT sample changed: resync the live set once. A failure
+          # leaves the previous stats live until the next stale refresh.
+          SYNC_STAMP=storage/app/metatft-data-revision
+          WANT_SYNC='${{ env.METATFT_DATA_REVISION }}'
+          if [ "$(cat "$SYNC_STAMP" 2>/dev/null || true)" != "$WANT_SYNC" ]; then
+            LIVE_SET="$(grep -E '^TFT_SET=' .env | cut -d= -f2)"
+            if php artisan metatft:sync --set="$LIVE_SET" --parallel=10; then
+              echo "$WANT_SYNC" > "$SYNC_STAMP"
+            else
+              echo "::warning::MetaTFT resync failed; the previous stats stay live"
+            fi
           fi
           # Import/sync ran as root: icons, logs, the CDragon cache and the
           # data stamp must stay writable for php-fpm.

@@ -49,18 +49,16 @@ class MetaTftClient
     // returns empty data on /tft-explorer-api (sample_size=0, no error).
     private readonly string $queue;
 
-    // GOLD+ — excludes IRON/BRONZE/SILVER where players often misplay
-    // comps, which skews avgPlace data. Still wide enough for sample
-    // size (GOLD is ~30% of playerbase). Matches MetaTFT UI "PLATINUM+"
-    // default conceptually while being one tier more permissive.
-    private const DEFAULT_RANK = 'GOLD,PLATINUM,EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER';
+    // Rank tiers sampled (services.metatft.rank) — see config/services.php
+    private readonly string $rank;
 
     private const DEFAULT_TTL = 3600;
 
-    // Same window for every endpoint — the MetaTFT site default ("Last 2
-    // Days"). Bulk stats used 3 days and the explorer 1, so a unit's
-    // affinity rows and its own rating described different games.
-    private const DAYS = '2';
+    // Same window for every endpoint (services.metatft.days): bulk stats
+    // used 3 days and the explorer 1, so a unit's affinity rows and its
+    // own rating described different games. Every endpoint is pinned to
+    // one patch, so a longer window adds games of that patch only.
+    private readonly string $days;
 
     /**
      * Patch the current sync reads, resolved once per run (resolvePatch).
@@ -87,6 +85,8 @@ class MetaTftClient
         private readonly HttpFactory $http,
     ) {
         $this->queue = (string) config('services.metatft.queue', 'PBE');
+        $this->rank = (string) config('services.metatft.rank');
+        $this->days = (string) config('services.metatft.days');
     }
 
     /**
@@ -114,11 +114,24 @@ class MetaTftClient
             return $this->patch;
         }
 
+        // Pinned on purpose (services.metatft.patch, e.g. "18.4b"):
+        // rebuilding a snapshot of a past patch for comparisons
+        $pinned = (string) config('services.metatft.patch', '');
+
+        if (preg_match('/^(\d+\.\d+)([a-z]?)$/', $pinned, $m) === 1) {
+            return $this->patch = [
+                'patch' => $m[1],
+                'b_patch' => $m[2],
+                'label' => $pinned,
+                'games' => 0,
+            ];
+        }
+
         try {
             $games = $this->getWithCache(self::STATS_BASE_URL, 'units', [
                 'queue' => $this->queue,
-                'days' => self::DAYS,
-                'rank' => self::DEFAULT_RANK,
+                'days' => $this->days,
+                'rank' => $this->rank,
                 'permit_filter_adjustment' => 'false',
             ])['games'] ?? [];
         } catch (RuntimeException $e) {
@@ -268,8 +281,8 @@ class MetaTftClient
                 'compact' => 'true',
                 'queue' => $this->queue,
                 ...$this->patchParams(),
-                'days' => self::DAYS,
-                'rank' => self::DEFAULT_RANK,
+                'days' => $this->days,
+                'rank' => $this->rank,
                 'permit_filter_adjustment' => 'false',
             ],
         );
@@ -670,14 +683,14 @@ class MetaTftClient
         return [
             'queue' => $this->queue,
             ...$this->patchParams(),
-            'days' => self::DAYS,
+            'days' => $this->days,
             // Apply rank filter to bulk units/traits stats too — without
             // this we were averaging across all ranks including low elo,
             // which biased avgPlace high on skill-demanding comps like
             // Meta1 (SummonTrait+Viktor) vs easy stack comps. No filter
             // adjustment: MetaTFT widens a small sample to Iron on its
             // own, which mixes player pools between endpoints.
-            'rank' => self::DEFAULT_RANK,
+            'rank' => $this->rank,
             'permit_filter_adjustment' => 'false',
         ];
     }
@@ -693,8 +706,8 @@ class MetaTftClient
             'compact' => 'true',
             'queue' => $this->queue,
             ...$this->patchParams(),
-            'days' => self::DAYS,
-            'rank' => self::DEFAULT_RANK,
+            'days' => $this->days,
+            'rank' => $this->rank,
             'permit_filter_adjustment' => 'false',
         ];
     }
