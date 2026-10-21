@@ -71,3 +71,57 @@ export function polishTeam<
 
     return current;
 }
+
+/**
+ * Swap the given units out of a team, each for the best-scoring legal
+ * replacement that isn't one of them — the slate's way to offer a strong
+ * comp without a unit it already shows too often (slate.ts). Units are
+ * matched by base apiName (forms count as one). Null when a unit has no
+ * legal replacement.
+ */
+export function swapOut<
+    C extends Unit & { baseApiName?: string | null },
+    T extends { champions: C[]; score: number },
+>(team: T, out: ReadonlySet<string>, opts: PolishOptions<C, T>): T | null {
+    const { pool, fixed, conflictKey, evaluate } = opts;
+    const base = (c: C) => c.baseApiName || c.apiName;
+    let current = team;
+
+    for (let i = 0; i < current.champions.length; i++) {
+        const unit = current.champions[i];
+
+        if (!out.has(base(unit)) || fixed.has(unit.apiName)) {
+            continue;
+        }
+
+        const others = current.champions.filter((_, j) => j !== i);
+        const taken = new Set(others.map((c) => conflictKey(c.apiName)));
+        let best: T | null = null;
+
+        for (const cand of pool) {
+            if (
+                out.has(base(cand)) ||
+                taken.has(conflictKey(cand.apiName)) ||
+                (cand.slotsUsed ?? 1) !== (unit.slotsUsed ?? 1)
+            ) {
+                continue;
+            }
+
+            const next = [...others];
+            next.splice(i, 0, cand);
+            const scored = evaluate(next);
+
+            if (scored && (!best || scored.score > best.score)) {
+                best = scored;
+            }
+        }
+
+        if (!best) {
+            return null;
+        }
+
+        current = best;
+    }
+
+    return current;
+}

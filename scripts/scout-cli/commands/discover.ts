@@ -50,7 +50,7 @@ const variance = (p: number[]) => {
 
 function parseArgs(argv: string[]) {
     const args = {
-        snapshotPath: 'tmp/scout-eval/context-18.4b-stars.json',
+        snapshotPath: 'tmp/scout-eval/context-18.4b-emerald7.json',
         gold: 'tmp/scout-eval/oracle-18.4b.json',
         master: 'tmp/scout-eval/oracle-18.4b-master.json',
         top: 25,

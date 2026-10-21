@@ -37,8 +37,33 @@ test('every endpoint is pinned to the resolved patch', function () {
         expect($query)->toMatchArray([
             'patch' => '18.4',
             'b_patch' => 'b',
-            'days' => '2',
+            'days' => (string) config('services.metatft.days'),
             'permit_filter_adjustment' => 'false',
         ]);
     }
+});
+
+test('rank, window and a pinned patch come from config', function () {
+    config([
+        'services.metatft.rank' => 'EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER',
+        'services.metatft.days' => 7,
+        'services.metatft.patch' => '18.4b',
+    ]);
+    Http::fake(fn () => Http::response(['results' => [
+        ['unit' => 'DA_18_Ahri', 'places' => [1, 1, 1, 1, 1, 1, 1, 1]],
+    ]]));
+
+    $units = app(MetaTftClient::class)->fetchUnits(18);
+
+    expect($units[0]->patch)->toBe('18.4b');
+
+    // No discovery call: the pinned patch is used as is
+    $queries = collect(Http::recorded())->map(fn ($pair) => $pair[0]->data());
+    expect($queries)->toHaveCount(1);
+    expect($queries->first())->toMatchArray([
+        'patch' => '18.4',
+        'b_patch' => 'b',
+        'days' => '7',
+        'rank' => 'EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER',
+    ]);
 });

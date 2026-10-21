@@ -83,13 +83,14 @@ export const STRENGTH = {
      * 2.41 real). Floor: the best real average of any of those boards;
      * the search reaches raw places no played board has (level 9 ~0.8 vs
      * 1.28), and the estimate doesn't extrapolate past what was seen.
-     * Fitted with star-split ratings (units at 1–2★, reroll plans under
-     * STRENGTH.reroll's caps) and the trait overflow penalty.
+     * Fitted with Emerald+ star-split ratings (units at 1–2★, reroll
+     * plans under STRENGTH.reroll's caps), the trait overflow and the
+     * dead unit penalties.
      * scout-cli eval prints the current fit; refit when it drifts.
      */
     calibration: {
-        slope: 0.52,
-        intercepts: { 7: 1.34, 8: 1.19, 9: 0.75 },
+        slope: 0.51,
+        intercepts: { 7: 1.32, 8: 1.1, 9: 0.62 },
         floor: 1.5,
     },
     /**

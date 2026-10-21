@@ -20,7 +20,7 @@
  * a summary, not the data.
  *
  * Usage:
- *   npm run scout -- oracle [--snapshot tmp/scout-eval/context-18.4b-stars.json]
+ *   npm run scout -- oracle [--snapshot tmp/scout-eval/context-18.4b-emerald7.json]
  *                           [--out tmp/scout-eval/oracle-18.4b.json]
  *                           [--patch 18.4b] [--levels 8,9] [--min-games 30]
  *                           [--rank MASTER,GRANDMASTER,CHALLENGER]
@@ -69,7 +69,7 @@ type OracleFile = {
 
 function parseArgs(argv: string[]) {
     const args = {
-        snapshotPath: 'tmp/scout-eval/context-18.4b-stars.json',
+        snapshotPath: 'tmp/scout-eval/context-18.4b-emerald7.json',
         out: 'tmp/scout-eval/oracle-18.4b.json',
         patch: '18.4b',
         levels: [8, 9],

@@ -8,6 +8,7 @@ const rules = {
     familyOverlapPct: 0.5,
     perFamily: 2,
     perLabel: 2,
+    perUnitShare: 1,
 };
 // Teams are strings of one-letter units, best first
 const coreOf = (team: string) => new Set(team.split(''));
@@ -56,6 +57,40 @@ describe('pickSlate', () => {
         );
 
         expect(slate).toEqual(['ABCDEFGH', 'IJKLMNOP', 'abcdefgh', 'QRSTUVWX']);
+    });
+
+    it('keeps one unit to its share of the slate, then fills up', () => {
+        // K is on every team; with a share of 1/2 of 4 it may head two
+        const ranked = ['KABCDEFG', 'KHIJLMNO', 'KPQRSTUV', 'WXYZabcd'];
+        const slate = pickSlate(
+            ranked,
+            { ...rules, perUnitShare: 0.5 },
+            coreOf,
+        );
+
+        expect(slate).toEqual(['KABCDEFG', 'KHIJLMNO', 'WXYZabcd', 'KPQRSTUV']);
+    });
+
+    it('offers a capped team without its over-used unit', () => {
+        // The third K team comes back with K swapped for X
+        const ranked = ['KABCDEFG', 'KHIJLMNO', 'KPQRSTUV'];
+        const slate = pickSlate(
+            ranked,
+            { ...rules, topN: 4, perUnitShare: 0.5 },
+            coreOf,
+            undefined,
+            undefined,
+            (team, out, allowed) => {
+                const fixed = [...out].reduce(
+                    (t, u) => t.replace(u, 'X'),
+                    team,
+                );
+
+                return allowed(fixed) ? fixed : null;
+            },
+        );
+
+        expect(slate).toEqual(['KABCDEFG', 'KHIJLMNO', 'XPQRSTUV']);
     });
 
     it('polishes only into boards the slate allows', () => {
