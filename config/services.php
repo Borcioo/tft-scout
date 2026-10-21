@@ -32,6 +32,14 @@ return [
         'set' => (int) env('TFT_SET', 18),
     ],
 
+    // Local debug sidecar (tmp/scout-lab/runs.db). `node` is resolved from
+    // PATH unless SCOUT_LAB_NODE points at the binary — web servers
+    // (Herd's php-cgi, php -S) often run with a PATH that lacks it.
+    'scout_lab' => [
+        'enabled' => (bool) env('SCOUT_LAB_ENABLED', false),
+        'node' => env('SCOUT_LAB_NODE'),
+    ],
+
     'cdragon' => [
         'channel' => env('CDRAGON_CHANNEL', 'latest'),
     ],
