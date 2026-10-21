@@ -180,6 +180,104 @@ export function deadUnitPenalty(
     return dead * DEAD_UNIT_PENALTY;
 }
 
+/**
+ * Plausibility: how the search's boards compare with what players build.
+ * The model only knows unit, pair and trait averages, so the search can
+ * reach boards nobody plays, where its numbers come from other boards
+ * (Aphelios next to Azir, Yunara, Karma: played together 5–11% as often
+ * as chance; with that core players add Yorick, 1.8k games, Aphelios
+ * none). Real outcomes can't price such boards — no one plays them — and
+ * on played boards neither rare pairs nor a thin frontline placed worse
+ * than the model said. So both charges are set like the dead-unit one:
+ * the smallest that brings the search to top players' boards, at a small
+ * cost on played ones (scout-strength-model.md, "Plauzybilność").
+ *
+ * A pair is rare when played together under a quarter as often as
+ * chance (games_ab vs games_a · games_b / boards). Top 200: 1.3 such
+ * pairs per board; the search 5–6 before, 1.3 at 0.15 places per pair.
+ */
+export const RARE_PAIR_RATIO = 0.25;
+export const RARE_PAIR_PENALTY = 0.15;
+
+/**
+ * Places per effective frontline (tanks + half the fighters) short of
+ * FRONTLINE_TARGET. Top 200: 4.5 on level 8 boards, 5.6 on level 9; the
+ * search 2.5 and 3.1 before, 3.5 and 3.9 at 0.2.
+ */
+export const FRONTLINE_TARGET = 4;
+export const FRONTLINE_PENALTY = 0.2;
+
+type RareIndex = Map<string, Set<string>>;
+const rareIndexes = new WeakMap<object, RareIndex>();
+
+/** Per unit, the units it's rarely played with (RARE_PAIR_RATIO). */
+function rareIndex(ctx: any): RareIndex {
+    let index = rareIndexes.get(ctx);
+
+    if (index) {
+        return index;
+    }
+
+    index = new Map();
+    const ratings = ctx.unitRatings ?? {};
+    // Boards: unit appearances over the average board size
+    const boards =
+        Object.values<{ games: number }>(ratings).reduce(
+            (sum, r) => sum + r.games,
+            0,
+        ) / 8.3;
+
+    for (const [a, rows] of Object.entries<any[]>(ctx.companions ?? {})) {
+        const ga = ratings[a]?.games;
+
+        for (const row of rows ?? []) {
+            const gb = ratings[row.companion]?.games;
+
+            if (
+                ga &&
+                gb &&
+                row.games / ((ga * gb) / boards) < RARE_PAIR_RATIO
+            ) {
+                const set = index.get(a) ?? new Set<string>();
+                set.add(row.companion);
+                index.set(a, set);
+            }
+        }
+    }
+
+    rareIndexes.set(ctx, index);
+
+    return index;
+}
+
+export function rarePairPenalty(champions: any[], ctx: any): number {
+    const index = rareIndex(ctx);
+    const apis = [
+        ...new Set<string>(champions.map((c) => c.baseApiName || c.apiName)),
+    ];
+    let rare = 0;
+
+    for (let i = 0; i < apis.length; i++) {
+        const set = index.get(apis[i]);
+
+        for (let j = i + 1; j < apis.length; j++) {
+            if (set?.has(apis[j]) || index.get(apis[j])?.has(apis[i])) {
+                rare++;
+            }
+        }
+    }
+
+    return rare * RARE_PAIR_PENALTY;
+}
+
+export function frontlinePenalty(champions: any[]): number {
+    const { effectiveFrontline } = teamRoleBalance(champions);
+
+    return (
+        Math.max(0, FRONTLINE_TARGET - effectiveFrontline) * FRONTLINE_PENALTY
+    );
+}
+
 function evaluate(team: ScoredBoard, ctx: any) {
     const counts: Record<string, number> = {};
     const breakpointsOf: Record<string, any[]> = {};
@@ -212,8 +310,10 @@ function evaluate(team: ScoredBoard, ctx: any) {
         breakpointsOf[t].map((b) => b.minUnits),
     );
     const dead = deadUnitPenalty(team.champions, (t) => t in counts);
+    const rare = rarePairPenalty(team.champions, ctx);
+    const frontline = frontlinePenalty(team.champions);
 
-    const penalties = roles + cost + overflow + dead;
+    const penalties = roles + cost + overflow + dead + rare + frontline;
 
     return {
         strength,
@@ -221,6 +321,8 @@ function evaluate(team: ScoredBoard, ctx: any) {
         cost,
         overflow,
         dead,
+        rare,
+        frontline,
         place: strength.place + penalties,
         focused: strength.focused + penalties,
     };
@@ -240,10 +342,8 @@ export function teamScore(team: ScoredBoard, ctx: any) {
  * of the board itself, without focus, so saved plans compare with it.
  */
 export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
-    const { strength, roles, cost, overflow, dead, place } = evaluate(
-        team,
-        ctx,
-    );
+    const { strength, roles, cost, overflow, dead, rare, frontline, place } =
+        evaluate(team, ctx);
     const r = (x: number) => Math.round(x * 1000) / 1000;
     const avgPlace = estimatedAvgPlace(
         place,
@@ -262,6 +362,8 @@ export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
         cost: r(cost),
         overflow: r(overflow),
         dead: r(dead),
+        rare: r(rare),
+        frontline: r(frontline),
         total: toScore(place),
     } as Record<string, number>;
 }
