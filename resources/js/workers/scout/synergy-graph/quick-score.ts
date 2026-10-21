@@ -2,14 +2,18 @@
 //
 // quickScore — score of a candidate team during the search, on the same
 // scale and the same model as scorer.teamScore (strength.ts + role
-// balance + trait overflow), so the phases climb towards what the final
-// ranking rewards.
+// balance + trait overflow + dead units), so the phases climb towards
+// what the final ranking rewards.
 // Callers subtract costPenalty themselves, as the scorer does, and pass
 // the player's locked units as focus, as the engine does.
 
 // @ts-nocheck
 
-import { overflowPenalty, roleBalancePenalty } from '../scorer';
+import {
+    deadUnitPenalty,
+    overflowPenalty,
+    roleBalancePenalty,
+} from '../scorer';
 import { activeLevels, boardStrength, STRENGTH } from '../strength';
 import { traitAmount } from '../trait-amount';
 import { applyEmblems } from './shared/emblems';
@@ -49,12 +53,15 @@ export function quickScore(
         traitCounts,
         (t) => traitBreakpoints[t] || [],
     );
+    const activeSet = new Set(levels.map((l) => l.trait));
+    const dead = deadUnitPenalty(team, (t) => activeSet.has(t));
 
     return (
         (STRENGTH.baseline -
             focused -
             roleBalancePenalty(team) / 100 -
-            overflow) *
+            overflow -
+            dead) *
         100
     );
 }

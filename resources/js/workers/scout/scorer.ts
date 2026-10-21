@@ -151,6 +151,35 @@ export function overflowPenalty(
     return wasted * OVERFLOW_PER_UNIT;
 }
 
+/**
+ * Places charged per unit with none of its traits active. Its lifts were
+ * measured with its trait on (Kayle: Solar on in 95% of her games), and
+ * without a charge the search put such a unit on 0.7 of every board,
+ * against 0.06 on the top 200's own boards. The evidence on its real cost
+ * is mixed: the top 200's final boards with one placed 0.25 worse per unit
+ * than the model said (a dead unit there is also a sign of a game lost
+ * before the comp was done), common explorer boards with one placed
+ * better. 0.2 is the smallest charge that brings the search to real
+ * players' rate (0.05 per board; 0.1 left 0.55); it costs 0.02 Spearman
+ * on explorer boards, nothing on choice regret or the top 200's boards.
+ */
+export const DEAD_UNIT_PENALTY = 0.2;
+
+export function deadUnitPenalty(
+    champions: { traits?: string[] }[],
+    isActive: (trait: string) => boolean,
+): number {
+    let dead = 0;
+
+    for (const c of champions) {
+        if ((c.traits?.length ?? 0) > 0 && !c.traits?.some(isActive)) {
+            dead++;
+        }
+    }
+
+    return dead * DEAD_UNIT_PENALTY;
+}
+
 function evaluate(team: ScoredBoard, ctx: any) {
     const counts: Record<string, number> = {};
     const breakpointsOf: Record<string, any[]> = {};
@@ -182,14 +211,16 @@ function evaluate(team: ScoredBoard, ctx: any) {
     const overflow = overflowPenalty(counts, (t) =>
         breakpointsOf[t].map((b) => b.minUnits),
     );
+    const dead = deadUnitPenalty(team.champions, (t) => t in counts);
 
-    const penalties = roles + cost + overflow;
+    const penalties = roles + cost + overflow + dead;
 
     return {
         strength,
         roles,
         cost,
         overflow,
+        dead,
         place: strength.place + penalties,
         focused: strength.focused + penalties,
     };
@@ -209,7 +240,10 @@ export function teamScore(team: ScoredBoard, ctx: any) {
  * of the board itself, without focus, so saved plans compare with it.
  */
 export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
-    const { strength, roles, cost, overflow, place } = evaluate(team, ctx);
+    const { strength, roles, cost, overflow, dead, place } = evaluate(
+        team,
+        ctx,
+    );
     const r = (x: number) => Math.round(x * 1000) / 1000;
     const avgPlace = estimatedAvgPlace(
         place,
@@ -227,6 +261,7 @@ export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
         roles: r(roles),
         cost: r(cost),
         overflow: r(overflow),
+        dead: r(dead),
         total: toScore(place),
     } as Record<string, number>;
 }

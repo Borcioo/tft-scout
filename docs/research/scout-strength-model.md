@@ -85,6 +85,39 @@ plansza z Kayle/Sejuani/Leona i Luxem miała "Solar 5". Top gracze grają 3 Sola
 Model par tego nie widzi (Lux z Kayle ma dobre lifty), więc każdy nadmiarowy punkt traitu kosztuje 0.15 miejsca
 (`OVERFLOW_PER_UNIT`, scorer i quick-score). Na granych planszach (`scout eval`, oracle) Spearman 0.601 → 0.616.
 
+## Martwe jednostki (bez aktywnego traitu)
+
+Lifty jednostki zmierzono przy jej aktywnym traicie (Kayle: Solar aktywny w 95% jej gier), a jej wartość 3★ w
+grach rerollu. Bez kary wyszukiwanie wstawiało jednostkę bez aktywnego traitu do 0.7 planszy (Kayle bez
+Solara), a top 200 gra taką na 6% swoich plansz. Dowody na realny koszt są mieszane:
+
+| Źródło | Plansze z martwą jednostką vs model |
+|---|---|
+| Top 200, pełne plansze końcowe | 0.25 miejsca gorzej na jednostkę, stabilnie na obu połowach gier |
+| Explorer Gold+ / Master+, częste plansze (także 9 jednostek, czyli pełne) | lepiej niż model (−0.25 / −0.57) |
+
+Wniosek (nie pewnik): martwa jednostka na planszy końcowej to częściej objaw gry przegranej przed złożeniem compa,
+a częste plansze explorera z nią to świadomy wybór (silna jednostka "na moc"). Kara `DEAD_UNIT_PENALTY` = 0.2
+miejsca na jednostkę (scorer i quick-score) to najmniejsza, która sprowadza wyszukiwanie do poziomu graczy
+(0.05 na planszę; 0.1 zostawiało 0.55): kosztuje 0.02 Spearmana na planszach explorera, nic na regrecie wyboru i
+na planszach top 200.
+
+## Dane: Emerald+ (od SCORE_MODEL 5)
+
+MetaTFT z rangi Emerald+ w oknie 7 dni jednego patcha (`services.metatft.rank` / `days`, env `METATFT_RANK`,
+`METATFT_DAYS`; `METATFT_PATCH` przypina patch do odtworzenia snapshotu): 18.4b to 8.5M gier, 1.3× więcej niż Gold+
+z 2 dni (6.4M), a gracze lepsi. Model z tych samych danych innej rangi, oceniany na tych samych realnych wynikach:
+
+| Realne wyniki | Gold+ 2 dni | Emerald+ 7 dni |
+|---|---|---|
+| Plansze explorera Gold+, Spearman / regret wyboru | 0.616 / 0.104 | 0.606 / **0.074** |
+| Plansze explorera Master+, Spearman / regret wyboru | 0.551 / 0.252 | **0.561 / 0.223** |
+| Gry top 200, lvl 8 / 9 | 0.264 / 0.179 | **0.326 / 0.215** |
+| Kayle jako wypełniacz na 1–2★ (top 200, realne − model) | +0.89 ± 0.26 | −0.07 ± 0.10 |
+
+Gold+ zawyżał plansze z Kayle-wypełniaczem o prawie miejsce; Emerald+ już nie. Kalibracja przeliczona (0.51;
+1.32 / 1.10 / 0.62). Zmiana próbki na produkcji = podbicie `METATFT_DATA_REVISION` w `deploy.yml` (jednorazowy sync).
+
 ## Lock = plansza wokół jednostki
 
 Zablokowana jednostka to deklaracja gracza "gram nią". Bez tego silnik dokładał ją jako wypełniacz do najlepszej
@@ -112,9 +145,11 @@ Solar/Executioner ×2, Sprykin, Lunar/Inferno, Kha'Zix Spellweaver, Executioner/
 Rodziny porównują jednostki, więc na lvl 9 trzy plansze Solar z różnymi jednostkami dalej otwierały listę;
 gracz czyta comp po tytule karty (dwa traity: najwyższy styl, potem liczba jednostek, `titleTraits`). Dlatego
 też najwyżej 2 wyniki z tym samym traitem w tytule (`perLabel`); traity zablokowanych jednostek i locki traitów
-są zwolnione. Gdy pula się kończy, drugie przejście dopełnia listę bez obu limitów (duplikaty nadal odpadają).
-Rdzeń do porównań pomija zablokowane jednostki — są w każdej planszy, a liczone dawały 1 wynik przy 6 lockach
-z 8.
+są zwolnione. Jedna jednostka najwyżej w połowie listy (`perUnitShare`): wyszukiwanie ciągnie do ulubionych
+jednostek — na lvl 9 pula to było 38 plansz z Kayle na 43. Zamiast odrzucać mocną planszę ponad limit, slate
+wymienia nadużywaną jednostkę na najlepszą dozwoloną (`swapOut`) i ją poleruje — "ten comp bez Kayle". Gdy pula się
+kończy, drugie przejście dopełnia listę bez limitów (duplikaty nadal odpadają). Rdzeń do porównań pomija
+zablokowane jednostki — są w każdej planszy, a liczone dawały 1 wynik przy 6 lockach z 8.
 
 ### Solar i Lunar na lvl 9 — co mówią dane
 

@@ -18,7 +18,7 @@
  *   - novelty: share of results that match a meta comp (metaMatch).
  *
  * Usage:
- *   npm run scout -- eval [--snapshot tmp/scout-eval/context-18.4b-stars.json]
+ *   npm run scout -- eval [--snapshot tmp/scout-eval/context-18.4b-emerald7.json]
  *                         [--levels 8,9] [--seeds 1,2,3] [--json]
  */
 
@@ -41,7 +41,7 @@ import {
 import { loadContext } from '../context';
 import { evalOracle } from './eval-oracle';
 
-const DEFAULT_EVAL_SNAPSHOT = 'tmp/scout-eval/context-18.4b-stars.json';
+const DEFAULT_EVAL_SNAPSHOT = 'tmp/scout-eval/context-18.4b-emerald7.json';
 const DEFAULT_ORACLE = 'tmp/scout-eval/oracle-18.4b.json';
 
 type EvalArgs = {
@@ -295,8 +295,20 @@ function onesSwapImprovable(
     // The slate's rules (slate.ts): a swap may not make a near-duplicate
     // of another team, join a family that is already full, nor take a
     // title trait that already names perLabel other teams
-    const { dedupeOverlapPct, familyOverlapPct, perFamily, perLabel } =
-        SCORING_CONFIG;
+    const {
+        dedupeOverlapPct,
+        familyOverlapPct,
+        perFamily,
+        perLabel,
+        perUnitShare,
+    } = SCORING_CONFIG;
+    const perUnit = Math.max(1, Math.ceil(slate.length * perUnitShare));
+    const unitUses = new Map<string, number>();
+    for (const core of otherCores) {
+        for (const u of core) {
+            unitUses.set(u, (unitUses.get(u) ?? 0) + 1);
+        }
+    }
     const labelsOf = (t) =>
         titleTraits(
             buildActiveTraits(t, ctx.traits, []),
@@ -311,6 +323,7 @@ function onesSwapImprovable(
         }
     }
     const ownLabels = new Set(labelsOf(team));
+    const ownCore = coreOf(team);
     const overlap = (core: Set<string>, other: Set<string>) =>
         [...core].filter((a) => other.has(a)).length /
         Math.max(core.size, other.size);
@@ -325,6 +338,9 @@ function onesSwapImprovable(
             familyOf(core) > familyRoom ||
             labelsOf(t).some(
                 (l) => !ownLabels.has(l) && (labelUses.get(l) ?? 0) >= perLabel,
+            ) ||
+            [...core].some(
+                (u) => !ownCore.has(u) && (unitUses.get(u) ?? 0) >= perUnit,
             )
         );
     };

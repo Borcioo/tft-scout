@@ -8,12 +8,12 @@
 
 /**
  * Score scale version, saved with plans. A score from another model isn't
- * comparable with a live one (4 = reroll plans of up to five 3★ and the
- * trait overflow penalty; 3 = units rated at 1–2★ plus reroll plans of one
- * cost; 2 = board-strength model over all stars; 1 = the old points
- * scorer).
+ * comparable with a live one (5 = Emerald+ MetaTFT sample and the dead
+ * unit penalty; 4 = reroll plans of up to five 3★ and the trait overflow
+ * penalty; 3 = units rated at 1–2★ plus reroll plans of one cost; 2 =
+ * board-strength model over all stars; 1 = the old points scorer).
  */
-export const SCORE_MODEL = 4;
+export const SCORE_MODEL = 5;
 
 export const SCORING_CONFIG = {
     // Dedupe threshold for engine topN — team is dropped if it shares
@@ -34,6 +34,10 @@ export const SCORING_CONFIG = {
     // locked units and locked traits are exempt — the player asked for
     // them on every team.
     perLabel: 2,
+    // ...and one unit in at most half of it (locked units aside): Kayle,
+    // a strong 3★ plan next to most comps, was on 15 of 20 level 8–9
+    // teams — a slate is a menu, and one contested unit sank all of it
+    perUnitShare: 0.5,
 
     // Exploration thresholds — controls which data phases consider "viable"
     thresholds: {

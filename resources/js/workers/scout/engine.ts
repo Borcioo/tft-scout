@@ -29,7 +29,7 @@ import {
     normalizeTraitLocks,
     traitReach,
 } from './lock-reach';
-import { polishTeam } from './polish';
+import { polishTeam, swapOut } from './polish';
 import {
     teamReroll,
     teamRoleBalance,
@@ -629,6 +629,15 @@ export function generate(input) {
                 titleTraits(team.activeTraits, (t) => t.activeStyle)
                     .map((t) => t.apiName)
                     .filter((api) => !lockedLabels.has(api)),
+            (team, out, allowed) =>
+                swapOut(team, out, {
+                    ...polishOpts,
+                    evaluate: (teamChampions) => {
+                        const r = polishOpts.evaluate(teamChampions);
+
+                        return r && allowed(r) ? r : null;
+                    },
+                }),
         );
 
         finalComps.sort((a, b) => b.score - a.score);
