@@ -109,8 +109,31 @@ wyrzucał, a lukę wypełniały niepolerowane — 8/10 wyników dało się popra
 niezablokowanych jednostek. Odrębne compy MetaTFT (18.4b) dzielą z najbliższym sąsiadem medianę 63%, a ćwierć z
 nich połowę lub mniej; bez limitu lvl 8 miał ten sam rdzeń Soraka/Azir/Kayle/Leona w 6 z 8 wyników. Teraz:
 Solar/Executioner ×2, Sprykin, Lunar/Inferno, Kha'Zix Spellweaver, Executioner/Summoner, Invoker, Riftbeast ×2.
-Gdy pula się kończy, drugie przejście dopełnia listę bez limitu rodzin (duplikaty nadal odpadają). Rdzeń do
-porównań pomija zablokowane jednostki — są w każdej planszy, a liczone dawały 1 wynik przy 6 lockach z 8.
+Rodziny porównują jednostki, więc na lvl 9 trzy plansze Solar z różnymi jednostkami dalej otwierały listę;
+gracz czyta comp po tytule karty (dwa traity: najwyższy styl, potem liczba jednostek, `titleTraits`). Dlatego
+też najwyżej 2 wyniki z tym samym traitem w tytule (`perLabel`); traity zablokowanych jednostek i locki traitów
+są zwolnione. Gdy pula się kończy, drugie przejście dopełnia listę bez obu limitów (duplikaty nadal odpadają).
+Rdzeń do porównań pomija zablokowane jednostki — są w każdej planszy, a liczone dawały 1 wynik przy 6 lockach
+z 8.
+
+### Solar i Lunar na lvl 9 — co mówią dane
+
+Względny błąd modelu (realne − przewidziane, po dopasowaniu w obrębie rozmiaru) na planszach 9 jednostek:
+
+| Źródło | Solar (Kayle/Sejuani/Leona) | Lunar bez Lux Moonbeam | Plansze z Luxem |
+|---|---|---|---|
+| Explorer Gold+ (≥300 gier) | +0.47 (gorzej niż model) | +0.48 | −0.27 |
+| Explorer Master+ (≥30 gier) | +1.17 (452 gry) | +0.75 | −0.22 |
+| Top 200, pojedyncze gry | **−0.58 ± 0.12** (lepiej; 3.7 3★/planszę) | +0.14 ± 0.19 | — |
+
+Ani plan 3★ (bez planu dalej +0.43), ani waga par (niższa psuje ranking, błąd prawie bez zmian), ani formy Luxa
+nie są przyczyną. Wniosek (nie pewnik): Solar działa, gdy gracz trafia 3★, a zawodzi, gdy nie — model z
+szansą trafienia z gier "nosicieli" jest bliżej top graczy niż przeciętnej gry. Nie korygowane w modelu;
+różnorodność listy to limit tytułów powyżej.
+
+Szacunek miejsca liczony przy poziomie gracza (nie liczbie jednostek): Elder Dragon zajmuje 2 sloty, więc jego
+plansza na lvl 9 ma 8 jednostek i dostawała przesunięcie lvl 8 (+0.44 miejsca, "2.0" nad "1.6" na liście).
+Dopasowanie kalibracji dalej po liczbie jednostek — plansze explorera nie mają poziomu.
 
 ## Wyniki (`npm run scout -- eval`, 18.4b)
 

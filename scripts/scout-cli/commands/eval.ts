@@ -31,6 +31,7 @@ import {
 } from '../../../resources/js/workers/scout/config';
 import { generate } from '../../../resources/js/workers/scout/engine';
 import { teamScore } from '../../../resources/js/workers/scout/scorer';
+import { titleTraits } from '../../../resources/js/workers/scout/slate';
 import { STRENGTH } from '../../../resources/js/workers/scout/strength';
 import { findActiveBreakpointIdx } from '../../../resources/js/workers/scout/synergy-graph/shared/breakpoints';
 import {
@@ -292,8 +293,24 @@ function onesSwapImprovable(
         .filter((r) => r !== result)
         .map((r) => coreOf(r.champions));
     // The slate's rules (slate.ts): a swap may not make a near-duplicate
-    // of another team nor join a family that is already full
-    const { dedupeOverlapPct, familyOverlapPct, perFamily } = SCORING_CONFIG;
+    // of another team, join a family that is already full, nor take a
+    // title trait that already names perLabel other teams
+    const { dedupeOverlapPct, familyOverlapPct, perFamily, perLabel } =
+        SCORING_CONFIG;
+    const labelsOf = (t) =>
+        titleTraits(
+            buildActiveTraits(t, ctx.traits, []),
+            (a) => a.activeStyle,
+        ).map((a) => a.apiName);
+    const labelUses = new Map<string, number>();
+    for (const r of slate) {
+        if (r !== result) {
+            for (const l of labelsOf(r.champions)) {
+                labelUses.set(l, (labelUses.get(l) ?? 0) + 1);
+            }
+        }
+    }
+    const ownLabels = new Set(labelsOf(team));
     const overlap = (core: Set<string>, other: Set<string>) =>
         [...core].filter((a) => other.has(a)).length /
         Math.max(core.size, other.size);
@@ -305,7 +322,10 @@ function onesSwapImprovable(
 
         return (
             otherCores.some((o) => overlap(core, o) >= dedupeOverlapPct) ||
-            familyOf(core) > familyRoom
+            familyOf(core) > familyRoom ||
+            labelsOf(t).some(
+                (l) => !ownLabels.has(l) && (labelUses.get(l) ?? 0) >= perLabel,
+            )
         );
     };
     const base = scoreTeam(team, level, ctx);

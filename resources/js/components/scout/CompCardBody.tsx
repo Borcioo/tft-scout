@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { STYLE_RANK, titleTraits } from '@/workers/scout/slate';
 import type { ScoredTeam } from '@/workers/scout/types';
 import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
 import { ChampionItemBuildsAccordion } from './ChampionItemBuildsAccordion';
@@ -23,13 +24,6 @@ const STYLE_CHIP: Record<string, string> = {
     Gold: 'border-yellow-500 bg-yellow-950/40 text-yellow-300',
     Prismatic: 'border-fuchsia-400 bg-fuchsia-950/40 text-fuchsia-300',
     Unique: 'border-red-500 bg-red-950/40 text-red-300',
-};
-
-export const STYLE_RANK: Record<string, number> = {
-    Prismatic: 4,
-    Gold: 3,
-    Silver: 2,
-    Bronze: 1,
 };
 
 type Props = {
@@ -62,21 +56,14 @@ export function CompCardBody({
     const rerollOf = new Map(
         (team.reroll ?? []).map((r) => [r.apiName, r.hitChance]),
     );
-    const titleTraits = [...team.activeTraits]
-        .filter((t) => (t.style ?? 'Bronze') !== 'Unique')
-        .sort((a, b) => {
-            const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
-            const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-            return sb !== sa ? sb - sa : b.count - a.count;
-        })
-        .slice(0, 2);
+    const title = titleTraits(team.activeTraits, (t) => t.style);
 
     return (
         <Card className="flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                     {headerLeft ??
-                        titleTraits.map((t, i) => (
+                        title.map((t, i) => (
                             <span
                                 key={t.apiName}
                                 className="flex items-center gap-1 font-semibold text-sm"
@@ -91,7 +78,7 @@ export function CompCardBody({
                                 <span className="truncate">
                                     {t.count} {t.name}
                                 </span>
-                                {i < titleTraits.length - 1 && (
+                                {i < title.length - 1 && (
                                     <span className="text-muted-foreground">
                                         +
                                     </span>
@@ -252,14 +239,7 @@ export function CompCardBody({
 
 /** Build a readable default name from the strongest 1-2 traits. */
 export function buildPlanName(team: ScoredTeam): string {
-    const top = [...team.activeTraits]
-        .filter((t) => (t.style ?? 'Bronze') !== 'Unique')
-        .sort((a, b) => {
-            const sa = STYLE_RANK[a.style ?? 'Bronze'] ?? 0;
-            const sb = STYLE_RANK[b.style ?? 'Bronze'] ?? 0;
-            return sb !== sa ? sb - sa : b.count - a.count;
-        })
-        .slice(0, 2)
+    const top = titleTraits(team.activeTraits, (t) => t.style)
         .map((t) => `${t.count} ${t.name}`)
         .join(' + ');
     return top || 'Untitled comp';

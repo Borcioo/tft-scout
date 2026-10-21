@@ -28,6 +28,12 @@ export const SCORING_CONFIG = {
     // Filled up without it when the pool runs out.
     familyOverlapPct: 0.5,
     perFamily: 2,
+    // ...and at most perLabel teams named by one trait (the card title's
+    // two traits). Families compare units, so on level 9 three Solar
+    // boards with different units still opened the slate. Traits of
+    // locked units and locked traits are exempt — the player asked for
+    // them on every team.
+    perLabel: 2,
 
     // Exploration thresholds — controls which data phases consider "viable"
     thresholds: {

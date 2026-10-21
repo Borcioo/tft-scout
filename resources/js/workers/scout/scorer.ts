@@ -211,7 +211,10 @@ export function teamScore(team: ScoredBoard, ctx: any) {
 export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
     const { strength, roles, cost, overflow, place } = evaluate(team, ctx);
     const r = (x: number) => Math.round(x * 1000) / 1000;
-    const avgPlace = estimatedAvgPlace(place, team.champions.length);
+    const avgPlace = estimatedAvgPlace(
+        place,
+        team.level ?? team.champions.length,
+    );
 
     return {
         avgPlace: Math.round(avgPlace * 100) / 100,

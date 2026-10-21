@@ -7,6 +7,7 @@ const rules = {
     dedupeOverlapPct: 0.75,
     familyOverlapPct: 0.5,
     perFamily: 2,
+    perLabel: 2,
 };
 // Teams are strings of one-letter units, best first
 const coreOf = (team: string) => new Set(team.split(''));
@@ -36,6 +37,25 @@ describe('pickSlate', () => {
         const ranked = ['ABCDEFGH', 'ABCDEXYZ', 'ABCDEQRS', 'ABCDEFXY'];
 
         expect(pick(ranked)).toEqual(['ABCDEFGH', 'ABCDEXYZ', 'ABCDEQRS']);
+    });
+
+    it('names a trait in at most perLabel titles, then fills up', () => {
+        // Unrelated units, but the first three are all "Solar" comps
+        const label: Record<string, string[]> = {
+            ABCDEFGH: ['Solar', 'Lunar'],
+            IJKLMNOP: ['Solar'],
+            QRSTUVWX: ['Lunar', 'Solar'],
+            abcdefgh: ['Riftbeast'],
+        };
+        const slate = pickSlate(
+            Object.keys(label),
+            rules,
+            coreOf,
+            undefined,
+            (team) => label[team],
+        );
+
+        expect(slate).toEqual(['ABCDEFGH', 'IJKLMNOP', 'abcdefgh', 'QRSTUVWX']);
     });
 
     it('polishes only into boards the slate allows', () => {

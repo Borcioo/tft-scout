@@ -162,10 +162,15 @@ describe('teamScore', () => {
         const parts = teamScoreBreakdown(team, ctx);
 
         close(parts.place, 4.3);
+        // Calibrated at the player's level, not the unit count (an Elder
+        // Dragon board has a unit fewer than its level)
         expect(parts.avgPlace).toBeCloseTo(
-            estimatedAvgPlace(parts.place, 4),
+            estimatedAvgPlace(parts.place, 8),
             2,
         );
+        expect(
+            teamScoreBreakdown({ ...team, level: undefined }, ctx).avgPlace,
+        ).toBeCloseTo(estimatedAvgPlace(parts.place, 4), 2);
         expect(parts.beyondData).toBe(0);
         expect(teamScore(team, ctx)).toBeCloseTo(20, 1);
         expect(parts.total).toBe(teamScore(team, ctx));
