@@ -117,8 +117,39 @@ type ScoredBoard = {
     level?: number;
     /** Locked apiNames — exempt from the cost cap, as in the search. */
     locked?: Set<string> | null;
+    /**
+     * Units the player locked by hand: they weigh more in the ranking
+     * (strength.ts, "Focus"); the breakdown stays the board's own.
+     */
+    focus?: ReadonlySet<string> | null;
     max5Cost?: number | null;
 };
+
+/** Places charged per trait count past a trait's last breakpoint. */
+export const OVERFLOW_PER_UNIT = 0.15;
+
+/**
+ * Trait counts past the last breakpoint add nothing — Solar has one
+ * breakpoint at 3, so a Lux Sunbeam (Solar ×2) on a board that already
+ * has it wastes both counts. Top players run 3 Solar on 644 of 647 Solar
+ * boards. In places, like the role penalty; search and ranking share it.
+ */
+export function overflowPenalty(
+    counts: Record<string, number>,
+    minUnitsOf: (trait: string) => number[],
+): number {
+    let wasted = 0;
+
+    for (const [trait, count] of Object.entries(counts)) {
+        const mins = minUnitsOf(trait);
+
+        if (mins.length > 0) {
+            wasted += Math.max(0, count - Math.max(...mins));
+        }
+    }
+
+    return wasted * OVERFLOW_PER_UNIT;
+}
 
 function evaluate(team: ScoredBoard, ctx: any) {
     const counts: Record<string, number> = {};
@@ -133,6 +164,7 @@ function evaluate(team: ScoredBoard, ctx: any) {
         team.champions,
         activeLevels(counts, (t) => breakpointsOf[t]),
         ctx,
+        team.focus,
     );
     const roles = roleBalancePenalty(team.champions) / 100;
     const nodes = Object.fromEntries(
@@ -147,22 +179,37 @@ function evaluate(team: ScoredBoard, ctx: any) {
             team.max5Cost ?? null,
         ) / 100;
 
-    return { strength, roles, cost, place: strength.place + roles + cost };
+    const overflow = overflowPenalty(counts, (t) =>
+        breakpointsOf[t].map((b) => b.minUnits),
+    );
+
+    const penalties = roles + cost + overflow;
+
+    return {
+        strength,
+        roles,
+        cost,
+        overflow,
+        place: strength.place + penalties,
+        focused: strength.focused + penalties,
+    };
 }
 
 const toScore = (place: number) =>
     Math.round((STRENGTH.baseline - place) * 10000) / 100;
 
+/** What the search and the slate rank by — focused on locked units. */
 export function teamScore(team: ScoredBoard, ctx: any) {
-    return toScore(evaluate(team, ctx).place);
+    return toScore(evaluate(team, ctx).focused);
 }
 
 /**
  * Same evaluation, itemised: raw place and each part in places (positive
- * = worse), the calibrated average placement, and the resulting score.
+ * = worse), the calibrated average placement, and the resulting score —
+ * of the board itself, without focus, so saved plans compare with it.
  */
 export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
-    const { strength, roles, cost, place } = evaluate(team, ctx);
+    const { strength, roles, cost, overflow, place } = evaluate(team, ctx);
     const r = (x: number) => Math.round(x * 1000) / 1000;
     const avgPlace = estimatedAvgPlace(place, team.champions.length);
 
@@ -176,6 +223,7 @@ export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
         traits: r(strength.traits),
         roles: r(roles),
         cost: r(cost),
+        overflow: r(overflow),
         total: toScore(place),
     } as Record<string, number>;
 }

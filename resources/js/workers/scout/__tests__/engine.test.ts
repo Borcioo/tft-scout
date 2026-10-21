@@ -153,6 +153,24 @@ describe('engine.generate — champion locks', () => {
         }
     });
 
+    it('returns a full slate when most of the board is locked', () => {
+        // Locked units are on every team, so they don't make two teams
+        // duplicates: two free slots still leave room for alternatives
+        const six = apis(run(8)[0]).slice(0, 6);
+        const teams = run(8, { lockedChampions: six });
+
+        expect(teams.length).toBe(5);
+        for (const team of teams) {
+            expect(apis(team)).toEqual(expect.arrayContaining(six));
+        }
+    });
+
+    it('shows the board score, ranked for the locked unit', () => {
+        for (const team of run(8, { lockedChampions: ['Fa4'] })) {
+            expect(team.score).toBe(team.breakdown?.total);
+        }
+    });
+
     it('never fields an excluded champion', () => {
         const banned = ['Rb7', 'Rb8', 'Rb4'];
 

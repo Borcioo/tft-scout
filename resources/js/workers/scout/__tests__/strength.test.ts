@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { teamScore, teamScoreBreakdown } from '../scorer';
+import {
+    OVERFLOW_PER_UNIT,
+    overflowPenalty,
+    teamScore,
+    teamScoreBreakdown,
+} from '../scorer';
 import {
     activeLevels,
     boardStrength,
@@ -59,6 +64,23 @@ describe('boardStrength', () => {
 
         close(together, (4.0 + 4.4) / 2 + lift);
         expect(together).toBeLessThan(apart);
+    });
+
+    it('weighs a locked unit more in the ranking, not in the estimate', () => {
+        const board = [unit('A'), unit('B'), unit('C')];
+        const own = boardStrength(board, [], ctx);
+        const onA = boardStrength(board, [], ctx, new Set(['A']));
+        const w = STRENGTH.focusWeight;
+        // A: 4.0 with its 0.4 lift from B at pair weight; B 4.4; C 4.6
+        const a = 4.0 + STRENGTH.pairWeight * -0.4;
+
+        close(own.place, (a + 4.4 + 4.6) / 3);
+        close(own.focused, own.place);
+        close(onA.place, own.place);
+        close(onA.focused, (w * a + 4.4 + 4.6) / (w + 2));
+        expect(onA.focused).toBeLessThan(
+            boardStrength(board, [], ctx, new Set(['C'])).focused,
+        );
     });
 
     it('applies a trait lift only at its breakpoint', () => {
@@ -149,6 +171,17 @@ describe('teamScore', () => {
         expect(parts.total).toBe(teamScore(team, ctx));
     });
 
+    it('ranks with focus on locked units, itemises the board itself', () => {
+        const team = board([tank('A'), carry('B'), tank('C')]);
+        const focused = { ...team, focus: new Set(['A']) };
+
+        // A is the best unit here, so weighing it more ranks the board up
+        expect(teamScore(focused, ctx)).toBeGreaterThan(teamScore(team, ctx));
+        expect(teamScoreBreakdown(focused, ctx)).toEqual(
+            teamScoreBreakdown(team, ctx),
+        );
+    });
+
     it('charges role and cost penalties in places', () => {
         const noTank = board([carry('A'), carry('C'), carry('A'), carry('C')]);
         // no frontline: +0.30 places
@@ -163,6 +196,18 @@ describe('teamScore', () => {
         );
         // level 7 offers 5-costs at 1%: one is tolerated, three over the cap
         expect(teamScoreBreakdown(fiveCosts, ctx).cost).toBeCloseTo(0.36, 3);
+    });
+});
+
+describe('trait overflow', () => {
+    const bps: Record<string, number[]> = { Solar: [3], Duo: [2, 4] };
+    const of = (t: string) => bps[t] ?? [];
+
+    it('charges trait counts past the last breakpoint', () => {
+        expect(overflowPenalty({ Solar: 3, Duo: 4 }, of)).toBe(0);
+        // Lux Sunbeam (Solar ×2) on a board that already has 3 Solar
+        close(overflowPenalty({ Solar: 5, Duo: 3 }, of), 2 * OVERFLOW_PER_UNIT);
+        expect(overflowPenalty({ Untracked: 9 }, of)).toBe(0);
     });
 });
 
@@ -240,27 +285,51 @@ describe('stars and reroll plans', () => {
         close(s.units, (base2 + p * (3.5 - base2) + 4.4) / 2);
     });
 
-    it('rolls at most two 1-costs, the ones that gain most', () => {
+    it('mixes costs up to the per-cost caps, best gains first', () => {
         const s = strength([
             champ('Three', 1),
             champ('One', 1),
-            champ('Two', 1),
-        ]);
-
-        expect(s.reroll.map((r) => r.apiName)).toEqual(['One', 'Two']);
-    });
-
-    it('rolls one 3-cost and keeps a plan to one cost', () => {
-        const s = strength([
+            champ('Two', 2),
             champ('Cost3', 3),
             champ('Cost3b', 3),
-            champ('One', 1),
         ]);
 
-        // Two 1-costs aren't on the board, so the single best plan wins:
-        // one 1-cost and one 3-cost gain the same; ties keep the cheaper
-        expect(s.reroll).toHaveLength(1);
-        expect(s.reroll[0].apiName).toBe('One');
+        // One 3-cost at most; the rest fit under five
+        expect(s.reroll.map((r) => r.apiName).sort()).toEqual(
+            ['Cost3', 'One', 'Three', 'Two'].sort(),
+        );
+    });
+
+    it('takes up to five 3★ on a board of cheap units', () => {
+        const ones = ['One', 'Two', 'Three'].map((a) => champ(a, 1));
+        const twos = ['One', 'Two', 'Three'].map((a) => champ(a, 2));
+        const s = strength([...ones, ...twos, champ('Plain', 1)]);
+
+        expect(s.reroll).toHaveLength(5);
+    });
+
+    it('takes fewer 3★ the more 4/5-costs the board carries', () => {
+        const cheap = ['One', 'Two', 'Three'].map((a) => champ(a, 1));
+        const fours = Array.from({ length: 4 }, () => champ('Four', 4));
+
+        expect(strength([...cheap, ...fours.slice(0, 3)]).reroll).toHaveLength(
+            3,
+        );
+        expect(strength([...cheap, ...fours]).reroll).toHaveLength(1);
+    });
+
+    it('rolls a locked unit first when the caps bind', () => {
+        const fours = Array.from({ length: 4 }, () => champ('Four', 4));
+        const board = [...fours, champ('One', 1), champ('Three', 1)];
+        const rolled = (focus?: Set<string>) =>
+            boardStrength(board, [], starCtx, focus).reroll.map(
+                (r) => r.apiName,
+            );
+
+        // Four 4-costs leave room for one 3★: the bigger gain, unless the
+        // player locked the other
+        expect(rolled()).toEqual(['One']);
+        expect(rolled(new Set(['Three']))).toEqual(['Three']);
     });
 
     it('keeps the board at 1–2★ when 3★ would not help', () => {

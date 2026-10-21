@@ -291,17 +291,22 @@ function onesSwapImprovable(
     const otherCores = slate
         .filter((r) => r !== result)
         .map((r) => coreOf(r.champions));
+    // The slate's rules (slate.ts): a swap may not make a near-duplicate
+    // of another team nor join a family that is already full
+    const { dedupeOverlapPct, familyOverlapPct, perFamily } = SCORING_CONFIG;
+    const overlap = (core: Set<string>, other: Set<string>) =>
+        [...core].filter((a) => other.has(a)).length /
+        Math.max(core.size, other.size);
+    const familyOf = (core: Set<string>) =>
+        otherCores.filter((o) => overlap(core, o) >= familyOverlapPct).length;
+    const familyRoom = Math.max(perFamily - 1, familyOf(coreOf(team)));
     const isDup = (t) => {
         const core = coreOf(t);
 
-        return otherCores.some((other) => {
-            const shared = [...core].filter((a) => other.has(a)).length;
-
-            return (
-                shared / Math.max(core.size, other.size) >=
-                SCORING_CONFIG.dedupeOverlapPct
-            );
-        });
+        return (
+            otherCores.some((o) => overlap(core, o) >= dedupeOverlapPct) ||
+            familyOf(core) > familyRoom
+        );
     };
     const base = scoreTeam(team, level, ctx);
     let best = base;

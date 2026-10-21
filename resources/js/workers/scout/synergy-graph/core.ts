@@ -213,6 +213,7 @@ export function findTeams(graph, options = {}) {
             excludedChampions = [],
             max5Cost = null,
             lockedTraits = [],
+            focus = [],
         } = options;
 
         const {
@@ -223,6 +224,8 @@ export function findTeams(graph, options = {}) {
         } = graph;
         const allowedSet = buildAllowedSet(graph, level, startChamps);
         const lockedSet = new Set(startChamps);
+        // Units the player locked by hand weigh more (strength.ts, "Focus")
+        const focusSet = focus.length > 0 ? new Set(focus) : null;
 
         // Default max 5-cost scales with level. User-provided max5Cost overrides.
         // lvl 9: comp is 4-cost centric, 5-costs are lucky spike (max 2).
@@ -247,6 +250,7 @@ export function findTeams(graph, options = {}) {
             lockedChamps: startChamps,
             allowedSet,
             lockedSet,
+            focusSet,
             lockedTraits,
         };
 
@@ -313,7 +317,7 @@ export function findTeams(graph, options = {}) {
             }
 
             const score =
-                quickScore(team, graph, emblems) -
+                quickScore(team, graph, emblems, focusSet) -
                 costPenalty(team, graph, level, lockedSet, effectiveMax5Cost);
             const champions = team.map((api) => nodes[api]).filter(Boolean);
 

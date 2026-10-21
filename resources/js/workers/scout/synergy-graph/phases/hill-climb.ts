@@ -97,7 +97,12 @@ export function phaseHillClimb(ctx: PhaseContext): void {
 
                     const candidate = [...teamWithout, api];
                     const score =
-                        quickScore(candidate, graph, emblems) -
+                        quickScore(
+                            candidate,
+                            graph,
+                            emblems,
+                            context.focusSet,
+                        ) -
                         costPenalty(
                             candidate,
                             graph,
