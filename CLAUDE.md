@@ -13,7 +13,7 @@ npm run lint:check    # Biome check, read-only (CI: `biome ci`)
 npm run types:check   # tsc --noEmit (TypeScript 7, natywny kompilator)
 npm run format        # Biome format --write
 npm run scout         # tsx scripts/scout-cli.ts  (scout debug CLI)
-npm test              # Vitest — resources/js/**/__tests__/*.test.ts
+npm test              # Vitest — resources/js/**/__tests__/*.test.ts (engine: workers/scout/__tests__, fixture mini-set.ts)
 vendor/bin/pest --parallel   # Pest 5 (PHPUnit 13), needs Postgres DB `tftscout_test`
 ```
 
@@ -48,6 +48,7 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **Trait amounts / team size są danymi**: `champion_trait.amount` (bin `mLinkedTraits[].Amount`: Lux ×2, Elder Dragon ×2) → worker `traitAmounts`; `breakpoint.teamSizeBonus` (Riftbeast 10 → +2) — bez hardkodów `TFT17_Mecha`
 - **Set 18 role są inferowane** (`RoleInferenceHook`) — Riot nie wystawia ról; heurystyka, nie prawda
 - **Locked traits = HARD filter** (nie tylko score penalty); **trap traits penalized**; **no sell-all comps**
+- **Level gate = HARD** (`MIN_LEVEL_BY_COST`: 4-cost od lvl 7, 5-cost od lvl 9 — próg ~10% szans w sklepie); omija go tylko jawny lock championa, nigdy auto-promocja z locka cechy (user decision 2026-10-21)
 - **Post-R refactor** — każdy change w `synergy-graph/` musi przejść baseline-diff gate (patrz `scripts/refactor-R-checkpoint.sh`; scenariusze Set 18, baseline po zmianie setu: `--capture` na kodzie sprzed zmiany)
 - **Correctness first** — bugi/behavior > optymalizacje/refactor/cleanup (user decision 2026-04-14)
 - **Perf target** — po Phase C (Set 17): locked ~700ms, non-lock ~1.7s; Set 18 snapshot w kontenerze CI-like: non-lock lvl 8 ~3.3s także na kodzie sprzed zmian (większa pula), locked ~1.5s

@@ -22,7 +22,7 @@ import {
     filterCandidates,
     getLockedChampions,
 } from './candidates';
-import { SCORING_CONFIG } from './config';
+import { MIN_LEVEL_BY_COST, SCORING_CONFIG } from './config';
 import { buildHeroExclusionGroup } from './hero-exclusion';
 import { teamRoleBalance, teamScore, teamScoreBreakdown } from './scorer';
 import { startSpan } from './scout-profiler';
@@ -100,11 +100,13 @@ export function generate(input) {
             (api: string) => !rawExcludedSet.has(api),
         );
 
-        // Filter candidates using exclusion groups
+        // Filter candidates using exclusion groups. Emblems go in normalised:
+        // object-shaped entries never matched a trait, so emblem traits
+        // silently lost their relevance boost for UI/CLI callers.
         const _endFilterCandidates = startSpan('engine.filterCandidates');
         const candidates = filterCandidates(
             champions,
-            constraints,
+            { ...constraints, emblems: normalizedEmblems },
             effectiveExclusionGroups,
         );
         _endFilterCandidates();
@@ -179,7 +181,17 @@ export function generate(input) {
         // Algorithm: group champs by exclusion group (singletons for
         // anything outside a group); pick the member contributing the most
         // to the trait from each; sum.
+        //
+        // Only champions the shop offers at this level count (same gate as
+        // findTeams' allowed set); an explicit user lock still bypasses it.
+        // Otherwise a tight lock auto-promoted a gated unit (Hunter:5 on
+        // level 8 pulled in the 5-cost) while a loose one could never use
+        // it (Riftbeast:10 on level 8 came back empty).
         const teamSizeRules = buildTeamSizeRules(traits);
+        const offeredAtLevel = (c) =>
+            !level ||
+            lockedApiSet.has(c.apiName) ||
+            level >= (MIN_LEVEL_BY_COST[c.cost || 1] ?? 1);
         const exclusionMemberMap: Record<string, string[]> = {};
         for (const group of effectiveExclusionGroups) {
             for (const member of group) {
@@ -196,6 +208,9 @@ export function generate(input) {
                     continue;
                 }
                 if (excludedSet.has(c.apiName)) {
+                    continue;
+                }
+                if (!offeredAtLevel(c)) {
                     continue;
                 }
                 if (!c.traits.includes(lockApi)) {
