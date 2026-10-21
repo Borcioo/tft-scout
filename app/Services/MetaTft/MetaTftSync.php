@@ -110,6 +110,8 @@ class MetaTftSync
     {
         $this->client->resetRunCache();
         $this->profile = SetProfile::for($setNumber);
+        $patch = $this->client->resolvePatch();
+        $this->log("MetaTFT patch {$patch['label']} ({$patch['games']} games in the window)");
         $set = Set::query()->where('number', $setNumber)->firstOrFail();
 
         $championsByApiName = Champion::query()
@@ -135,7 +137,7 @@ class MetaTftSync
             ->all();
 
         $status = 'ok';
-        $notes = null;
+        $notes = "patch {$patch['label']}";
         $counts = [
             'units' => 0,
             'traits' => 0,
@@ -488,6 +490,16 @@ class MetaTftSync
                 ],
             );
             $count++;
+        }
+
+        // One patch per set: rows from an earlier patch (or the unlabeled
+        // rows written before patches were pinned) would otherwise be read
+        // alongside the new ones by ScoutContextBuilder.
+        if ($count > 0) {
+            ChampionRating::query()
+                ->where('set_id', $set->id)
+                ->where(fn ($q) => $q->whereNull('patch')->orWhere('patch', '!=', $this->client->resolvePatch()['label']))
+                ->delete();
         }
 
         return $count;

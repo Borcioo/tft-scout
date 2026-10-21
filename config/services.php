@@ -46,6 +46,10 @@ return [
 
     'metatft' => [
         'queue' => env('METATFT_QUEUE', '1100'),
+        // Newest patch is used once it has this many games in the 2-day
+        // window; until then the previous patch (MetaTFT site behaves
+        // the same right after a release: 18.5 had 22k games, 18.4b 25M).
+        'min_patch_games' => (int) env('METATFT_MIN_PATCH_GAMES', 300000),
     ],
 
     'slack' => [

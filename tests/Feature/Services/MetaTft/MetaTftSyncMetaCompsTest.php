@@ -21,6 +21,7 @@ test('meta comp cluster ids are unique per set, not globally', function () {
 
     $client = Mockery::mock(MetaTftClient::class);
     $client->shouldReceive('resetRunCache');
+    $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
     $client->shouldReceive('fetchUnits')->andReturn([]);
     $client->shouldReceive('fetchTraits')->andReturn([]);
     $client->shouldReceive('fetchMetaComps')->with(18)->andReturn([
