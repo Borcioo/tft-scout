@@ -12,7 +12,7 @@
  */
 
 import { buildActiveTraits } from './active-traits';
-import { teamScore } from './scorer';
+import { teamScoreBreakdown } from './scorer';
 
 /**
  * @param {object} params
@@ -20,7 +20,7 @@ import { teamScore } from './scorer';
  * @param {number} params.level - player level at save time
  * @param {string[]} params.emblems - emblem trait apiNames at save time
  * @param {object} params.context - { champions, traits, scoringCtx } from /api/scout/context
- * @returns {{ score: number | null, missing: number, champions: object[], activeTraits: object[] }}
+ * @returns {{ score: number | null, avgPlace: number | null, missing: number, champions: object[], activeTraits: object[] }}
  */
 export function rescoreTeam({ championApis, level, emblems, context }: any) {
     const { champions, traits, scoringCtx } = context;
@@ -32,14 +32,20 @@ export function rescoreTeam({ championApis, level, emblems, context }: any) {
     const missing = championApis.length - champs.length;
 
     if (missing > 0) {
-        return { score: null, missing, champions: champs, activeTraits: [] };
+        return {
+            score: null,
+            avgPlace: null,
+            missing,
+            champions: champs,
+            activeTraits: [],
+        };
     }
 
     const activeTraits = buildActiveTraits(champs, traits, emblems);
-    const score = teamScore(
+    const { total: score, avgPlace } = teamScoreBreakdown(
         { champions: champs, activeTraits, level },
         scoringCtx,
     );
 
-    return { score, missing: 0, champions: champs, activeTraits };
+    return { score, avgPlace, missing: 0, champions: champs, activeTraits };
 }

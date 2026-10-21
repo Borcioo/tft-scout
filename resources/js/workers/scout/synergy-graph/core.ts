@@ -30,13 +30,7 @@ import { applyEmblems } from './shared/emblems';
 import { costPenalty } from './shared/team-builder';
 import type { PhaseContext, PhaseEntry } from './types';
 
-const {
-    weights,
-    breakpointMultiplier,
-    nearBreakpointBonus,
-    minGamesForReliable,
-    thresholds,
-} = SCORING_CONFIG;
+const { thresholds } = SCORING_CONFIG;
 
 // ── RNG ─────────────────────────────────────────
 

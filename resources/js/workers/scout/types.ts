@@ -178,6 +178,8 @@ export type RescoreParams = {
 
 export type RescoreResult = {
     score: number | null;
+    /** Calibrated average placement (breakdown.avgPlace). */
+    avgPlace: number | null;
     missing: number;
 };
 

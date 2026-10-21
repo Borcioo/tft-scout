@@ -136,7 +136,7 @@ Default: smart summary (token-efficient JSON). Pass `--full` for raw worker retu
 - per result: `rank`, `score`, `champions[]`, `activeTraits` (one-line string), `roles` (`fl:N dps:N fighter:N`), `slotsUsed`, `metaMatch`, `breakdown`
 - `filtered.rawTeams` and `filtered.enriched` are `-1` because `engine.generate` does not expose those counters — known limitation, not a bug
 
-`breakdown` keys: `champions`, `traits`, `affinity`, `companions`, `synergy`, `balance`, `total`, `proven`, `orphan`. Higher = better. Negative `balance` = role-balance soft penalty kicked in.
+`breakdown` keys (board-strength model, `strength.ts` + `scorer.ts`): `place` = raw place (lower = better; ranks boards, not a real placement), its parts in places `units` (mean shrunk unit avg), `pairs` (weighted pair lifts, negative = units lift each other), `traits` (trait-level lifts), `roles` / `cost` (penalties, positive = worse); `avgPlace` = calibrated average placement shown in the UI; `total` = score = (4.5 − place)·100. Engine-only flags: `relaxed`, `variantPick`. Model quality and search local-optimality: `npm run scout -- eval` (offline, frozen snapshot in `tmp/scout-eval/`).
 
 ## When NOT to use
 

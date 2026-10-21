@@ -24,6 +24,7 @@ import { useScoutWorker } from '@/hooks/use-scout-worker';
 import AppLayout from '@/layouts/app-layout';
 import { generatePlannerCode } from '@/lib/plannerCode';
 import { cn } from '@/lib/utils';
+import { SCORE_MODEL } from '@/workers/scout/config';
 import type { ScoredTeam, Trait } from '@/workers/scout/types';
 
 type Slot = {
@@ -33,6 +34,9 @@ type Slot = {
 
 type PlanMeta = {
     score?: number;
+    /** SCORE_MODEL at save time; absent = the old points scorer. */
+    scoreModel?: number;
+    avgPlace?: number | null;
     activeTraits?: Trait[];
     roles?: ScoredTeam['roles'];
     insights?: ScoredTeam['insights'];
@@ -42,7 +46,12 @@ type PlanMeta = {
 
 type LiveScore =
     | { status: 'loading' }
-    | { status: 'ready'; score: number | null; missing: number }
+    | {
+          status: 'ready';
+          score: number | null;
+          avgPlace: number | null;
+          missing: number;
+      }
     | { status: 'error' };
 
 type Plan = {
@@ -110,18 +119,33 @@ function planToTeam(plan: Plan, lookup: Record<string, ChampInfo>): ScoredTeam {
         activeTraits: meta.activeTraits ?? [],
         roles: meta.roles ?? null,
         score: meta.score ?? 0,
+        breakdown: meta.avgPlace != null ? { avgPlace: meta.avgPlace } : null,
         insights: meta.insights ?? [],
         metaMatch: meta.metaMatch ?? null,
     } as unknown as ScoredTeam;
+}
+
+/**
+ * Snapshot saved under another score model (or none): the card shows the
+ * live score instead, since the two scales can't be compared.
+ */
+function isOtherModel(plan: Plan, live: LiveScore | undefined): boolean {
+    return (
+        (plan.meta?.scoreModel ?? 1) !== SCORE_MODEL &&
+        live?.status === 'ready' &&
+        live.score !== null
+    );
 }
 
 /** Renders the live-vs-snapshot delta next to the snapshot score. */
 function ScoreDelta({
     snapshot,
     live,
+    otherModel,
 }: {
     snapshot: number;
     live: LiveScore | undefined;
+    otherModel: boolean;
 }) {
     if (!live || live.status === 'loading') {
         return (
@@ -144,6 +168,17 @@ function ScoreDelta({
             >
                 <AlertTriangle className="size-3" />
                 {live.missing} missing
+            </span>
+        );
+    }
+
+    if (otherModel) {
+        return (
+            <span
+                className="font-mono text-muted-foreground text-xs"
+                title={`Saved under an earlier scoring model (score ${snapshot.toFixed(1)} on its scale); showing the live score`}
+            >
+                rescored
             </span>
         );
     }
@@ -309,7 +344,12 @@ export default function PlansIndex({
                 if (!params || champs.length === 0) {
                     setLiveScores((prev) => ({
                         ...prev,
-                        [plan.id]: { status: 'ready', score: null, missing: 0 },
+                        [plan.id]: {
+                            status: 'ready',
+                            score: null,
+                            avgPlace: null,
+                            missing: 0,
+                        },
                     }));
                     continue;
                 }
@@ -328,6 +368,7 @@ export default function PlansIndex({
                         [plan.id]: {
                             status: 'ready',
                             score: res.score,
+                            avgPlace: res.avgPlace,
                             missing: res.missing,
                         },
                     }));
@@ -461,7 +502,20 @@ export default function PlansIndex({
                 ) : (
                     <div className="flex flex-col gap-4">
                         {filteredPlans.map((plan) => {
-                            const team = planToTeam(plan, championLookup);
+                            const live = liveScores[plan.id];
+                            const otherModel = isOtherModel(plan, live);
+                            const saved = planToTeam(plan, championLookup);
+                            const team =
+                                otherModel && live?.status === 'ready'
+                                    ? {
+                                          ...saved,
+                                          score: live.score ?? 0,
+                                          breakdown:
+                                              live.avgPlace != null
+                                                  ? { avgPlace: live.avgPlace }
+                                                  : null,
+                                      }
+                                    : saved;
 
                             return (
                                 <div
@@ -488,8 +542,9 @@ export default function PlansIndex({
                                         itemBuilds={itemBuilds}
                                         scoreAddon={
                                             <ScoreDelta
-                                                snapshot={team.score}
-                                                live={liveScores[plan.id]}
+                                                snapshot={saved.score}
+                                                live={live}
+                                                otherModel={otherModel}
                                             />
                                         }
                                         headerRight={
