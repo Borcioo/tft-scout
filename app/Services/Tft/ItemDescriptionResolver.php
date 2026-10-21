@@ -26,8 +26,8 @@ class ItemDescriptionResolver
 
     /**
      * @param  array<string, mixed>  $effects
-     * @return string|null  rendered description with placeholders resolved,
-     *                      or null if the template was null/empty
+     * @return string|null rendered description with placeholders resolved,
+     *                     or null if the template was null/empty
      */
     public function resolve(
         ?string $description,

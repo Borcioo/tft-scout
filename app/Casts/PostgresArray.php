@@ -65,7 +65,7 @@ class PostgresArray implements CastsAttributes
 
         if (! is_array($value)) {
             throw new \InvalidArgumentException(
-                "PostgresArray cast expects array or string, got ".gettype($value)
+                'PostgresArray cast expects array or string, got '.gettype($value)
             );
         }
 

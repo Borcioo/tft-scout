@@ -7,6 +7,7 @@ use App\Models\ChampionItemBuild;
 use App\Models\ChampionItemSet;
 use App\Models\Item;
 use App\Models\Set;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -69,7 +70,7 @@ class ChampionsController extends Controller
      * MetaTFT rating is passed as null for now — Phase B tables are empty
      * until we implement MetaTftImporter. Frontend shows a placeholder.
      */
-    public function show(string $apiName, \Illuminate\Http\Request $request): Response
+    public function show(string $apiName, Request $request): Response
     {
         $champion = Champion::query()
             ->with([
@@ -205,24 +206,24 @@ class ChampionsController extends Controller
             'items_single' => $itemSingleRows
                 ->filter(fn ($row) => $row->item !== null)
                 ->map(fn ($row) => [
-                'api_name' => $row->item->api_name,
-                'name' => $row->item->name ?? $row->item->api_name,
-                'icon' => $row->item->icon_path,
-                // `type` is the canonical class (base/craftable/radiant/artifact/
-                // support/trait_item). `is_tactician` is a separate axis — some
-                // craftables are Tactician's hatbox items (TacticiansRing/Scepter/
-                // ForceOfNature) that players may want to filter independently.
-                'type' => $row->item->type,
-                'is_tactician' => str_contains($row->item->api_name, 'Tacticians')
-                    || str_contains($row->item->api_name, 'ForceOfNature'),
-                'games' => $row->games,
-                'avg_place' => $row->avg_place,
-                'place_change' => $row->place_change,
-                'win_rate' => $row->win_rate,
-                'top4_rate' => $row->top4_rate,
-                'frequency' => $row->frequency,
-                'tier' => $row->tier,
-            ])->values()->all(),
+                    'api_name' => $row->item->api_name,
+                    'name' => $row->item->name ?? $row->item->api_name,
+                    'icon' => $row->item->icon_path,
+                    // `type` is the canonical class (base/craftable/radiant/artifact/
+                    // support/trait_item). `is_tactician` is a separate axis — some
+                    // craftables are Tactician's hatbox items (TacticiansRing/Scepter/
+                    // ForceOfNature) that players may want to filter independently.
+                    'type' => $row->item->type,
+                    'is_tactician' => str_contains($row->item->api_name, 'Tacticians')
+                        || str_contains($row->item->api_name, 'ForceOfNature'),
+                    'games' => $row->games,
+                    'avg_place' => $row->avg_place,
+                    'place_change' => $row->place_change,
+                    'win_rate' => $row->win_rate,
+                    'top4_rate' => $row->top4_rate,
+                    'frequency' => $row->frequency,
+                    'tier' => $row->tier,
+                ])->values()->all(),
             // Same filter as items_single — skip builds containing any item
             // we don't have in the items table.
             'items_builds' => $itemSetRows
@@ -233,50 +234,51 @@ class ChampionsController extends Controller
                             return false;
                         }
                     }
+
                     return true;
                 })
                 ->map(function ($row) use ($itemsByApi) {
-                $apiNames = $row->item_api_names ?? [];
+                    $apiNames = $row->item_api_names ?? [];
 
-                return [
-                    'items' => $apiNames,
-                    'names' => array_map(
-                        fn ($api) => $itemsByApi->get($api)?->name ?? $api,
-                        $apiNames,
-                    ),
-                    'icons' => array_map(
-                        fn ($api) => $itemsByApi->get($api)?->icon_path,
-                        $apiNames,
-                    ),
-                    'types' => array_map(
-                        fn ($api) => $itemsByApi->get($api)?->type,
-                        $apiNames,
-                    ),
-                    'is_tactician' => array_map(
-                        fn ($api) => str_contains($api, 'Tacticians')
-                            || str_contains($api, 'ForceOfNature'),
-                        $apiNames,
-                    ),
-                    'games' => $row->games,
-                    'avg_place' => $row->avg_place,
-                    'place_change' => $row->place_change,
-                    'win_rate' => $row->win_rate,
-                    'top4_rate' => $row->top4_rate,
-                    'frequency' => $row->frequency,
-                    'tier' => $row->tier,
-                ];
-            })->values()->all(),
+                    return [
+                        'items' => $apiNames,
+                        'names' => array_map(
+                            fn ($api) => $itemsByApi->get($api)?->name ?? $api,
+                            $apiNames,
+                        ),
+                        'icons' => array_map(
+                            fn ($api) => $itemsByApi->get($api)?->icon_path,
+                            $apiNames,
+                        ),
+                        'types' => array_map(
+                            fn ($api) => $itemsByApi->get($api)?->type,
+                            $apiNames,
+                        ),
+                        'is_tactician' => array_map(
+                            fn ($api) => str_contains($api, 'Tacticians')
+                                || str_contains($api, 'ForceOfNature'),
+                            $apiNames,
+                        ),
+                        'games' => $row->games,
+                        'avg_place' => $row->avg_place,
+                        'place_change' => $row->place_change,
+                        'win_rate' => $row->win_rate,
+                        'top4_rate' => $row->top4_rate,
+                        'frequency' => $row->frequency,
+                        'tier' => $row->tier,
+                    ];
+                })->values()->all(),
             'synced_at' => $syncedAt,
             // Sort + pagination state for the builds table. Frontend
             // uses these to mark the active column and decide whether to
             // show the "Load more" button.
             'builds_meta' => [
-                'sort' => $buildsSort,
-                'dir' => $buildsDir,
-                'limit' => $buildsLimit,
-                'total' => $itemSetTotal,
-                'has_more' => $itemSetTotal > $buildsLimit,
-            ],
+                    'sort' => $buildsSort,
+                    'dir' => $buildsDir,
+                    'limit' => $buildsLimit,
+                    'total' => $itemSetTotal,
+                    'has_more' => $itemSetTotal > $buildsLimit,
+                ],
         ];
 
         return Inertia::render('Champions/Show', [

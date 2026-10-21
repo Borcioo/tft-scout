@@ -7,6 +7,7 @@ use App\Models\ChampionCompanion;
 use App\Models\ChampionItemSet;
 use App\Models\ChampionRating;
 use App\Models\ChampionTraitAffinity;
+use App\Models\Item;
 use App\Models\MetaComp;
 use App\Models\MetaSync;
 use App\Models\Set;
@@ -111,7 +112,7 @@ class ScoutContextBuilder
             ->unique()
             ->values();
 
-        $itemsByApi = \App\Models\Item::query()
+        $itemsByApi = Item::query()
             ->whereIn('api_name', $allItemApis)
             ->get()
             ->keyBy('api_name');

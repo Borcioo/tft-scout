@@ -27,6 +27,7 @@ use RuntimeException;
 class StringtableCache
 {
     private const CDRAGON_BASE = 'https://raw.communitydragon.org';
+
     private const CACHE_DIR = 'tft-cache';
 
     /** @var array<string, array<string, string>> Loaded stringtables keyed by "{channel}:{locale}" */

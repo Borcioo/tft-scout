@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Background sync job dispatched by RevalidateMetaTft middleware when
@@ -65,9 +66,10 @@ class RefreshMetaTftJob implements ShouldBeUnique, ShouldQueue
             // Not a job failure — skip silently and let the next dispatch
             // retry after the lock's TTL. Anything else is a real error.
             if (str_contains($e->getMessage(), 'already in progress')) {
-                \Illuminate\Support\Facades\Log::info(
+                Log::info(
                     "RefreshMetaTftJob skipped: {$e->getMessage()}",
                 );
+
                 return;
             }
             throw $e;

@@ -7,6 +7,8 @@ use App\Http\Controllers\PlansController;
 use App\Http\Controllers\RandomController;
 use App\Http\Controllers\ScoutController;
 use App\Http\Controllers\TraitsController;
+use App\Http\Middleware\RevalidateMetaTft;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -35,8 +37,8 @@ Route::get('/api/meta-sync/status', function () {
     $setNumber = (int) config('services.tft.set', 17);
 
     return response()->json([
-        'refreshing' => \Illuminate\Support\Facades\Cache::has(
-            \App\Http\Middleware\RevalidateMetaTft::activeKey($setNumber),
+        'refreshing' => Cache::has(
+            RevalidateMetaTft::activeKey($setNumber),
         ),
     ]);
 })->name('meta-sync.status');

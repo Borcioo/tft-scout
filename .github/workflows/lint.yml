@@ -33,8 +33,9 @@ jobs:
           composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
           npm install
 
+      # Read-only like Biome below; fix locally with `composer lint`
       - name: Run Pint
-        run: composer lint
+        run: composer lint:check
 
       # Biome = lint + format + import order in one read-only pass
       - name: Lint & Format Frontend

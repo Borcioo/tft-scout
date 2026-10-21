@@ -71,13 +71,13 @@ class MetaTftSync
 
     /**
      * @param  int  $concurrency  When >1, prewarm per-champion caches in
-     *         parallel with Http::pool. Default 1 preserves the legacy
-     *         sequential behavior for safety.
+     *                            parallel with Http::pool. Default 1 preserves the legacy
+     *                            sequential behavior for safety.
      *
      * @throws RuntimeException if another sync is already running for this
-     *         set (CLI invocation racing with a queue job, or two queue
-     *         workers somehow picking up the same job). The lock is
-     *         released in `finally` so a crashed run never strands it.
+     *                          set (CLI invocation racing with a queue job, or two queue
+     *                          workers somehow picking up the same job). The lock is
+     *                          released in `finally` so a crashed run never strands it.
      */
     public function run(int $setNumber, int $concurrency = 1): MetaSync
     {
@@ -403,6 +403,7 @@ class MetaTftSync
             ->mapWithKeys(function ($row) {
                 $items = $row->item_api_names ?? [];
                 sort($items);
+
                 return [implode('|', $items) => $row->avg_place];
             })
             ->all();

@@ -4,6 +4,7 @@ namespace Tests\Feature\Services\MetaTft;
 
 use App\Models\Champion;
 use App\Models\ChampionItemBuild;
+use App\Models\ChampionItemSet;
 use App\Models\Item;
 use App\Models\Set;
 use App\Services\MetaTft\Dto\ItemBuildDto;
@@ -95,7 +96,9 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('fetchItemBuilds')->andReturn([]);
         $client->shouldReceive('fetchTotalGames')->andReturn(500);
         $client->shouldReceive('fetchItemStats')
-            ->andReturnUsing(function () use (&$stats) { return [array_shift($stats)]; });
+            ->andReturnUsing(function () use (&$stats) {
+                return [array_shift($stats)];
+            });
 
         $sync = new MetaTftSync($client);
         $sync->run(17);
@@ -141,7 +144,9 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('fetchItemBuilds')->andReturn([]);
         $client->shouldReceive('fetchTotalGames')->andReturn(500);
         $client->shouldReceive('fetchItemStats')
-            ->andReturnUsing(function () use (&$runs) { return array_shift($runs); });
+            ->andReturnUsing(function () use (&$runs) {
+                return array_shift($runs);
+            });
 
         $sync = new MetaTftSync($client);
         $sync->run(17);
@@ -192,7 +197,7 @@ class MetaTftSyncItemsTest extends TestCase
 
         (new MetaTftSync($client))->run(17);
 
-        $row = \App\Models\ChampionItemSet::query()
+        $row = ChampionItemSet::query()
             ->where('champion_id', $champ->id)
             ->first();
 

@@ -18,6 +18,7 @@ use App\Services\Import\SetHooks\Shared\RoleInferenceHook;
 use App\Services\Import\SetHooks\Shared\TraitContributionHook;
 use App\Services\Import\SetHooks\Shared\TraitSlotOverrideHook;
 use App\Services\Import\SetHooks\Shared\VariantChoiceHook;
+use App\Services\Tft\FnvHasher;
 use App\Support\SetProfile;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
@@ -1540,7 +1541,7 @@ class CDragonImporter
         preg_match_all('/@([A-Za-z_][A-Za-z0-9_]*)/', $description, $matches);
         $map = [];
         foreach (array_unique($matches[1] ?? []) as $name) {
-            $map[\App\Services\Tft\FnvHasher::wrapped($name)] = $name;
+            $map[FnvHasher::wrapped($name)] = $name;
         }
 
         return $map;

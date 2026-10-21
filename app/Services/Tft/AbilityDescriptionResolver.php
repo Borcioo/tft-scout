@@ -13,7 +13,9 @@ namespace App\Services\Tft;
  *   4. Substitutes @VarName@ with values[star_level] from DataValues
  *
  * Template syntax observed in the wild:
+ *
  *   @VarName@          plain substitution
+ *
  *   @VarName*100@      multiplication (e.g. percent display)
  *   <physicalDamage>text</physicalDamage>   inline color tags
  *   %i:scaleAD%        inline scaling icon marker
@@ -124,7 +126,7 @@ class AbilityDescriptionResolver
      * @param  array{key_name: string|null, key_tooltip: string|null}  $locKeys
      * @param  list<array{name: string, values: array<int, int|float>}>  $dataValues
      * @param  array<string, mixed>  $calculations  raw mSpellCalculations dict
-     * @param  array<int, float>  $championStats   mStat enum → stat value
+     * @param  array<int, float>  $championStats  mStat enum → stat value
      * @return array{name: string|null, template: string|null, rendered: string|null, merged_stats: array}
      */
     public function resolve(

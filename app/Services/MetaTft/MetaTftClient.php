@@ -2,6 +2,7 @@
 
 namespace App\Services\MetaTft;
 
+use App\Models\MetatftCache;
 use App\Services\MetaTft\Dto\AffinityDto;
 use App\Services\MetaTft\Dto\CompanionDto;
 use App\Services\MetaTft\Dto\ItemBuildDto;
@@ -36,7 +37,9 @@ use RuntimeException;
 class MetaTftClient
 {
     private const STATS_BASE_URL = 'https://api-hc.metatft.com/tft-stat-api';
+
     private const COMPS_BASE_URL = 'https://api-hc.metatft.com/tft-comps-api';
+
     private const EXPLORER_BASE_URL = 'https://api-hc.metatft.com/tft-explorer-api';
 
     // Queue ID per MetaTFT's frontend QueueMapping: 1100=Ranked, 1090=Normal,
@@ -668,7 +671,7 @@ class MetaTftClient
         ksort($params);
         $hash = $this->cacheKey($baseUrl, $endpoint, $params);
 
-        $cached = \App\Models\MetatftCache::query()
+        $cached = MetatftCache::query()
             ->where('endpoint', $endpoint)
             ->where('params_hash', $hash)
             ->first();
@@ -722,7 +725,7 @@ class MetaTftClient
      */
     private function storeInCache(string $hash, string $endpoint, array $params, array $data): void
     {
-        \App\Models\MetatftCache::query()->updateOrCreate(
+        MetatftCache::query()->updateOrCreate(
             ['endpoint' => $endpoint, 'params_hash' => $hash],
             [
                 'params' => $params,
@@ -753,7 +756,7 @@ class MetaTftClient
      *
      * @param  list<string>  $championApiNames
      * @param  callable(int, int): void|null  $onProgress  Optional
-     *         "batch i of N processed" reporter for CLI progress output.
+     *                                                     "batch i of N processed" reporter for CLI progress output.
      */
     public function prewarmChampionsBatch(
         array $championApiNames,
@@ -780,7 +783,7 @@ class MetaTftClient
 
             foreach ($endpoints as $endpoint) {
                 $hash = $this->cacheKey(self::EXPLORER_BASE_URL, $endpoint, $explorerParams);
-                $cached = \App\Models\MetatftCache::query()
+                $cached = MetatftCache::query()
                     ->where('endpoint', $endpoint)
                     ->where('params_hash', $hash)
                     ->first();
