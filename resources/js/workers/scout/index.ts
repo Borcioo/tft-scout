@@ -168,7 +168,7 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
             self.postMessage(out);
         } else if (msg.type === 'rescore') {
             const { championApis, level, emblems } = msg.params;
-            const { score, missing } = rescoreTeam({
+            const { score, avgPlace, missing } = rescoreTeam({
                 championApis,
                 level,
                 emblems,
@@ -176,7 +176,7 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
             });
             const out: WorkerOutMsg = {
                 id: msg.id,
-                rescore: { score, missing },
+                rescore: { score, avgPlace, missing },
             };
             self.postMessage(out);
         } else {

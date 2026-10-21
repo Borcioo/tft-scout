@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { generatePlannerCode } from '@/lib/plannerCode';
 import { cn } from '@/lib/utils';
+import { SCORE_MODEL } from '@/workers/scout/config';
 import type { ScoredTeam } from '@/workers/scout/types';
 
 import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
@@ -98,6 +99,8 @@ export function ScoutCompCard({
                     champions: team.champions.map((c) => c.apiName),
                     meta: {
                         score: team.score,
+                        scoreModel: SCORE_MODEL,
+                        avgPlace: team.breakdown?.avgPlace ?? null,
                         activeTraits: team.activeTraits,
                         roles: team.roles,
                         insights: team.insights,

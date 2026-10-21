@@ -22,13 +22,14 @@ import {
     filterCandidates,
     getLockedChampions,
 } from './candidates';
-import { SCORING_CONFIG } from './config';
+import { MIN_LEVEL_BY_COST, SCORING_CONFIG } from './config';
 import { buildHeroExclusionGroup } from './hero-exclusion';
 import {
     normalizeEmblems,
     normalizeTraitLocks,
     traitReach,
 } from './lock-reach';
+import { polishTeam } from './polish';
 import { teamRoleBalance, teamScore, teamScoreBreakdown } from './scorer';
 import { startSpan } from './scout-profiler';
 import { buildGraph, findTeams } from './synergy-graph';
@@ -284,54 +285,43 @@ export function generate(input) {
         _endFindTeams();
 
         // Enrich results with active traits and re-score with full scorer
-        const _endEnrichLoop = startSpan('engine.enrichLoop');
-        const enriched = rawTeams.map((team) => {
+        const enrich = (teamChampions) => {
             let totalSlots = 0;
 
-            for (const c of team.champions) {
+            for (const c of teamChampions) {
                 totalSlots += c.slotsUsed || 1;
             }
 
             const _endBAT = startSpan('engine.enrichLoop.buildActiveTraits');
             const activeTraits = buildActiveTraits(
-                team.champions,
+                teamChampions,
                 traits,
                 normalizedEmblems,
             );
             _endBAT();
 
+            const board = {
+                champions: teamChampions,
+                activeTraits,
+                level,
+                locked: lockedApiSetForGraph,
+                max5Cost: constraints.max5Cost ?? null,
+            };
+
             // Re-score with full scorer
             const _endTS = startSpan('engine.enrichLoop.teamScore');
-            const score = teamScore(
-                {
-                    champions: team.champions,
-                    activeTraits,
-                    level,
-                    roleBalance: constraints.roleBalance ?? null,
-                },
-                scoringCtx,
-            );
+            const score = teamScore(board, scoringCtx);
             _endTS();
 
-            const _endTSB = startSpan('engine.enrichLoop.teamScoreBreakdown');
-            const breakdown = teamScoreBreakdown(
-                {
-                    champions: team.champions,
-                    activeTraits,
-                    level,
-                    roleBalance: constraints.roleBalance ?? null,
-                },
-                scoringCtx,
-            );
-            _endTSB();
-
-            const roles = teamRoleBalance(team.champions);
+            const roles = teamRoleBalance(teamChampions);
 
             return {
-                champions: team.champions,
+                champions: teamChampions,
                 activeTraits,
                 score,
-                breakdown,
+                // Itemised only for teams that are returned (below)
+                breakdown: null,
+                board,
                 level,
                 slotsUsed: totalSlots,
                 roles: {
@@ -340,7 +330,16 @@ export function generate(input) {
                     fighter: roles.fighter,
                 },
             };
-        });
+        };
+
+        const withBreakdown = (r) => {
+            r.breakdown ??= teamScoreBreakdown(r.board, scoringCtx);
+
+            return r;
+        };
+
+        const _endEnrichLoop = startSpan('engine.enrichLoop');
+        const enriched = rawTeams.map((team) => enrich(team.champions));
         _endEnrichLoop();
 
         // Filter out comps that exceed slot budget OR that miss any
@@ -356,8 +355,7 @@ export function generate(input) {
         const minDps = constraints.minDps ?? 0;
         const applyRoleFilter = minFrontline > 0 || minDps > 0;
 
-        const _endValidCompsFilter = startSpan('engine.validCompsFilter');
-        const validComps = enriched.filter((r) => {
+        const isValid = (r) => {
             const maxSlots =
                 level + teamSizeBonus(r.activeTraits, teamSizeRules);
             if (r.slotsUsed > maxSlots) {
@@ -392,8 +390,59 @@ export function generate(input) {
             }
 
             return true;
-        });
+        };
+
+        const _endValidCompsFilter = startSpan('engine.validCompsFilter');
+        const validComps = enriched.filter(isValid);
         _endValidCompsFilter();
+
+        // Polish setup (used in the slate selection below): single-unit
+        // swaps against the real scorer, see polish.ts. Same constraints
+        // as the search: level gate and 5-cost cap as in findTeams, plus
+        // isValid above. Neighbouring teams share most of their swaps, so
+        // scored boards are memoised per run.
+        const effectiveMax5Cost =
+            constraints.max5Cost ?? (level === 9 ? 2 : level >= 10 ? 3 : null);
+        const conflictKeyOf = new Map<string, string>();
+        for (const group of effectiveExclusionGroups) {
+            const key = [...group].sort().join('|');
+            for (const member of group) {
+                conflictKeyOf.set(member, key);
+            }
+        }
+        const polishPool = eligibleChampions.filter(
+            (c) =>
+                lockedApiSetForGraph.has(c.apiName) ||
+                level >= (MIN_LEVEL_BY_COST[c.cost || 1] ?? 1),
+        );
+        const polishMemo = new Map<string, ReturnType<typeof enrich> | null>();
+        const polishOpts = {
+            pool: polishPool,
+            fixed: lockedApiSetForGraph,
+            conflictKey: (api) => conflictKeyOf.get(api) ?? api,
+            evaluate: (teamChampions) => {
+                const key = teamChampions
+                    .map((c) => c.apiName)
+                    .sort()
+                    .join(',');
+                let r = polishMemo.get(key);
+
+                if (r === undefined) {
+                    r =
+                        effectiveMax5Cost != null &&
+                        teamChampions.filter((c) => c.cost === 5).length >
+                            effectiveMax5Cost
+                            ? null
+                            : enrich(teamChampions);
+                    r = r && isValid(r) ? r : null;
+                    polishMemo.set(key, r);
+                }
+
+                return r;
+            },
+        };
+        // Best first, so the variant pick below displaces the lowest team
+        validComps.sort((a, b) => b.score - a.score);
 
         // Fix 7: topN guarantee. The hard filter above drops any team
         // that misses a trait lock or a role-balance minimum. For
@@ -453,9 +502,7 @@ export function generate(input) {
                     break;
                 }
 
-                if (team.breakdown && typeof team.breakdown === 'object') {
-                    team.breakdown.relaxed = 1;
-                }
+                withBreakdown(team).breakdown.relaxed = 1;
 
                 validComps.push(team);
             }
@@ -519,16 +566,70 @@ export function generate(input) {
                     ),
                 );
                 if (!existingKeys.has(key)) {
-                    if (
-                        enhancedCandidate.breakdown &&
-                        typeof enhancedCandidate.breakdown === 'object'
-                    ) {
-                        enhancedCandidate.breakdown.variantPick = 1;
-                    }
+                    withBreakdown(enhancedCandidate).breakdown.variantPick = 1;
                     validComps[validComps.length - 1] = enhancedCandidate;
                 }
             }
         }
+
+        // Pick the slate: walk teams best first, polish each and keep it
+        // unless it shares ≥ dedupeOverlapPct of its core with a kept one
+        // (6/8 at 0.75), so the results aren't 1–2 swap permutations of
+        // the same comp. Polishing inside this walk, with swaps into a kept
+        // team's core ruled out, makes every returned team a local optimum
+        // among boards different from the ones above it. Polished before
+        // the dedupe, nearby teams converged on one board, the dedupe
+        // dropped the copies and unpolished teams from further down
+        // refilled the slate (8 of 10 still one swap from better).
+        // Relaxed and variant picks keep their exact board.
+        const _endSelect = startSpan('engine.polishSelect');
+        validComps.sort((a, b) => b.score - a.score);
+
+        const dedupeThreshold = SCORING_CONFIG.dedupeOverlapPct;
+        const coreOf = (team) =>
+            new Set<string>(
+                team.champions.map((c: any) => c.baseApiName || c.apiName),
+            );
+        const finalComps: typeof validComps = [];
+        const finalCores: Set<string>[] = [];
+        const isDup = (core: Set<string>) =>
+            finalCores.some((accepted) => {
+                let shared = 0;
+                for (const api of core) {
+                    if (accepted.has(api)) {
+                        shared++;
+                    }
+                }
+                const size = Math.max(core.size, accepted.size);
+                return size > 0 && shared / size >= dedupeThreshold;
+            });
+
+        for (const team of validComps) {
+            if (finalComps.length >= topN) {
+                break;
+            }
+
+            if (isDup(coreOf(team))) {
+                continue;
+            }
+
+            const polished = team.breakdown
+                ? team
+                : polishTeam(team, {
+                      ...polishOpts,
+                      evaluate: (teamChampions) => {
+                          const r = polishOpts.evaluate(teamChampions);
+
+                          return r && !isDup(coreOf(r)) ? r : null;
+                      },
+                  });
+
+            finalComps.push(polished);
+            finalCores.push(coreOf(polished));
+        }
+
+        finalComps.sort((a, b) => b.score - a.score);
+        _endSelect();
 
         // Meta-comp match detection — annotate results that match known meta comps
         const _endMetaCompMatch = startSpan('engine.metaCompMatch');
@@ -546,7 +647,7 @@ export function generate(input) {
             const MAX_DIFF = 1;
             const META_MAX_AVG = 4.5;
 
-            for (const comp of validComps) {
+            for (const comp of finalComps) {
                 const teamApis = new Set(
                     comp.champions.map((c) => c.baseApiName || c.apiName),
                 );
@@ -604,7 +705,7 @@ export function generate(input) {
 
         const _endInsights = startSpan('engine.insightsLoop');
 
-        for (const team of validComps) {
+        for (const team of finalComps) {
             team.insights = buildTeamInsights(
                 team,
                 ctxForInsights,
@@ -613,42 +714,6 @@ export function generate(input) {
         }
 
         _endInsights();
-
-        // Sort by final score and dedupe topN by core champion overlap.
-        // Without this, top results are permutations of the same comp with
-        // 1-2 champs swapped. Threshold from config — 0.75 = 6/8 shared = dup.
-        validComps.sort((a, b) => b.score - a.score);
-
-        const dedupeThreshold = SCORING_CONFIG.dedupeOverlapPct;
-        const finalComps: typeof validComps = [];
-        for (const team of validComps) {
-            if (finalComps.length >= topN) {
-                break;
-            }
-
-            const teamApis = new Set(
-                team.champions.map((c: any) => c.baseApiName || c.apiName),
-            );
-            const isDup = finalComps.some((accepted) => {
-                const acceptedApis = new Set(
-                    accepted.champions.map(
-                        (c: any) => c.baseApiName || c.apiName,
-                    ),
-                );
-                let shared = 0;
-                for (const api of teamApis) {
-                    if (acceptedApis.has(api)) {
-                        shared++;
-                    }
-                }
-                const size = Math.max(teamApis.size, acceptedApis.size);
-                return size > 0 && shared / size >= dedupeThreshold;
-            });
-
-            if (!isDup) {
-                finalComps.push(team);
-            }
-        }
 
         // Swap base champions back to their hero variants for any hero
         // the caller locked. Traits, cost and slotsUsed are identical so
@@ -660,6 +725,11 @@ export function generate(input) {
                     (c) => heroSwapBackByBaseApi.get(c.apiName) ?? c,
                 );
             }
+        }
+
+        for (const comp of finalComps) {
+            withBreakdown(comp);
+            delete comp.board;
         }
 
         return finalComps;

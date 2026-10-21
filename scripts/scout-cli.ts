@@ -18,6 +18,7 @@ Commands:
   context --trait N     Print one trait record from the saved snapshot
   generate [flags]      Run engine.generate end-to-end
   phase <name> [flags]  Run a single phase (candidates|graph|find-teams|score|active-traits|role-balance|insights)
+  eval [flags]          Quality report: strength vs real placements, search, sanity (--snapshot, --levels, --seeds, --json)
   experiment [flags]    Bulk runner — --preset <name> | --matrix '<json>' | --repeat N --seed-range A-B
   lab init              Create tmp/scout-lab/runs.db and apply schema
   lab doctor            Print DB health, row counts, and SHA-drift warning
@@ -106,6 +107,13 @@ async function main() {
             './scout-cli/commands/experiment'
         );
         await runExperimentCommand(rest);
+
+        return;
+    }
+
+    if (command === 'eval') {
+        const { runEval } = await import('./scout-cli/commands/eval');
+        await runEval(rest);
 
         return;
     }

@@ -25,11 +25,11 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - `resources/js/` — Inertia + React frontend (`pages/`, `components/`, `hooks/`, `layouts/`, `lib/`)
 - `resources/js/workers/scout/` — **pure TS scout algorithm** (no DB, mappers na granicach)
   - `synergy-graph/` — po refactor R: core/phases/shared layers, PhaseContext registry (post-2026-04-15)
-  - `engine.ts`, `scorer.ts`, `candidates.ts`, `re-score.ts`, `insights.ts`, `hero-exclusion.ts`
+  - `engine.ts`, `strength.ts`, `scorer.ts`, `polish.ts`, `candidates.ts`, `re-score.ts`, `insights.ts`, `hero-exclusion.ts`
 - `scripts/scout-cli/` — debug CLI (commands/, lab/, lookup, params, context, format)
 - `scripts/scout-cli.ts` — entry point (`npm run scout`)
 - `scripts/scout-audit/` — batch analysis
-- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data, set18-data-shape
+- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data, set18-data-shape, scout-strength-model
 - `docs/knowledge-base/` — baza wiedzy aktualnego setu (Set 18; Set 17 w `set17/`)
 - `docs/champion-ability-pipeline.md` — end-to-end walkthrough (reference doc)
 - `legacy/` — stary Node stack, nie edytować
@@ -53,7 +53,9 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **Level gate = HARD** (`MIN_LEVEL_BY_COST`: 4-cost od lvl 7, 5-cost od lvl 9 — próg ~10% szans w sklepie); omija go tylko jawny lock championa, nigdy auto-promocja z locka cechy (user decision 2026-10-21)
 - **Post-R refactor** — każdy change w `synergy-graph/` musi przejść baseline-diff gate (patrz `scripts/refactor-R-checkpoint.sh`; scenariusze Set 18, baseline po zmianie setu: `--capture` na kodzie sprzed zmiany)
 - **Correctness first** — bugi/behavior > optymalizacje/refactor/cleanup (user decision 2026-04-14)
-- **Perf target** — po Phase C (Set 17): locked ~700ms, non-lock ~1.7s; Set 18 snapshot w kontenerze CI-like: non-lock lvl 8 ~3.3s także na kodzie sprzed zmian (większa pula), locked ~1.5s
+- **Perf target** — po Phase C (Set 17): locked ~700ms, non-lock ~1.7s; Set 18 snapshot w kontenerze CI-like: non-lock lvl 8 ~3.3–4.3s także na kodzie sprzed zmian (większa pula), locked ~1.5s; engine v2 w tym samym kontenerze co main: lvl 8 2.3s vs 4.3s, lvl 9 3.6s vs 7.2s, Vanguard 6 lock 1.6s vs 2.3s (indeks strength.ts zagnieżdżony per unit — bez string kluczy per para)
+- **Scoring = model siły planszy** (`strength.ts`, `docs/research/scout-strength-model.md`) — MetaTFT unit/para/trait-level lifts; meta compy to TYLKO zbiór testowy (`npm run scout -- eval`, offline na zamrożonym `tmp/scout-eval/`), nigdy cel ani bonus za podobieństwo. Surowe `place` rankuje (bywa < 1); w UI `breakdown.avgPlace` (kalibracja `STRENGTH.calibration`). Zmiana skali score → podbij `SCORE_MODEL` (config.ts), Plans porównuje tylko ten sam model
+- **MetaTFT dane do analiz** — zapisuj raz do `tmp/scout-eval/` i czytaj lokalnie (podsumowania, nie surowe JSON-y); nie pobieraj na świeżo przy każdej analizie
 - **pnpm-workspace.yaml istnieje**, ale scripts używają `npm` — sprawdź który package manager zanim zainstalujesz deps
 
 ## Debug workflows

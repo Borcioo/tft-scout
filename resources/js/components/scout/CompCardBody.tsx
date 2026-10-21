@@ -105,6 +105,14 @@ export function CompCardBody({
                             Meta · avg {team.metaMatch.avgPlace.toFixed(2)}
                         </Badge>
                     )}
+                    {team.breakdown?.avgPlace != null && (
+                        <span
+                            className="font-mono text-muted-foreground text-sm"
+                            title="Estimated average placement (1–8) from MetaTFT unit, pair and trait stats, calibrated on real comp results"
+                        >
+                            ~{team.breakdown.avgPlace.toFixed(2)} avg
+                        </span>
+                    )}
                     <span className="flex items-center gap-1.5 font-mono text-muted-foreground text-sm">
                         Score{' '}
                         <span className="font-bold text-amber-300 text-lg">
