@@ -8,16 +8,26 @@
 
 /**
  * Score scale version, saved with plans. A score from another model isn't
- * comparable with a live one (3 = units rated at 1–2★ plus reroll plans;
- * 2 = board-strength model over all stars; 1 = the old points scorer).
+ * comparable with a live one (4 = reroll plans of up to five 3★ and the
+ * trait overflow penalty; 3 = units rated at 1–2★ plus reroll plans of one
+ * cost; 2 = board-strength model over all stars; 1 = the old points
+ * scorer).
  */
-export const SCORE_MODEL = 3;
+export const SCORE_MODEL = 4;
 
 export const SCORING_CONFIG = {
     // Dedupe threshold for engine topN — team is dropped if it shares
     // >= dedupeOverlapPct champions with an already-accepted higher-score team.
     // 0.75 = 6/8 shared → duplicate. 1.0 = disabled.
     dedupeOverlapPct: 0.75,
+    // Variety (slate.ts): at most perFamily teams of one family — sharing
+    // at least familyOverlapPct of their unlocked units (half). Distinct
+    // MetaTFT comps (18.4b) share a median 63% with their nearest
+    // neighbour, a quarter of them half or less; without the cap a level 8
+    // slate put the same Soraka/Azir/Kayle/Leona core in 6 of 8 teams.
+    // Filled up without it when the pool runs out.
+    familyOverlapPct: 0.5,
+    perFamily: 2,
 
     // Exploration thresholds — controls which data phases consider "viable"
     thresholds: {

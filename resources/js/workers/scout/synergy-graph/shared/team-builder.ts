@@ -156,7 +156,7 @@ export function buildOneTeam(
                 seen.add(edge.champ);
                 const testTeam = [...team, edge.champ];
                 const score =
-                    quickScore(testTeam, graph, emblems) -
+                    quickScore(testTeam, graph, emblems, context.focusSet) -
                     costPenalty(
                         testTeam,
                         graph,
@@ -190,7 +190,7 @@ export function buildOneTeam(
                 seen.add(api);
                 const testTeam = [...team, api];
                 const score =
-                    quickScore(testTeam, graph, emblems) -
+                    quickScore(testTeam, graph, emblems, context.focusSet) -
                     costPenalty(
                         testTeam,
                         graph,

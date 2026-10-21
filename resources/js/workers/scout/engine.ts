@@ -37,6 +37,7 @@ import {
     teamScoreBreakdown,
 } from './scorer';
 import { startSpan } from './scout-profiler';
+import { pickSlate } from './slate';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
 import { buildTeamSizeRules, teamSizeBonus } from './trait-rules';
@@ -161,6 +162,11 @@ export function generate(input) {
         // over others; that case wants a dedicated trait-seeded phase.
         const excludedSet = new Set(constraints.excludedChampions || []);
         const lockedApiSet = new Set(locked.map((c) => c.apiName));
+        // Locked by hand (not the tight-lock picks below): the board is
+        // built around them — they weigh more in search and ranking
+        // (strength.ts, "Focus")
+        const focus =
+            locked.length > 0 ? new Set(locked.map((c) => c.apiName)) : null;
 
         // Per-trait max-achievable count, honouring exclusion groups AND
         // trait amounts. Base + enhanced Mecha are mutually exclusive (same
@@ -286,6 +292,7 @@ export function generate(input) {
             max5Cost: constraints.max5Cost ?? null,
             seed,
             lockedTraits: traitLocks,
+            focus: focus ? [...focus] : [],
         });
         _endFindTeams();
 
@@ -310,6 +317,7 @@ export function generate(input) {
                 activeTraits,
                 level,
                 locked: lockedApiSetForGraph,
+                focus,
                 max5Cost: constraints.max5Cost ?? null,
             };
 
@@ -578,61 +586,39 @@ export function generate(input) {
             }
         }
 
-        // Pick the slate: walk teams best first, polish each and keep it
-        // unless it shares ≥ dedupeOverlapPct of its core with a kept one
-        // (6/8 at 0.75), so the results aren't 1–2 swap permutations of
-        // the same comp. Polishing inside this walk, with swaps into a kept
-        // team's core ruled out, makes every returned team a local optimum
-        // among boards different from the ones above it. Polished before
-        // the dedupe, nearby teams converged on one board, the dedupe
-        // dropped the copies and unpolished teams from further down
-        // refilled the slate (8 of 10 still one swap from better).
-        // Relaxed and variant picks keep their exact board.
+        // Pick the slate (slate.ts): best first, no near-duplicates, at
+        // most perFamily teams per family. Cores leave locked units out —
+        // they are on every team, and counting them made 6 locks out of 8
+        // return a single team. Polishing during the walk, with boards the
+        // slate rules out forbidden: polished before the dedupe, nearby
+        // teams converged on one board, the dedupe dropped the copies and
+        // unpolished teams from further down refilled the slate (8 of 10
+        // still one swap from better). Relaxed and variant picks keep
+        // their exact board.
         const _endSelect = startSpan('engine.polishSelect');
         validComps.sort((a, b) => b.score - a.score);
 
-        const dedupeThreshold = SCORING_CONFIG.dedupeOverlapPct;
-        const coreOf = (team) =>
-            new Set<string>(
-                team.champions.map((c: any) => c.baseApiName || c.apiName),
-            );
-        const finalComps: typeof validComps = [];
-        const finalCores: Set<string>[] = [];
-        const isDup = (core: Set<string>) =>
-            finalCores.some((accepted) => {
-                let shared = 0;
-                for (const api of core) {
-                    if (accepted.has(api)) {
-                        shared++;
-                    }
-                }
-                const size = Math.max(core.size, accepted.size);
-                return size > 0 && shared / size >= dedupeThreshold;
-            });
+        const finalComps = pickSlate(
+            validComps,
+            { topN, ...SCORING_CONFIG },
+            (team) =>
+                new Set<string>(
+                    team.champions
+                        .filter((c) => !lockedApiSetForGraph.has(c.apiName))
+                        .map((c) => c.baseApiName || c.apiName),
+                ),
+            (team, allowed) =>
+                team.breakdown
+                    ? team
+                    : polishTeam(team, {
+                          ...polishOpts,
+                          evaluate: (teamChampions) => {
+                              const r = polishOpts.evaluate(teamChampions);
 
-        for (const team of validComps) {
-            if (finalComps.length >= topN) {
-                break;
-            }
-
-            if (isDup(coreOf(team))) {
-                continue;
-            }
-
-            const polished = team.breakdown
-                ? team
-                : polishTeam(team, {
-                      ...polishOpts,
-                      evaluate: (teamChampions) => {
-                          const r = polishOpts.evaluate(teamChampions);
-
-                          return r && !isDup(coreOf(r)) ? r : null;
-                      },
-                  });
-
-            finalComps.push(polished);
-            finalCores.push(coreOf(polished));
-        }
+                              return r && allowed(r) ? r : null;
+                          },
+                      }),
+        );
 
         finalComps.sort((a, b) => b.score - a.score);
         _endSelect();
@@ -733,8 +719,11 @@ export function generate(input) {
             }
         }
 
+        // Ranked with focus; the score shown is the board's own (= the
+        // same without locks), the one saved plans are rescored against
         for (const comp of finalComps) {
             withBreakdown(comp);
+            comp.score = comp.breakdown.total;
             delete comp.board;
         }
 

@@ -2,18 +2,25 @@
 //
 // quickScore — score of a candidate team during the search, on the same
 // scale and the same model as scorer.teamScore (strength.ts + role
-// balance), so the phases climb towards what the final ranking rewards.
-// Callers subtract costPenalty themselves, as the scorer does.
+// balance + trait overflow), so the phases climb towards what the final
+// ranking rewards.
+// Callers subtract costPenalty themselves, as the scorer does, and pass
+// the player's locked units as focus, as the engine does.
 
 // @ts-nocheck
 
-import { roleBalancePenalty } from '../scorer';
+import { overflowPenalty, roleBalancePenalty } from '../scorer';
 import { activeLevels, boardStrength, STRENGTH } from '../strength';
 import { traitAmount } from '../trait-amount';
 import { applyEmblems } from './shared/emblems';
 import type { Graph } from './types';
 
-export function quickScore(champApis, graph: Graph, emblems = []) {
+export function quickScore(
+    champApis,
+    graph: Graph,
+    emblems = [],
+    focus: ReadonlySet<string> | null = null,
+) {
     const { nodes, traitBreakpoints, scoringCtx } = graph;
     const team = champApis.map((api) => nodes[api]).filter(Boolean);
     const traitCounts = {};
@@ -37,7 +44,17 @@ export function quickScore(champApis, graph: Graph, emblems = []) {
             position: i + 1,
         })),
     );
-    const { place } = boardStrength(team, levels, scoringCtx);
+    const { focused } = boardStrength(team, levels, scoringCtx, focus);
+    const overflow = overflowPenalty(
+        traitCounts,
+        (t) => traitBreakpoints[t] || [],
+    );
 
-    return (STRENGTH.baseline - place - roleBalancePenalty(team) / 100) * 100;
+    return (
+        (STRENGTH.baseline -
+            focused -
+            roleBalancePenalty(team) / 100 -
+            overflow) *
+        100
+    );
 }

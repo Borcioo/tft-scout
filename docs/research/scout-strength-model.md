@@ -45,7 +45,7 @@ już oznaka wygrywania). Podłoga 1.5 = najlepsza realna średnia z tych plansz;
 surowego ~0.8, gdy żadna grana plansza nie zeszła poniżej 1.28, więc szacunek nie ekstrapoluje dalej.
 `scout eval` drukuje bieżące dopasowanie; przy zmianie patcha/danych sprawdzić dryf i przestawić stałe.
 
-## Gwiazdki i plany rerollu (SCORE_MODEL 3)
+## Gwiazdki i plany rerollu (SCORE_MODEL 3, limity od SCORE_MODEL 4)
 
 Średnia jednostki po wszystkich gwiazdkach miesza dwa światy: 1–3 costy grane na 3★ (plan) i na 1–2★, oraz 3★
 4-costów (~1% gier, prawie zawsze 1. miejsce — fart, nie plan). Dane: explorer `unit_tier_numitems_unique`
@@ -59,18 +59,42 @@ surowego ~0.8, gdy żadna grana plansza nie zeszła poniżej 1.28, więc szacune
 | 4 | 4.39 | 1.23 | 1% |
 
 - **Baza jednostki = średnia z gier na 1–2★** (gdy są dane), więc 3★ 4/5-costów nie podnosi nikomu oceny.
-- **Plan rerollu** planszy: do dwóch 1- albo 2-costów albo jednej 3-cost (jeden koszt — jedno złoto na
-  roll-down), każda liczona jako `p·baza3★ + (1 − p)·baza≤2★`, gdzie `p` = udział gier na 3★ wśród gier, w których
-  jednostka miała 3 itemy (jak często trafiają ci, którzy ją niosą; Kayle 78%, Sejuani 81%). Plan wybierany, gdy
-  daje zysk; wynik i karta pokazują go (`reroll`, ★★★ i "Reroll to 3★: Kayle (78% hit)").
+- **Plan rerollu** planszy: jednostki 1–3 cost z największym oczekiwanym zyskiem z 3★, każda liczona jako
+  `p·baza3★ + (1 − p)·baza≤2★`, gdzie `p` = udział gier na 3★ wśród gier, w których jednostka miała 3 itemy (jak
+  często trafiają ci, którzy ją niosą; Kayle 78%, Sejuani 81%). Plan wybierany, gdy daje zysk; wynik i karta
+  pokazują go (`reroll`, ★★★ i "Reroll to 3★: Kayle (78% hit)").
+- **Ile 3★ naraz** (`STRENGTH.reroll`, z 6 037 plansz top 200, 18.4): limit zależy od liczby 4/5-costów na
+  planszy — u top graczy na lvl 7–8 plansza bez nich ma średnio 4.9 3★, z jednym 3.9, z dwoma 2.8, z trzema 2.2,
+  z czterema i więcej 0.3 → limit 5/5/4/3/1. Na planszy 9 jednostek najwyżej 3 (90% plansz lvl 9 ma ≤3), 10 → 2.
+  W obrębie kosztu: do czterech 1-costów, trzech 2-costów, jednego 3-costu. Zachłannie wg zysku, więc "same 1–2
+  costy + jedna 3" dostaje 3–5 3★, a plansza 4/5-costów jeden albo żaden. 8 3★ nie wychodzi nigdy.
 - **Walidacja**: na 5.8k planszach top 200 (gwiazdki znane) same bazy jednostek przewidują miejsce z ρ 0.53 przy
   podziale na gwiazdki vs 0.20 bez. Na planszach z explorera (bez informacji o gwiazdkach) bez zmian (0.60 vs 0.61).
 - **Plany przy większości plansz to realizm**: u top 200 plansze z ≥1 jednostką 1–3 cost na 3★ to 97% na lvl 7
-  (3.1 na planszę), 53% na lvl 8, 25% na lvl 9 — limit 2/2/1 jest ostrożniejszy niż praktyka.
+  (3.1 na planszę), 53% na lvl 8, 25% na lvl 9. Pierwszy limit (2/2/1, jeden koszt) był ostrożniejszy niż
+  praktyka i sprawiał, że silnik nie proponował compów na trzy i więcej 3★ (Solar, Sprykin).
 - Pary i lifty traitów pozostają po wszystkich gwiazdkach. Część efektu 3★ to przeżywalność (zwycięzcy częściej
   trafiają), dlatego plan liczy wartość oczekiwaną z `p`, nie pewne 3★.
-- Kalibracja przeliczona z gwiazdkami (nachylenie 0.52; 1.25 / 1.18 / 0.75). Bez danych o gwiazdkach (stary sync)
-  model wraca do średniej po wszystkich gwiazdkach i bez planów.
+- Kalibracja przeliczona z gwiazdkami i limitami (nachylenie 0.52; 1.34 / 1.19 / 0.75). Bez danych o gwiazdkach
+  (stary sync) model wraca do średniej po wszystkich gwiazdkach i bez planów.
+
+## Nadmiar traitu
+
+Jednostki ponad ostatni próg traitu nic nie dają: Solar ma jeden próg, 3, a Lux Sunbeam liczy się za 2 Solar —
+plansza z Kayle/Sejuani/Leona i Luxem miała "Solar 5". Top gracze grają 3 Solar na 644 z 647 plansz Solar.
+Model par tego nie widzi (Lux z Kayle ma dobre lifty), więc każdy nadmiarowy punkt traitu kosztuje 0.15 miejsca
+(`OVERFLOW_PER_UNIT`, scorer i quick-score). Na granych planszach (`scout eval`, oracle) Spearman 0.601 → 0.616.
+
+## Lock = plansza wokół jednostki
+
+Zablokowana jednostka to deklaracja gracza "gram nią". Bez tego silnik dokładał ją jako wypełniacz do najlepszej
+planszy w ogóle (Akali + Solar/Executioner). Teraz jednostki zablokowane ręcznie (nie te, które dobiera ciasny
+lock traitu) liczą się `STRENGTH.focusWeight` = 3 razy w średniej planszy — ich pary, traity i zysk z 3★ —
+w wyszukiwaniu i w kolejności wyników, a w planie rerollu idą pierwsze. Pokazywany wynik i średnie miejsce to
+dalej ocena samej planszy (`place`; `focused` tylko układa listę), więc zapisane plany porównują się bez zmian.
+Lock Akali na lvl 8: Akali 3★ w każdym planie, Inferno/Ravager/Adaptor z Camille i Varusem w większości wyników,
+wśród nich najlepsza grana plansza z Akali w danych oracle (Akali, Aphelios, Diana, Leona, Sejuani, Shen, Varus,
+Amumu: 2.49 przy 460 grach Gold+). U top 200 Akali gra z Varusem, Leoną, Camille, Kayle i Sejuani (>80% plansz).
 
 ## Wyszukiwanie
 
@@ -80,6 +104,13 @@ role, grupy wykluczeń, ten sam `slotsUsed`), do 4 rund. Polerowanie dzieje się
 po kolei od najlepszych, zamiany prowadzące do duplikatu (≥ 75% wspólnego rdzenia) już przyjętej planszy są
 zabronione. Wcześniejsze polerowanie przed dedupe zbiegało sąsiednie plansze do jednego optimum, dedupe je
 wyrzucał, a lukę wypełniały niepolerowane — 8/10 wyników dało się poprawić jedną zamianą.
+
+**Różnorodność** (`slate.ts`): najwyżej 2 wyniki z jednej rodziny — plansz dzielących co najmniej połowę
+niezablokowanych jednostek. Odrębne compy MetaTFT (18.4b) dzielą z najbliższym sąsiadem medianę 63%, a ćwierć z
+nich połowę lub mniej; bez limitu lvl 8 miał ten sam rdzeń Soraka/Azir/Kayle/Leona w 6 z 8 wyników. Teraz:
+Solar/Executioner ×2, Sprykin, Lunar/Inferno, Kha'Zix Spellweaver, Executioner/Summoner, Invoker, Riftbeast ×2.
+Gdy pula się kończy, drugie przejście dopełnia listę bez limitu rodzin (duplikaty nadal odpadają). Rdzeń do
+porównań pomija zablokowane jednostki — są w każdej planszy, a liczone dawały 1 wynik przy 6 lockach z 8.
 
 ## Wyniki (`npm run scout -- eval`, 18.4b)
 

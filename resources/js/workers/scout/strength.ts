@@ -31,12 +31,20 @@
  * a plan (reroll): 25–37% of their games, worth 0.7–1.6 places, and what
  * top players do with units the masses play badly (Camille 5.55 overall,
  * 3.26 in the top 200's hands, 92% of it at 3★). A board may carry a
- * reroll plan: up to two 1- or 2-costs, or one 3-cost, each counted at
+ * reroll plan — up to four 1-costs, three 2-costs and one 3-cost, five in
+ * all on a board of cheap units and fewer the more 4/5-costs it carries
+ * (STRENGTH.reroll) — each counted at
  *
  *   p·base3★ + (1 − p)·base≤2★,  p = share of the unit's 3-item games at 3★
  *
  * (how often players who carry it hit), keeping the plan only when it
  * beats the board at ≤2★. Pair and trait lifts are over all stars.
+ *
+ * Focus. Units the player locked count STRENGTH.focusWeight times in the
+ * board mean (and their reroll gain likewise), so their pairs, traits and
+ * 3★ plan decide the board: locked Akali gets Varus, Camille and Inferno
+ * rather than a filler slot in the best board overall. `focused` ranks;
+ * `place` stays the board's own estimate, the number to show and compare.
  *
  * The result is on the placement scale but is not a placement: the lifts
  * overlap (a pair's lift already holds the rest of its usual board), so
@@ -75,18 +83,30 @@ export const STRENGTH = {
      * 2.41 real). Floor: the best real average of any of those boards;
      * the search reaches raw places no played board has (level 9 ~0.8 vs
      * 1.28), and the estimate doesn't extrapolate past what was seen.
-     * Fitted with star-split ratings (units at 1–2★, reroll plans).
+     * Fitted with star-split ratings (units at 1–2★, reroll plans under
+     * STRENGTH.reroll's caps) and the trait overflow penalty.
      * scout-cli eval prints the current fit; refit when it drifts.
      */
     calibration: {
         slope: 0.52,
-        intercepts: { 7: 1.25, 8: 1.18, 9: 0.75 },
+        intercepts: { 7: 1.34, 8: 1.19, 9: 0.75 },
         floor: 1.5,
     },
-    /** Units of one cost a reroll plan takes to 3★ (gold for one roll-down). */
-    reroll: { 1: 2, 2: 2, 3: 1 } as Record<number, number>,
+    /**
+     * Reroll plan caps, from the top 200's boards (18.4): per cost (1-costs
+     * are the cheapest to 3★, one 3-cost at most); in total by the number
+     * of 4/5-costs on the board (0 → 4.9 3★ on average, 2 → 2.8, 4+ →
+     * 0.3); and on boards of 9+ units (level 9: 90% have at most 3).
+     */
+    reroll: {
+        perCost: { 1: 4, 2: 3, 3: 1 } as Record<number, number>,
+        byExpensive: [5, 5, 4, 3, 1],
+        bySize: { 9: 3, 10: 2 } as Record<number, number>,
+    },
     /** Pseudo-games pulling a unit's hit chance towards 1/2. */
     hitPrior: 200,
+    /** Weight of a locked unit in the board mean (see the header). */
+    focusWeight: 3,
 } as const;
 
 /**
@@ -308,6 +328,8 @@ export type StrengthChampion = {
 export type Strength = {
     /** Raw place, lower is better (see the header on its scale). */
     place: number;
+    /** Raw place with focused units weighted — equals place without focus. */
+    focused: number;
     /** Mean unit base — the board without any synergy. */
     units: number;
     /** Weighted mean pair lift (negative = the units lift each other). */
@@ -319,67 +341,80 @@ export type Strength = {
 };
 
 /**
- * Best reroll plan: within one cost, the units whose expected 3★ gain is
- * largest, as many as STRENGTH.reroll allows; the cost whose plan gains
- * most. Returns the gain (sum, places, negative = better) and the units.
+ * Best reroll plan: the units whose expected 3★ gain is largest, within
+ * STRENGTH.reroll's caps — per cost, in total by how many 4/5-costs the
+ * board carries, and on big boards. A board of 1–3 costs takes up to five
+ * 3★ (top players: 4.9 on such boards), one with four 4/5-costs one; the
+ * caps bind in order of gain (weighted, so a locked unit goes first),
+ * which picks the best plan under them. Returns each picked unit's gain
+ * (places, negative = better) and hit chance.
  */
 function rerollPlan(
     champions: StrengthChampion[],
     apis: string[],
     idx: Index,
-): { gain: number; units: { apiName: string; hitChance: number }[] } {
-    let best = {
-        gain: 0,
-        units: [] as { apiName: string; hitChance: number }[],
-    };
+    weights: number[],
+): { i: number; gain: number; p: number }[] {
+    const { perCost, byExpensive, bySize } = STRENGTH.reroll;
+    const gains: { i: number; gain: number; p: number; cost: number }[] = [];
+    let expensive = 0;
 
-    for (const cost of [1, 2, 3]) {
-        const gains: { i: number; gain: number; p: number }[] = [];
+    for (let i = 0; i < apis.length; i++) {
+        const cost = champions[i].cost ?? 0;
 
-        for (let i = 0; i < apis.length; i++) {
-            if (champions[i].cost !== cost) {
-                continue;
-            }
-
-            const b3 = idx.unitBase3.get(apis[i]);
-            const p = idx.hitChance.get(apis[i]);
-            const b2 = idx.unitBase.get(apis[i]);
-
-            if (b3 !== undefined && p !== undefined && b2 !== undefined) {
-                const gain = p * (b3 - b2);
-
-                if (gain < 0) {
-                    gains.push({ i, gain, p });
-                }
-            }
+        if (cost >= 4) {
+            expensive++;
+            continue;
         }
 
-        gains.sort((a, b) => a.gain - b.gain);
-        const picked = gains.slice(0, STRENGTH.reroll[cost] ?? 0);
-        const gain = picked.reduce((s, g) => s + g.gain, 0);
+        const b3 = idx.unitBase3.get(apis[i]);
+        const p = idx.hitChance.get(apis[i]);
+        const b2 = idx.unitBase.get(apis[i]);
 
-        if (gain < best.gain) {
-            best = {
-                gain,
-                units: picked.map((g) => ({
-                    apiName: champions[g.i].apiName,
-                    hitChance: g.p,
-                })),
-            };
+        if (
+            (perCost[cost] ?? 0) > 0 &&
+            b3 !== undefined &&
+            p !== undefined &&
+            b2 !== undefined &&
+            b3 < b2
+        ) {
+            gains.push({ i, gain: p * (b3 - b2), p, cost });
         }
     }
 
-    return best;
+    const cap = Math.min(
+        byExpensive[Math.min(expensive, byExpensive.length - 1)],
+        bySize[Math.min(apis.length, 10)] ?? Number.POSITIVE_INFINITY,
+    );
+    const used: Record<number, number> = {};
+    const picked: typeof gains = [];
+
+    gains.sort((a, b) => weights[a.i] * a.gain - weights[b.i] * b.gain);
+
+    for (const g of gains) {
+        if (picked.length >= cap) {
+            break;
+        }
+
+        if ((used[g.cost] ?? 0) < perCost[g.cost]) {
+            used[g.cost] = (used[g.cost] ?? 0) + 1;
+            picked.push(g);
+        }
+    }
+
+    return picked;
 }
 
 export function boardStrength(
     champions: StrengthChampion[],
     levels: ActiveLevel[],
     ctx: any,
+    focus?: ReadonlySet<string> | null,
 ): Strength {
     if (champions.length === 0) {
         return {
             place: STRENGTH.baseline,
+            focused: STRENGTH.baseline,
             units: 0,
             pairs: 0,
             traits: 0,
@@ -393,13 +428,17 @@ export function boardStrength(
     // Rengar) — no unit gets a lift from it
     const boardUnscored = unscoredTraits(champions);
     const activeTraits = new Set(levels.map((l) => l.trait));
-    let units = 0;
-    let pairs = 0;
-    let traits = 0;
+    const weights = champions.map((c, i) =>
+        focus?.has(c.apiName) || focus?.has(apis[i]) ? STRENGTH.focusWeight : 1,
+    );
+    // Per unit: base, mean pair lift, mean trait lift
+    const unitOf = new Array<number>(apis.length);
+    const pairOf = new Array<number>(apis.length).fill(0);
+    const traitOf = new Array<number>(apis.length).fill(0);
 
     for (let i = 0; i < apis.length; i++) {
         const u = apis[i];
-        units += idx.unitBase.get(u) ?? STRENGTH.baseline;
+        unitOf[i] = idx.unitBase.get(u) ?? STRENGTH.baseline;
 
         let pairSum = 0;
         let pairN = 0;
@@ -415,7 +454,7 @@ export function boardStrength(
         }
 
         if (pairN > 0) {
-            pairs += pairSum / pairN;
+            pairOf[i] = pairSum / pairN;
         }
 
         let traitSum = 0;
@@ -460,21 +499,49 @@ export function boardStrength(
         }
 
         if (traitN > 0) {
-            traits += traitSum / traitN;
+            traitOf[i] = traitSum / traitN;
         }
     }
 
-    const plan = rerollPlan(champions, apis, idx);
+    const plan = rerollPlan(champions, apis, idx, weights);
+
+    for (const g of plan) {
+        unitOf[g.i] += g.gain;
+    }
+
     const n = apis.length;
-    units = (units + plan.gain) / n;
+    let units = 0;
+    let pairs = 0;
+    let traits = 0;
+    let focusedSum = 0;
+    let weightSum = 0;
+
+    for (let i = 0; i < n; i++) {
+        units += unitOf[i];
+        pairs += pairOf[i];
+        traits += traitOf[i];
+        focusedSum +=
+            weights[i] *
+            (unitOf[i] +
+                STRENGTH.pairWeight * pairOf[i] +
+                STRENGTH.traitWeight * traitOf[i]);
+        weightSum += weights[i];
+    }
+
+    units /= n;
     pairs = (STRENGTH.pairWeight * pairs) / n;
     traits = (STRENGTH.traitWeight * traits) / n;
+    const place = units + pairs + traits;
 
     return {
-        place: units + pairs + traits,
+        place,
+        focused: weightSum === n ? place : focusedSum / weightSum,
         units,
         pairs,
         traits,
-        reroll: plan.units,
+        reroll: plan.map((g) => ({
+            apiName: champions[g.i].apiName,
+            hitChance: g.p,
+        })),
     };
 }
