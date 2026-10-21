@@ -2,28 +2,37 @@
  * `scout-cli top-games` — full boards from the top of the ladder, from
  * Riot's API, frozen to disk.
  *
- * MetaTFT's finest skill filter is a rank tier (Challenger ≈ thousands of
- * players across regions). The best players find new comps before the
- * masses do, and only Riot's match data has their exact boards — units
+ * The explorer's finest skill filter is a rank tier (Challenger ≈
+ * thousands of players across regions). The best players find new comps
+ * before the masses do; their match data has the exact boards — units
  * with stars and items, level, traits, placement — for the whole lobby.
+ * Two sources, same match format (Riot's match-v1):
  *
- *   1. /tft/league/v1/challenger per platform → the top N by LP
- *   2. /tft/match/v1/matches/by-puuid/{puuid}/ids → their recent matches
- *   3. /tft/match/v1/matches/{id} → all 8 boards of each ranked match of
- *      the current set
+ *   metatft (default, no key)
+ *     1. api.metatft.com/tft-leaderboard/v2/global (top 1000 by LP across
+ *        regions) or /v2/pro (pro players)
+ *     2. /public/profile/lookup_by_puuid/{region}/{puuid} → their last 40
+ *        matches, each with a link to the full match
+ *     3. the full match JSON → all 8 boards
+ *   riot (--source riot, needs RIOT_API_KEY)
+ *     1. /tft/league/v1/challenger per platform → the top N by LP
+ *     2. /tft/match/v1/matches/by-puuid/{puuid}/ids → their recent matches
+ *     3. /tft/match/v1/matches/{id} → all 8 boards
+ *
+ * Only ranked matches of the given set are kept.
  *
  * Stores boards only: no puuids or names, just whether the board belonged
  * to one of the top players. Resumable — the output file keeps fetched
  * match ids; a rerun only fetches what is missing.
  *
- * Needs RIOT_API_KEY (developer.riotgames.com; a development key lasts
- * 24 h). Limits handled for a development key: 20 requests/s and
- * 100/2 min per routing host, Retry-After on 429.
+ * Riot: a development key (developer.riotgames.com) lasts 24 h; limits
+ * handled for it — 20 requests/s and 100/2 min per routing host,
+ * Retry-After on 429. MetaTFT: one request every 250 ms.
  *
  * Usage:
- *   RIOT_API_KEY=… npm run scout -- top-games [--set 18] [--top 200]
- *       [--platforms kr,euw1,na1,…] [--matches 20] [--days 3]
- *       [--out tmp/scout-eval/top-games-18.json]
+ *   npm run scout -- top-games [--source metatft|riot] [--pro] [--set 18]
+ *       [--top 200] [--days 3] [--out tmp/scout-eval/top-games-18.json]
+ *       riot only: [--platforms kr,euw1,na1,…] [--matches 20]
  */
 
 import { execFileSync } from 'node:child_process';
@@ -56,6 +65,8 @@ type Unit = { character: string; stars: number; items: string[] };
 
 type Board = {
     match: string;
+    /** Riot game version ("Version 16.20…"), to tell patches apart. */
+    version: string;
     /** One of the top-N players' own board (the rest are lobby mates). */
     top: boolean;
     placement: number;
@@ -84,6 +95,8 @@ function parseArgs(argv: string[]) {
         matches: 20,
         days: 3,
         out: '',
+        source: 'metatft',
+        pro: false,
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -101,6 +114,10 @@ function parseArgs(argv: string[]) {
             args.days = Number(argv[++i]);
         } else if (a === '--out') {
             args.out = argv[++i];
+        } else if (a === '--source') {
+            args.source = argv[++i];
+        } else if (a === '--pro') {
+            args.pro = true;
         } else {
             throw new Error(`Unknown flag for top-games: ${a}`);
         }
@@ -112,7 +129,11 @@ function parseArgs(argv: string[]) {
         }
     }
 
-    args.out ||= `tmp/scout-eval/top-games-${args.set}.json`;
+    if (args.source !== 'metatft' && args.source !== 'riot') {
+        throw new Error(`--source is metatft or riot, got ${args.source}`);
+    }
+
+    args.out ||= `tmp/scout-eval/top-games-${args.set}${args.pro ? '-pro' : ''}.json`;
 
     return args;
 }
@@ -152,10 +173,17 @@ const limiter = new Limiter();
 
 const HEADERS = join(tmpdir(), 'scout-top-games-headers.txt');
 
-/** curl rather than fetch: it honours the proxy settings everywhere. */
-async function riot(host: string, path: string, key: string): Promise<any> {
+/**
+ * GET JSON with retries on 429/5xx; null on 404. curl rather than fetch:
+ * it honours the proxy settings everywhere.
+ */
+async function getJson(
+    url: string,
+    headers: string[] = [],
+    before: () => Promise<void> = async () => {},
+): Promise<any> {
     for (let attempt = 0; attempt < 5; attempt++) {
-        await limiter.wait(host);
+        await before();
 
         const out = execFileSync(
             'curl',
@@ -163,13 +191,12 @@ async function riot(host: string, path: string, key: string): Promise<any> {
                 '-sS',
                 '--max-time',
                 '30',
-                '-H',
-                `X-Riot-Token: ${key}`,
+                ...headers.flatMap((h) => ['-H', h]),
                 '-D',
                 HEADERS,
                 '-w',
                 '\n%{http_code}',
-                `https://${host}.api.riotgames.com${path}`,
+                url,
             ],
             { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
         );
@@ -194,21 +221,37 @@ async function riot(host: string, path: string, key: string): Promise<any> {
             continue;
         }
 
+        if (status === 404) {
+            return null;
+        }
+
+        throw Object.assign(new Error(`HTTP ${status} on ${url}`), { status });
+    }
+
+    throw new Error(`kept failing on ${url}`);
+}
+
+async function riot(host: string, path: string, key: string): Promise<any> {
+    try {
+        return await getJson(
+            `https://${host}.api.riotgames.com${path}`,
+            [`X-Riot-Token: ${key}`],
+            () => limiter.wait(host),
+        );
+    } catch (e) {
+        const status = (e as { status?: number }).status;
+
         if (status === 401 || status === 403) {
             throw new Error(
                 `Riot API ${status} on ${path}: RIOT_API_KEY missing, expired (development keys last 24 h) or not allowed`,
             );
         }
 
-        if (status === 404) {
-            return null;
-        }
-
-        throw new Error(`Riot API ${status} on ${path}`);
+        throw e;
     }
-
-    throw new Error(`Riot API kept failing on ${path}`);
 }
+
+const metatft = (url: string) => getJson(url, [], () => sleep(250));
 
 /** Top players by LP across platforms (puuid + platform). */
 async function topPlayers(platforms: string[], top: number, key: string) {
@@ -258,6 +301,7 @@ export function boardsOf(match: any, topPuuids: Set<string>, set: number) {
     return (info.participants ?? []).map(
         (p): Board => ({
             match: match.metadata.match_id,
+            version: info.game_version,
             top: topPuuids.has(p.puuid),
             placement: p.placement,
             level: p.level,
@@ -277,16 +321,85 @@ export function boardsOf(match: any, topPuuids: Set<string>, set: number) {
     );
 }
 
-export async function runTopGames(argv: string[]): Promise<void> {
-    const args = parseArgs(argv);
+/** Match id → where to fetch the full match, from the top players. */
+async function matchesFromRiot(
+    args: ReturnType<typeof parseArgs>,
+    since: number,
+) {
     const key = process.env.RIOT_API_KEY;
 
     if (!key) {
         throw new Error(
-            'top-games needs RIOT_API_KEY (developer.riotgames.com) in the environment',
+            'top-games --source riot needs RIOT_API_KEY (developer.riotgames.com) in the environment',
         );
     }
 
+    process.stderr.write(
+        `top-games: Riot ladder of ${args.platforms.length} platforms\n`,
+    );
+    const players = await topPlayers(args.platforms, args.top, key);
+    const matches = new Map<string, () => Promise<any>>();
+
+    for (const p of players) {
+        const host = ROUTING[p.platform];
+        const ids: string[] =
+            (await riot(
+                host,
+                `/tft/match/v1/matches/by-puuid/${p.puuid}/ids?start=0&count=${args.matches}&startTime=${since}`,
+                key,
+            )) ?? [];
+
+        for (const id of ids) {
+            matches.set(id, () =>
+                riot(host, `/tft/match/v1/matches/${id}`, key),
+            );
+        }
+    }
+
+    return { puuids: new Set(players.map((p) => p.puuid)), matches };
+}
+
+async function matchesFromMetaTft(
+    args: ReturnType<typeof parseArgs>,
+    since: number,
+) {
+    const board = args.pro ? 'pro' : 'global';
+    const ladder = await metatft(
+        `https://api.metatft.com/tft-leaderboard/v2/${board}?offset=0&limit=${args.top}`,
+    );
+    const players = (ladder?.data ?? []).slice(0, args.top);
+    const matches = new Map<string, () => Promise<any>>();
+
+    process.stderr.write(
+        `top-games: MetaTFT ${board} ladder, ${players.length} players\n`,
+    );
+
+    for (const [i, p] of players.entries()) {
+        const profile = await metatft(
+            `https://api.metatft.com/public/profile/lookup_by_puuid/${p.summoner_region}/${p.puuid}`,
+        );
+
+        for (const m of profile?.matches ?? []) {
+            if (
+                m.queue_id === RANKED_QUEUE &&
+                m.tft_set === `TFTSet${args.set}` &&
+                m.match_timestamp / 1000 >= since &&
+                m.match_data_url
+            ) {
+                matches.set(m.riot_match_id, () => metatft(m.match_data_url));
+            }
+        }
+
+        if (i % 25 === 24) {
+            process.stderr.write(`  profiles ${i + 1}/${players.length}\n`);
+        }
+    }
+
+    return { puuids: new Set(players.map((p) => p.puuid)), matches };
+}
+
+export async function runTopGames(argv: string[]): Promise<void> {
+    const args = parseArgs(argv);
     const file: TopGamesFile = existsSync(args.out)
         ? JSON.parse(readFileSync(args.out, 'utf8'))
         : {
@@ -301,54 +414,34 @@ export async function runTopGames(argv: string[]): Promise<void> {
         throw new Error(`${args.out} holds set ${file.set}, not ${args.set}`);
     }
 
-    process.stderr.write(
-        `top-games: ladder of ${args.platforms.length} platforms\n`,
-    );
-    const players = await topPlayers(args.platforms, args.top, key);
-    const topPuuids = new Set(players.map((p) => p.puuid));
-    file.players = players.length;
-
     const since = Math.floor(Date.now() / 1000) - args.days * 86_400;
-    const todo = new Map<string, string>(); // match id → routing host
+    const { puuids, matches } =
+        args.source === 'riot'
+            ? await matchesFromRiot(args, since)
+            : await matchesFromMetaTft(args, since);
+    file.players = puuids.size;
+
     const done = new Set(file.done);
-
-    for (const p of players) {
-        const host = ROUTING[p.platform];
-        const ids: string[] =
-            (await riot(
-                host,
-                `/tft/match/v1/matches/by-puuid/${p.puuid}/ids?start=0&count=${args.matches}&startTime=${since}`,
-                key,
-            )) ?? [];
-
-        for (const id of ids) {
-            if (!done.has(id)) {
-                todo.set(id, host);
-            }
-        }
-    }
+    const todo = [...matches].filter(([id]) => !done.has(id));
 
     process.stderr.write(
-        `top-games: ${players.length} players, ${todo.size} matches to fetch (${done.size} done)\n`,
+        `top-games: ${puuids.size} players, ${todo.length} matches to fetch (${done.size} done)\n`,
     );
 
-    let i = 0;
-
-    for (const [id, host] of todo) {
-        const match = await riot(host, `/tft/match/v1/matches/${id}`, key);
-        file.boards.push(...boardsOf(match, topPuuids, args.set));
+    for (const [i, [id, fetchMatch]] of todo.entries()) {
+        file.boards.push(...boardsOf(await fetchMatch(), puuids, args.set));
         file.done.push(id);
 
-        if (++i % 25 === 0 || i === todo.size) {
+        if (i % 25 === 24 || i === todo.length - 1) {
             writeFileSync(args.out, JSON.stringify(file));
-            process.stderr.write(`  ${i}/${todo.size}\n`);
+            process.stderr.write(`  ${i + 1}/${todo.length}\n`);
         }
     }
 
     writeFileSync(args.out, JSON.stringify(file));
 
-    const matches = new Set(file.boards.map((b) => b.match)).size;
+    const fetched = new Set(file.boards.map((b) => b.match)).size;
     process.stdout.write(
-        `${args.out}: ${matches} ranked set-${args.set} matches, ${file.boards.length} boards (${file.boards.filter((b) => b.top).length} of the top ${file.players})\n`,
+        `${args.out}: ${fetched} ranked set-${args.set} matches, ${file.boards.length} boards (${file.boards.filter((b) => b.top).length} of the top ${file.players})\n`,
     );
 }

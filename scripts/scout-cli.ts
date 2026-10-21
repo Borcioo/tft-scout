@@ -19,7 +19,7 @@ Commands:
   generate [flags]      Run engine.generate end-to-end
   phase <name> [flags]  Run a single phase (candidates|graph|find-teams|score|active-traits|role-balance|insights)
   discover [flags]      Boards worth trying that few play: model + Gold+ + Master+ evidence (Bayes), ranked by expected improvement over the best proven board (--snapshot, --gold, --master, --top, --json)
-  top-games [flags]     Fetch full boards of the ladder's top players from Riot's API, once, to tmp/ (needs RIOT_API_KEY; --set, --top, --platforms, --matches, --days, --out)
+  top-games [flags]     Fetch full boards of the ladder's top players (whole lobbies) once to tmp/ — MetaTFT ladder by default, --source riot needs RIOT_API_KEY (--pro, --set, --top, --days, --out; riot: --platforms, --matches)
   oracle [flags]        Fetch real outcomes of meta + engine boards from MetaTFT's explorer, once, to tmp/ (--snapshot, --out, --patch, --levels, --min-games)
   eval [flags]          Quality report: strength vs real placements, search, sanity (--snapshot, --levels, --seeds, --json)
   experiment [flags]    Bulk runner — --preset <name> | --matrix '<json>' | --repeat N --seed-range A-B

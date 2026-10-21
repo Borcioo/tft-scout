@@ -60,13 +60,18 @@ Fiddlesticks, Karma — 122 gry w Master+, średnio 1.72; ta sama rodzina co naj
   (5.6k plansz z ≥10 grami, mediana 34). Explorer: `unit_tier_numitems_unique={api}-{kopia}_{gwiazdki}_{itemy}`.
 - MetaTFT trzyma starsze patche: w oknie `days=20` są 18.3b (21.9M gier), 18.4 (3.4M), 18.4b (44M; okno 2-dniowe
   to 6.2M). Przy przypiętym patchu dłuższe okno = 5–7× więcej danych bez mieszania patchy.
-- `scout top-games` (Riot API, `RIOT_API_KEY`): pełne plansze top N graczy drabinki (jednostki, gwiazdki, itemy,
-  poziom, traity, miejsce) dla całych lobby; zapisuje tylko plansze, bez puuid/nicków. Gotowe, czeka na klucz.
+- `scout top-games`: pełne plansze top N graczy drabinki (jednostki, gwiazdki, itemy, poziom, traity, miejsce,
+  wersja gry) dla całych lobby; zapisuje tylko plansze, bez puuid/nicków. Domyślnie przez MetaTFT, bez klucza:
+  `api.metatft.com/tft-leaderboard/v2/global` (top 1000 wg LP ze wszystkich regionów; `/v2/pro` = zawodowcy),
+  `/public/profile/lookup_by_puuid/{region}/{puuid}` (ostatnie 40 meczów, ~10 dni — profile nie są odświeżane na
+  bieżąco), pełny mecz pod `match_data_url` w formacie match-v1 Riotu. `--source riot` = to samo z API Riotu
+  (`RIOT_API_KEY`).
 
 ## Następne kroki
 
 1. **Test wsteczny między patchami**: perełki znalezione na 18.3b → wynik i popularność na 18.4b.
 2. **Integracja w aplikacji**: tryb "Odkrywanie" z etykietami i liczbą dowodów. Decyzja o źródle danych dla
-   produkcji: explorer MetaTFT (~1.3k zapytań na odświeżenie, API nieoficjalne) vs Riot API (oficjalne, klucz).
+   produkcji: MetaTFT (explorer ~1.3k zapytań + drabinka/profile/mecze top graczy; API nieoficjalne) vs Riot API
+   (oficjalne, klucz).
 3. **Potencjał jednostek** ("źle budowane"): najlepszy build vs typowy, tylko w grach z 3 itemami.
 4. **Okno całego patcha** w syncu (więcej danych dla małych prób).
