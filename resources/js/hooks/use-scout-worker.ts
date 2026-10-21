@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import ScoutWorker from '@/workers/scout/index?worker&inline';
 import type {
+    GenerateResult,
     RescoreParams,
     RescoreResult,
-    ScoredTeam,
     ScoutParams,
     WorkerInMsg,
     WorkerOutMsg,
@@ -36,7 +36,7 @@ let msgId = 0;
 // Union resolver — each message type has its own payload shape, but
 // only one pending entry is active per id, so a single resolve signature
 // covering the union is enough.
-type WorkerReply = { results: ScoredTeam[]; insights: unknown } | RescoreResult;
+type WorkerReply = GenerateResult | RescoreResult;
 
 type Pending = {
     resolve: (value: WorkerReply) => void;
@@ -134,9 +134,8 @@ function post(
 function sendGenerate(params: ScoutParams) {
     const id = ++msgId;
 
-    return new Promise<{ results: ScoredTeam[]; insights: unknown }>(
-        (resolve, reject) =>
-            post({ type: 'generate', id, params }, resolve, reject),
+    return new Promise<GenerateResult>((resolve, reject) =>
+        post({ type: 'generate', id, params }, resolve, reject),
     );
 }
 

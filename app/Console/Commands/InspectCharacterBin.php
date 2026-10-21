@@ -209,7 +209,7 @@ class InspectCharacterBin extends Command
         $this->line('Base traits (main record): <fg=white>'.implode(', ', $mainTraits).'</>');
         $this->line('Selectable variants (from TraitClone): <fg=white>'.count($variantTraits).' options</>');
         foreach ($variantTraits as $i => $trait) {
-            $this->line("  <fg=cyan>".($i + 1).".</> {$trait}");
+            $this->line('  <fg=cyan>'.($i + 1).".</> {$trait}");
         }
     }
 }

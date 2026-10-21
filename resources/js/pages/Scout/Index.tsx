@@ -19,6 +19,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import type {
     Champion,
+    LockIssue,
     ScoredTeam,
     ScoutContext,
     Trait,
@@ -151,6 +152,7 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
     );
 
     const [results, setResults] = useState<ScoredTeam[]>([]);
+    const [lockIssues, setLockIssues] = useState<LockIssue[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -175,6 +177,7 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
         generate(params)
             .then((out) => {
                 setResults(out.results);
+                setLockIssues(out.lockIssues);
                 setIsRunning(false);
 
                 // Fire-and-forget lab ingest so anything the user sees
@@ -221,6 +224,25 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
         lockedTraits,
         emblems,
     ]);
+
+    // Lock a unit the level gate kept out (empty-slate suggestion). A lock
+    // and a ban are mutually exclusive, like in the picker.
+    const lockChampion = useCallback(
+        (apiName: string) => {
+            if (!lockedChampions.includes(apiName)) {
+                setLockedChampions([...lockedChampions, apiName]);
+            }
+            setExcludedChampions(
+                excludedChampions.filter((api) => api !== apiName),
+            );
+        },
+        [
+            lockedChampions,
+            excludedChampions,
+            setLockedChampions,
+            setExcludedChampions,
+        ],
+    );
 
     // Serialise params to a stable string key — object literals get a
     // new reference every render, which made useDebounced retrigger in
@@ -280,7 +302,7 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
 
                 <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
                     {contextStale && (
-                        <div className="shrink-0 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-amber-300 text-xs">
+                        <div className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-300">
                             Stats are updating in the background. Reload the
                             page in a minute to see fresh numbers.
                         </div>
@@ -295,6 +317,8 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                             onSaved={markSaved}
                             level={level}
                             emblems={emblems}
+                            lockIssues={lockIssues}
+                            onLockChampion={lockChampion}
                         />
                     </div>
                 </main>

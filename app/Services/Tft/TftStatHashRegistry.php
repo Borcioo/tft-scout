@@ -30,30 +30,31 @@ final class TftStatHashRegistry
      */
     public const MAP = [
         // Core stats — used by CDTB when producing cdragon/tft/en_us.json
-        0x8662cf12 => 'hp',
-        0x4af40dc3 => 'attack_damage',
-        0xea6100d5 => 'armor',
-        0x33c0bf27 => 'magic_resist',
-        0x836cc82a => 'attack_speed_ratio', // ← this is the "attackSpeed" CDTB reads
-        0x7bd4b298 => 'attack_range_units', // ÷ 180 = hexes
+        0x8662CF12 => 'hp',
+        0x4AF40DC3 => 'attack_damage',
+        0xEA6100D5 => 'armor',
+        0x33C0BF27 => 'magic_resist',
+        0x836CC82A => 'attack_speed_ratio', // ← this is the "attackSpeed" CDTB reads
+        0x7BD4B298 => 'attack_range_units', // ÷ 180 = hexes
 
         // Per-level growth (LoL concept; TFT uses tier scaling instead but
         // the fields still exist on TFTCharacterRecord and may carry values)
-        0x4d37af28 => 'hp_per_level',
-        0xe2b5d80d => 'ad_per_level',
-        0x18956a21 => 'armor_per_level',
-        0x01262a25 => 'mr_per_level',
-        0xb9f2b365 => 'attack_speed_per_level',
+        0x4D37AF28 => 'hp_per_level',
+        0xE2B5D80D => 'ad_per_level',
+        0x18956A21 => 'armor_per_level',
+        0x01262A25 => 'mr_per_level',
+        0xB9F2B365 => 'attack_speed_per_level',
 
         // Regen and misc
-        0x9eedebad => 'hp_regen',
-        0x913157bb => 'hp_regen_per_level',
-        0xe62d9d92 => 'move_speed',
-        0x4f89c991 => 'base_attack_speed',
+        0x9EEDEBAD => 'hp_regen',
+        0x913157BB => 'hp_regen_per_level',
+        0xE62D9D92 => 'move_speed',
+        0x4F89C991 => 'base_attack_speed',
     ];
 
     /** Wrapper class hash and inner `baseValue` field hash — used for unwrapping. */
     public const WRAPPER_TYPE_HASH = '{ce9b917b}';
+
     public const INNER_VALUE_KEY = '{b35aa769}'; // FNV1a("baseValue")
 
     /**

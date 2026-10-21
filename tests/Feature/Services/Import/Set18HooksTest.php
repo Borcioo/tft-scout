@@ -5,7 +5,9 @@ use App\Models\Set;
 use App\Models\TftTrait;
 use App\Services\Import\SetHooks\Shared\DisplayNameVariantHook;
 use App\Services\Import\SetHooks\Shared\RoleInferenceHook;
+use App\Services\Import\SetHooks\Shared\TraitEvolutionHook;
 use App\Services\Import\SetHooks\Shared\TraitSlotOverrideHook;
+use App\Services\Scout\ScoutContextBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -92,4 +94,42 @@ test('roles are inferred from range, damage words and fighter traits', function 
         ->and($roleOf($fighter))->toBe(['ADFighter', 'AD', 'Fighter'])
         // CDragon-supplied roles are left alone
         ->and($riotRole->fresh()->role)->toBe('ADTank');
+});
+
+test('kha\'zix gets one evolved form per configured trait', function () {
+    config(['tft.sets.18.evolutions' => [
+        'DA_18_KhaZix' => ['DA_18_Executioner', 'DA_18_Slayer', 'DA_18_Missing'],
+    ]]);
+    $rival = ($this->trait)('DA_18_Rival');
+    ($this->trait)('DA_18_Executioner')->update(['name' => 'Executioner']);
+    $ravager = ($this->trait)('DA_18_Slayer');
+    $ravager->update(['name' => 'Ravager']);
+    $base = ($this->champion)('DA_18_KhaZix', "Kha'Zix", [
+        'cost' => 3,
+        'role' => 'APFighter',
+        'planner_code' => 777,
+    ]);
+    $base->traits()->attach($rival->id, ['amount' => 1]);
+
+    (new TraitEvolutionHook)->run($this->set);
+
+    $form = Champion::where('api_name', 'DA_18_KhaZix_Ravager')->firstOrFail();
+    expect(Champion::where('base_champion_id', $base->id)->count())->toBe(2)
+        ->and($form->name)->toBe("Kha'Zix (Ravager)")
+        ->and($form->variant_label)->toBe('ravager')
+        ->and($form->is_playable)->toBeTrue()
+        ->and($form->cost)->toBe(3)
+        ->and($form->role)->toBe('APFighter')
+        ->and($form->planner_code)->toBe(777)
+        ->and($form->traits()->pluck('amount', 'api_name')->all())
+        ->toEqual(['DA_18_Rival' => 1, 'DA_18_Slayer' => 1])
+        // Unevolved Kha'Zix stays a legal pick
+        ->and($base->fresh()->is_playable)->toBeTrue()
+        ->and($base->traits()->pluck('api_name')->all())->toBe(['DA_18_Rival']);
+
+    // One Kha'Zix per board: base and every form share an exclusion group
+    config(['services.tft.set' => 18]);
+    $groups = app(ScoutContextBuilder::class)->build(18)['exclusionGroups'];
+    expect(collect($groups)->map(fn ($g) => collect($g)->sort()->values()->all())->all())
+        ->toContain(['DA_18_KhaZix', 'DA_18_KhaZix_Executioner', 'DA_18_KhaZix_Ravager']);
 });

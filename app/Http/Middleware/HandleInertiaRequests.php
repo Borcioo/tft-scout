@@ -50,7 +50,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'scoutLabEnabled' => env('SCOUT_LAB_ENABLED') === '1',
+            'scoutLabEnabled' => (bool) config('services.scout_lab.enabled'),
             'metaSyncRefreshing' => $metaSyncRefreshing,
             // Team Planner codes end in "TFTSet{N}"; Set 18 champion ids
             // (DA_*) don't carry the set, so the client needs it here.

@@ -24,6 +24,7 @@ use Throwable;
  *
  * But many champions (e.g. TFT17 Jinx) use descriptions like
  *   "Fire a barrage of @ModifiedNumRockets@ rockets, each dealing
+ *
  *    @TotalDamage@ physical damage..."
  * where `@TotalDamage@` is a calculated variable defined in
  * `mSpellCalculations` — NOT in DataValues. en_us.json doesn't expose

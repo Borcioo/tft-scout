@@ -377,10 +377,10 @@ class SpellCalculationEvaluator
                 // left for when an actual spell breaks because of it.
                 return $this->resolveDataValue($part, $context, $star);
 
-            // By-reference sub-calc: resolves via mSpellCalculationKey
-            // pointing at another entry in mSpellCalculations. The type
-            // name itself is usually a hash (`{f3cbe7b2}`) so we detect
-            // this case by presence of the key rather than by type.
+                // By-reference sub-calc: resolves via mSpellCalculationKey
+                // pointing at another entry in mSpellCalculations. The type
+                // name itself is usually a hash (`{f3cbe7b2}`) so we detect
+                // this case by presence of the key rather than by type.
             default:
                 if (isset($part['mSpellCalculationKey'])) {
                     return $this->evaluateSubCalc($part['mSpellCalculationKey'], $context, $star);

@@ -16,8 +16,10 @@ use App\Services\Import\SetHooks\Shared\HeroAbilityVariantHook;
 use App\Services\Import\SetHooks\Shared\RemoveNonPlayableHook;
 use App\Services\Import\SetHooks\Shared\RoleInferenceHook;
 use App\Services\Import\SetHooks\Shared\TraitContributionHook;
+use App\Services\Import\SetHooks\Shared\TraitEvolutionHook;
 use App\Services\Import\SetHooks\Shared\TraitSlotOverrideHook;
 use App\Services\Import\SetHooks\Shared\VariantChoiceHook;
+use App\Services\Tft\FnvHasher;
 use App\Support\SetProfile;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +64,8 @@ class CDragonImporter
      *     every champion, so they run BEFORE DisplayNameVariantHook links
      *     "Lux (Coven)"-style rows to their base (the base-only hooks
      *     after it skip linked variants).
+     *   - TraitEvolutionHook after the enrich/role hooks: its forms are
+     *     copies of the finished base (role, ability, planner code).
      *   - TraitSlotOverrideHook last so synthesized variants inherit
      *     nothing stale.
      *
@@ -76,6 +80,7 @@ class CDragonImporter
         DisplayNameVariantHook::class,
         VariantChoiceHook::class,
         HeroAbilityVariantHook::class,
+        TraitEvolutionHook::class,
         TraitSlotOverrideHook::class,
     ];
 
@@ -1540,7 +1545,7 @@ class CDragonImporter
         preg_match_all('/@([A-Za-z_][A-Za-z0-9_]*)/', $description, $matches);
         $map = [];
         foreach (array_unique($matches[1] ?? []) as $name) {
-            $map[\App\Services\Tft\FnvHasher::wrapped($name)] = $name;
+            $map[FnvHasher::wrapped($name)] = $name;
         }
 
         return $map;

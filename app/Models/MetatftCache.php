@@ -46,11 +46,11 @@ class MetatftCache extends Model
 
     public function scopeFresh($query)
     {
-        return $query->whereRaw("EXTRACT(EPOCH FROM (NOW() - fetched_at)) < ttl_seconds");
+        return $query->whereRaw('EXTRACT(EPOCH FROM (NOW() - fetched_at)) < ttl_seconds');
     }
 
     public function scopeStale($query)
     {
-        return $query->whereRaw("EXTRACT(EPOCH FROM (NOW() - fetched_at)) >= ttl_seconds");
+        return $query->whereRaw('EXTRACT(EPOCH FROM (NOW() - fetched_at)) >= ttl_seconds');
     }
 }

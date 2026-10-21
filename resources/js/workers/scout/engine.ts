@@ -22,13 +22,17 @@ import {
     filterCandidates,
     getLockedChampions,
 } from './candidates';
-import { MIN_LEVEL_BY_COST, SCORING_CONFIG } from './config';
+import { SCORING_CONFIG } from './config';
 import { buildHeroExclusionGroup } from './hero-exclusion';
+import {
+    normalizeEmblems,
+    normalizeTraitLocks,
+    traitReach,
+} from './lock-reach';
 import { teamRoleBalance, teamScore, teamScoreBreakdown } from './scorer';
 import { startSpan } from './scout-profiler';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
-import { traitAmount } from './trait-amount';
 import { buildTeamSizeRules, teamSizeBonus } from './trait-rules';
 
 /**
@@ -54,28 +58,12 @@ export function generate(input) {
         } = input;
 
         // Normalise emblems to a flat string[] of trait apiNames, one entry
-        // per physical emblem unit. Callers pass either legacy string[] or
-        // the newer [{apiName, count}]; most downstream code
+        // per physical emblem unit — most downstream code
         // (buildActiveTraits, synergy-graph.applyEmblems, phaseDeepVertical)
-        // iterates with `for (const e of emblems)` and indexes by `e`, which
-        // silently breaks on object-shaped entries and swallows the emblem
-        // entirely. Keep the result in a local instead of mutating the
-        // caller's constraints so memoising callers aren't surprised by
-        // in-place side effects on their input object.
-        const normalizedEmblems = [];
-
-        for (const e of constraints.emblems || []) {
-            if (typeof e === 'string') {
-                normalizedEmblems.push(e);
-                continue;
-            }
-
-            const count = Math.max(1, Number(e?.count ?? 1));
-
-            for (let i = 0; i < count; i++) {
-                normalizedEmblems.push(e.apiName);
-            }
-        }
+        // indexes by the entry. Keep the result in a local instead of
+        // mutating the caller's constraints so memoising callers aren't
+        // surprised by in-place side effects on their input object.
+        const normalizedEmblems = normalizeEmblems(constraints.emblems);
 
         // Append the hero mutual-exclusion group to whatever PHP gave us.
         // PHP emits base_champion_id variant groups; hero-exclusion is a
@@ -148,9 +136,7 @@ export function generate(input) {
         // Normalise lockedTraits to {apiName, minUnits} shape. Accept
         // both the object form and a bare string (legacy). A bare string
         // means "trait must be active at all", so minUnits = 1.
-        const traitLocks = (constraints.lockedTraits || []).map((t) =>
-            typeof t === 'string' ? { apiName: t, minUnits: 1 } : t,
-        );
+        const traitLocks = normalizeTraitLocks(constraints.lockedTraits);
 
         // Tight-trait-lock auto-promotion: when a requested trait lock
         // requires exactly as many units as the accessible pool has, every
@@ -178,62 +164,23 @@ export function generate(input) {
         // 3×2=6. Same for Set 18: one Lux form (counts 2 for its element),
         // Elder Dragon counts 2 Riftbeast.
         //
-        // Algorithm: group champs by exclusion group (singletons for
-        // anything outside a group); pick the member contributing the most
-        // to the trait from each; sum.
-        //
         // Only champions the shop offers at this level count (same gate as
         // findTeams' allowed set); an explicit user lock still bypasses it.
         // Otherwise a tight lock auto-promoted a gated unit (Hunter:5 on
         // level 8 pulled in the 5-cost) while a loose one could never use
-        // it (Riftbeast:10 on level 8 came back empty).
+        // it (Riftbeast:10 on level 8 came back empty). See lock-reach.ts.
         const teamSizeRules = buildTeamSizeRules(traits);
-        const offeredAtLevel = (c) =>
-            !level ||
-            lockedApiSet.has(c.apiName) ||
-            level >= (MIN_LEVEL_BY_COST[c.cost || 1] ?? 1);
-        const exclusionMemberMap: Record<string, string[]> = {};
-        for (const group of effectiveExclusionGroups) {
-            for (const member of group) {
-                exclusionMemberMap[member] = group;
-            }
-        }
         const maxTraitAchievable = (
             lockApi: string,
         ): { count: number; picks: string[] } => {
-            const groupBest: Record<string, { amount: number; api: string }> =
-                {};
-            for (const c of champions) {
-                if (c.variant === 'hero') {
-                    continue;
-                }
-                if (excludedSet.has(c.apiName)) {
-                    continue;
-                }
-                if (!offeredAtLevel(c)) {
-                    continue;
-                }
-                if (!c.traits.includes(lockApi)) {
-                    continue;
-                }
-                const groupKey =
-                    exclusionMemberMap[c.apiName]?.slice().sort().join('|') ??
-                    c.apiName;
-                const amount = traitAmount(c, lockApi);
-                if (
-                    !groupBest[groupKey] ||
-                    amount > groupBest[groupKey].amount
-                ) {
-                    groupBest[groupKey] = { amount, api: c.apiName };
-                }
-            }
-            let count = 0;
-            const picks: string[] = [];
-            for (const v of Object.values(groupBest)) {
-                count += v.amount;
-                picks.push(v.api);
-            }
-            return { count, picks };
+            const { count, picks } = traitReach(champions, lockApi, {
+                excluded: excludedSet,
+                locked: lockedApiSet,
+                exclusionGroups: effectiveExclusionGroups,
+                level,
+            });
+
+            return { count, picks: picks.map((c) => c.apiName) };
         };
 
         const anyLockImpossible = traitLocks.some((lock) => {

@@ -1,4 +1,4 @@
-import { openDb } from '../../lab/db';
+import { assertLabEnabled, initSchema, openDb } from '../../lab/db';
 import { currentGitSha } from '../../lab/git';
 import type { RecordRunInput, RecordRunMeta } from '../../lab/ingest';
 import { recordRun } from '../../lab/ingest';
@@ -44,8 +44,7 @@ async function readStdinJson(): Promise<IngestBody> {
  * without re-implementing the SQLite schema in PHP.
  */
 export async function runLabIngest(): Promise<void> {
-    // openDb() below throws with a clear message when SCOUT_LAB_ENABLED
-    // isn't set, so no dedicated guard is needed here.
+    assertLabEnabled();
     const body = await readStdinJson();
 
     if (!body.params || !Array.isArray(body.results)) {
@@ -64,7 +63,10 @@ export async function runLabIngest(): Promise<void> {
         notes: body.notes ?? null,
     };
 
+    // Idempotent; a fresh checkout with SCOUT_LAB_ENABLED=1 must not need
+    // a manual `lab init` before the UI can record its first run.
     const db = openDb();
+    initSchema(db);
     const runId = recordRun(
         db,
         {

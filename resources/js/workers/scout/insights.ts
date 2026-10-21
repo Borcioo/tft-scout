@@ -26,7 +26,7 @@ export function generateInsights({
     champions,
     traits,
     lockedChampions = [],
-    emblems = [],
+    emblems = [] as string[],
     level = 8,
     scoringCtx = {},
 }) {

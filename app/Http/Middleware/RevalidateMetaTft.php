@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Jobs\RefreshMetaTftJob;
 use App\Models\MetaSync;
+use App\Models\Set;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -103,7 +104,7 @@ class RevalidateMetaTft
         return Cache::remember(
             "meta:set-id:{$setNumber}",
             now()->addHour(),
-            fn () => \App\Models\Set::query()
+            fn () => Set::query()
                 ->where('number', $setNumber)
                 ->value('id'),
         );

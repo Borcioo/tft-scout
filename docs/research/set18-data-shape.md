@@ -32,7 +32,12 @@ tylko po hashu, więc **wszystkie** opisy umiejętności (też Set 17) przestał
   DataValues (`DataValue`, `OtherValue`, kalkulacje pod hashami `{d678dbfb}`). Szablony typu `@MagicDamageCalc1@`
   zostają bez wartości dla części championów (np. Ahri). Pełne liczby mają m.in. Alune, Kobuko.
 - **Placeholdery:** Lux i Mama Beak wskazują w binie na stub "Placeholder Tooltip" — zostaje tekst z `en_us.json`.
-- **Ewolucje Kha'Zixa** i warunek odblokowania 2 Rivali nie są w danych.
+- **Warunek odblokowania 2 Rivali** nie jest w danych. (Ewolucje Kha'Zixa są — tylko w opisie traita Rival, nie w
+  binie; modelowane przez `sets.18.evolutions`, patrz knowledge-base/special-mechanics.md.)
+- **Itemy Set 18** (`DA_InfinityEdge`, komponenty, emblematy) to w `map22.bin.json` stuby: `TftItemData` bez
+  `mDescriptionNameTra` i bez `constants` (evergreen `TFT_Item_*` ma oba), w `en_us.json` `desc: null`,
+  `effects: {}`, w stringtable tylko `*_name`. Opisów i statystyk nie ma skąd wziąć; kopiowanie z evergreen
+  bliźniaków byłoby zgadywaniem (zweryfikowane 2026-10-21).
 - **Formy Adaptor** po stronie MetaTFT to promil gier — scalane, ale realnie bez wpływu na ratingi.
 
 ## Weryfikacja na żywych danych (2026-10-20)

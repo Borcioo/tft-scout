@@ -14,9 +14,11 @@ namespace App\Services\Tft;
  */
 class FnvHasher
 {
-    private const OFFSET_BASIS = 0x811c9dc5;
+    private const OFFSET_BASIS = 0x811C9DC5;
+
     private const PRIME = 0x01000193;
-    private const MASK_32 = 0xffffffff;
+
+    private const MASK_32 = 0xFFFFFFFF;
 
     /**
      * Compute FNV-1a 32 of a string, returning bare 8-char lowercase hex.

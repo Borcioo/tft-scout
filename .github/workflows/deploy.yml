@@ -11,6 +11,12 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # The set production serves. Bumping it (with config/tft.php `sets`
+    # ready) is all a set change takes: the deploy imports the new set and
+    # syncs MetaTFT while the old one stays live, then switches .env.
+    env:
+      TFT_SET: '18'
+      METATFT_QUEUE: '1100'
     steps:
       - uses: actions/checkout@v6
 
@@ -72,6 +78,27 @@ jobs:
           set -e
           cd /var/www/tft-scout
 
+          TARGET_SET='${{ env.TFT_SET }}'
+          TARGET_QUEUE='${{ env.METATFT_QUEUE }}'
+
+          set_env() {
+            if grep -qE "^$1=" .env; then
+              sed -i "s|^$1=.*|$1=$2|" .env
+            else
+              printf '\n%s=%s\n' "$1" "$2" >> .env
+            fi
+          }
+
+          # Pin the set the live site serves before new code lands: a release
+          # may default to a newer set that has no rows until imported.
+          if ! grep -qE '^TFT_SET=' .env; then
+            LIVE_SET="$(php artisan tinker --execute="echo config('services.tft.set');" | tail -n 1)"
+            case "$LIVE_SET" in
+              ''|*[!0-9]*) echo "Cannot read the live set (got '$LIVE_SET'); aborting before upload." >&2; exit 1 ;;
+            esac
+            set_env TFT_SET "$LIVE_SET"
+          fi
+
           # Extract new code (preserve .env, storage)
           tar xzf /tmp/deploy.tar.gz --no-same-owner
           rm /tmp/deploy.tar.gz
@@ -80,8 +107,26 @@ jobs:
           chown -R www-data:www-data /var/www/tft-scout
           chmod -R 775 storage bootstrap/cache
 
+          # The previous release's cached config lacks keys the new code
+          # reads (e.g. tft.sets) — drop it before running any artisan work.
+          php artisan config:clear
+
           # Laravel production steps
           php artisan migrate --force
+
+          # Set change: import the target set and its MetaTFT stats while
+          # the old set keeps serving, then switch. A failed import stops
+          # the deploy here (set -e) and the site stays on the old set.
+          if [ "$(grep -E '^TFT_SET=' .env | cut -d= -f2)" != "$TARGET_SET" ]; then
+            php artisan tft:import --set="$TARGET_SET"
+            php artisan metatft:sync --set="$TARGET_SET"
+            set_env TFT_SET "$TARGET_SET"
+            set_env METATFT_QUEUE "$TARGET_QUEUE"
+            # Import/sync ran as root: icons, logs and the CDragon cache
+            # must stay writable for php-fpm.
+            chown -R www-data:www-data public/icons storage
+          fi
+
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache

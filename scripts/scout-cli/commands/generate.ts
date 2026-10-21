@@ -5,7 +5,7 @@ import { generate } from '../../../resources/js/workers/scout/engine';
 import { loadContext } from '../context';
 import type { GenerateFilteredCounts } from '../format';
 import { summariseGenerate } from '../format';
-import { assertLabEnabled, openDb } from '../lab/db';
+import { assertLabEnabled, initSchema, openDb } from '../lab/db';
 import { currentGitSha } from '../lab/git';
 import { recordRun } from '../lab/ingest';
 import { parseCommonArgs } from '../params';
@@ -67,6 +67,7 @@ export async function runGenerate(argv: string[]): Promise<void> {
     if (args.tag) {
         assertLabEnabled();
         const db = openDb();
+        initSchema(db);
 
         try {
             const gitSha = currentGitSha();
