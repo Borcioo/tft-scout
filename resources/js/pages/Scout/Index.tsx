@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import { SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { ItemBuildsMap } from '@/components/scout/ChampionItemBuildsAccordion';
 import { EmblemPicker } from '@/components/scout/EmblemPicker';
@@ -8,6 +9,18 @@ import { ScoutControls } from '@/components/scout/ScoutControls';
 import { ScoutDebugPanel } from '@/components/scout/ScoutDebugPanel';
 import { ScoutErrorBoundary } from '@/components/scout/ScoutErrorBoundary';
 import { ScoutResultsList } from '@/components/scout/ScoutResultsList';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useScoutWorker } from '@/hooks/use-scout-worker';
 import {
     csvCodec,
@@ -155,6 +168,7 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
     const [lockIssues, setLockIssues] = useState<LockIssue[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     const run = useCallback(() => {
         setIsRunning(true);
@@ -272,35 +286,161 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
         run();
     }, [debouncedParamsKey, champions.length]);
 
+    // Each panel renders in the side columns on desktop and in the
+    // filters sheet below lg, where three columns don't fit
+    const controls = (
+        <ScoutControls
+            level={level}
+            topN={topN}
+            max5Cost={max5Cost}
+            minFrontline={minFrontline}
+            minDps={minDps}
+            isRunning={isRunning}
+            onLevelChange={setLevel}
+            onTopNChange={setTopN}
+            onMax5CostChange={setMax5Cost}
+            onMinFrontlineChange={setMinFrontline}
+            onMinDpsChange={setMinDps}
+            onRun={run}
+        />
+    );
+    const championsPicker = (
+        <LockedChampionsPicker
+            champions={champions}
+            locked={lockedChampions}
+            excluded={excludedChampions}
+            onChangeLocked={setLockedChampions}
+            onChangeExcluded={setExcludedChampions}
+        />
+    );
+    const traitsPicker = (
+        <LockedTraitsPicker
+            traits={traits}
+            locked={lockedTraits}
+            onChange={setLockedTraits}
+        />
+    );
+    const emblemPicker = (
+        <EmblemPicker traits={traits} emblems={emblems} onChange={setEmblems} />
+    );
+    const emblemCount = emblems.reduce((n, e) => n + e.count, 0);
+    const championCount = lockedChampions.length + excludedChampions.length;
+    const activeFilters =
+        championCount +
+        lockedTraits.length +
+        emblemCount +
+        (max5Cost !== null ? 1 : 0) +
+        (minFrontline > 0 ? 1 : 0) +
+        (minDps > 0 ? 1 : 0);
+    const summary = [
+        `Lvl ${level}`,
+        lockedChampions.length > 0 && `${lockedChampions.length} locked`,
+        excludedChampions.length > 0 && `${excludedChampions.length} banned`,
+        lockedTraits.length > 0 &&
+            `${lockedTraits.length} trait${lockedTraits.length > 1 ? 's' : ''}`,
+        emblemCount > 0 && `${emblemCount} emblem${emblemCount > 1 ? 's' : ''}`,
+        max5Cost !== null && `≤${max5Cost} 5-cost`,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <Head title="Scout — TFT Scout" />
-            <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr] gap-4 overflow-hidden p-6 lg:grid-cols-[280px_1fr_300px]">
-                <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-                    <ScoutControls
-                        level={level}
-                        topN={topN}
-                        max5Cost={max5Cost}
-                        minFrontline={minFrontline}
-                        minDps={minDps}
-                        isRunning={isRunning}
-                        onLevelChange={setLevel}
-                        onTopNChange={setTopN}
-                        onMax5CostChange={setMax5Cost}
-                        onMinFrontlineChange={setMinFrontline}
-                        onMinDpsChange={setMinDps}
-                        onRun={run}
-                    />
-                    <LockedChampionsPicker
-                        champions={champions}
-                        locked={lockedChampions}
-                        excluded={excludedChampions}
-                        onChangeLocked={setLockedChampions}
-                        onChangeExcluded={setExcludedChampions}
-                    />
+            <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[1fr] gap-4 overflow-hidden p-3 sm:p-6 lg:grid-cols-[280px_1fr_300px]">
+                <aside className="hidden h-full min-h-0 flex-col gap-4 overflow-hidden lg:flex">
+                    {controls}
+                    {championsPicker}
                 </aside>
 
-                <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+                <main className="flex h-full min-h-0 flex-col gap-3 overflow-hidden sm:gap-4">
+                    <div className="flex shrink-0 items-center gap-3 lg:hidden">
+                        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline" className="gap-2">
+                                    <SlidersHorizontal className="size-4" />
+                                    Filters
+                                    {activeFilters > 0 && (
+                                        <Badge className="h-5 min-w-5 px-1.5">
+                                            {activeFilters}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent
+                                side="bottom"
+                                className="gap-0 data-[side=bottom]:h-[90dvh]"
+                            >
+                                <SheetHeader className="pb-2">
+                                    <SheetTitle>Filters</SheetTitle>
+                                    <SheetDescription>
+                                        Results update as you change them.
+                                    </SheetDescription>
+                                </SheetHeader>
+                                <Tabs
+                                    defaultValue="settings"
+                                    className="min-h-0 flex-1 px-4"
+                                >
+                                    <TabsList className="w-full">
+                                        <TabsTrigger value="settings">
+                                            Settings
+                                        </TabsTrigger>
+                                        <TabsTrigger value="champions">
+                                            Units
+                                            {championCount > 0 &&
+                                                ` (${championCount})`}
+                                        </TabsTrigger>
+                                        <TabsTrigger value="traits">
+                                            Traits
+                                            {lockedTraits.length > 0 &&
+                                                ` (${lockedTraits.length})`}
+                                        </TabsTrigger>
+                                        <TabsTrigger value="emblems">
+                                            Emblems
+                                            {emblemCount > 0 &&
+                                                ` (${emblemCount})`}
+                                        </TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent
+                                        value="settings"
+                                        className="min-h-0 overflow-y-auto"
+                                    >
+                                        {controls}
+                                    </TabsContent>
+                                    <TabsContent
+                                        value="champions"
+                                        className="flex min-h-0 flex-col"
+                                    >
+                                        {championsPicker}
+                                    </TabsContent>
+                                    <TabsContent
+                                        value="traits"
+                                        className="flex min-h-0 flex-col"
+                                    >
+                                        {traitsPicker}
+                                    </TabsContent>
+                                    <TabsContent
+                                        value="emblems"
+                                        className="flex min-h-0 flex-col"
+                                    >
+                                        {emblemPicker}
+                                    </TabsContent>
+                                </Tabs>
+                                <SheetFooter>
+                                    <Button
+                                        onClick={() => setFiltersOpen(false)}
+                                    >
+                                        {isRunning
+                                            ? 'Running…'
+                                            : `Show ${results.length} results`}
+                                    </Button>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
+                        <p className="min-w-0 truncate text-muted-foreground text-xs">
+                            {summary}
+                        </p>
+                    </div>
                     {contextStale && (
                         <div className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-300">
                             Stats are updating in the background. Reload the
@@ -323,17 +463,9 @@ function ScoutIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                     </div>
                 </main>
 
-                <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-                    <LockedTraitsPicker
-                        traits={traits}
-                        locked={lockedTraits}
-                        onChange={setLockedTraits}
-                    />
-                    <EmblemPicker
-                        traits={traits}
-                        emblems={emblems}
-                        onChange={setEmblems}
-                    />
+                <aside className="hidden h-full min-h-0 flex-col gap-4 overflow-hidden lg:flex">
+                    {traitsPicker}
+                    {emblemPicker}
                 </aside>
             </div>
             <ScoutDebugPanel

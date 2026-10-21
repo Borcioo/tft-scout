@@ -103,10 +103,14 @@ function renderInsight(item: InsightItem): ReactNode {
             return (
                 <>
                     <ChampIcon api={item.championApiName} />{' '}
-                    <strong>{item.championName}</strong> performs best in{' '}
+                    <strong>{item.championName}</strong>{' '}
+                    {item.count != null ? 'with' : 'performs best in'}{' '}
                     <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.traitName}</strong> ({fmtAvg(item.avgPlace)}{' '}
-                    avg)
+                    <strong>
+                        {item.count != null && `${item.count} `}
+                        {item.traitName}
+                    </strong>{' '}
+                    ({fmtAvg(item.avgPlace)} avg)
                 </>
             );
         case 'provenPair':
@@ -116,8 +120,20 @@ function renderInsight(item: InsightItem): ReactNode {
                     <strong>
                         {item.aName} + {item.bName}
                     </strong>{' '}
-                    <ChampIcon api={item.bApi} /> — proven duo (
-                    {fmtAvg(item.avgPlace)} avg when together)
+                    <ChampIcon api={item.bApi} />
+                    {item.expected != null ? (
+                        <>
+                            {' '}
+                            — better together: {fmtAvg(item.avgPlace)} avg vs ~
+                            {fmtAvg(item.expected)} from each alone
+                        </>
+                    ) : (
+                        <>
+                            {' '}
+                            — proven duo ({fmtAvg(item.avgPlace)} avg when
+                            together)
+                        </>
+                    )}
                 </>
             );
         case 'highBreakpoint':
