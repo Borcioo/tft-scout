@@ -60,7 +60,7 @@ export function CompCardBody({
 
     return (
         <Card className="flex flex-col gap-3 p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                     {headerLeft ??
                         title.map((t, i) => (
@@ -86,7 +86,7 @@ export function CompCardBody({
                             </span>
                         ))}
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
                     {team.metaMatch && (
                         <Badge
                             variant="outline"
