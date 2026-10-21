@@ -29,7 +29,7 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - `scripts/scout-cli/` — debug CLI (commands/, lab/, lookup, params, context, format)
 - `scripts/scout-cli.ts` — entry point (`npm run scout`)
 - `scripts/scout-audit/` — batch analysis
-- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data, set18-data-shape, scout-strength-model
+- `docs/research/` — raporty: tft-data-sources, tft-hash-discovery, tft-character-bins-mechanics, debugging-ability-data, set18-data-shape, scout-strength-model, scout-discovery
 - `docs/knowledge-base/` — baza wiedzy aktualnego setu (Set 18; Set 17 w `set17/`)
 - `docs/champion-ability-pipeline.md` — end-to-end walkthrough (reference doc)
 - `legacy/` — stary Node stack, nie edytować
@@ -56,6 +56,7 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **Perf target** — po Phase C (Set 17): locked ~700ms, non-lock ~1.7s; Set 18 snapshot w kontenerze CI-like: non-lock lvl 8 ~3.3–4.3s także na kodzie sprzed zmian (większa pula), locked ~1.5s; engine v2 w tym samym kontenerze co main: lvl 8 2.3s vs 4.3s, lvl 9 3.6s vs 7.2s, Vanguard 6 lock 1.6s vs 2.3s (indeks strength.ts zagnieżdżony per unit — bez string kluczy per para)
 - **Scoring = model siły planszy** (`strength.ts`, `docs/research/scout-strength-model.md`) — MetaTFT unit/para/trait-level lifts; meta compy to TYLKO zbiór testowy (`npm run scout -- eval`, offline na zamrożonym `tmp/scout-eval/`), nigdy cel ani bonus za podobieństwo. Surowe `place` rankuje (bywa < 1); w UI `breakdown.avgPlace` (kalibracja `STRENGTH.calibration`). Zmiana skali score → podbij `SCORE_MODEL` (config.ts), Plans porównuje tylko ten sam model
 - **MetaTFT dane do analiz** — zapisuj raz do `tmp/scout-eval/` i czytaj lokalnie (podsumowania, nie surowe JSON-y); nie pobieraj na świeżo przy każdej analizie. `npm run scout -- oracle` = realne wyniki konkretnych plansz z explorera (filtr `unit_tier_numitems_unique={api}-{kopia}_{gwiazdki}_{itemy}`, `/units_unique` zwraca wszystkie dopełnienia), wznawialne; `scout eval` czyta je automatycznie
+- **Odkrywanie plansz** (`npm run scout -- discover`, `docs/research/scout-discovery.md`) — Bayes: model + Gold+ + Master+ (`oracle --rank`), ranking EI w warstwach (rozmiar × liczba 5-costów); `top-games` = Riot API (`RIOT_API_KEY`), zapisuje tylko plansze, bez identyfikatorów graczy
 - **Set 18 nie ma liczb umiejętności w CDragon** (spelle: `DataValue`/`OtherValue`, kalkulacje zahashowane) — model "ze statystyk gry" nie zadziała; statystyki bazowe w obrębie kosztu nie przewidują siły (Riot balansuje je przeciw spellom)
 - **pnpm-workspace.yaml istnieje**, ale scripts używają `npm` — sprawdź który package manager zanim zainstalujesz deps
 

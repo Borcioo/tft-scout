@@ -39,7 +39,11 @@ type Board = {
     real: number;
 };
 
-export function resolveBoards(oracle: any, ctx: any): Map<string, Board> {
+export function resolveBoards(
+    oracle: any,
+    ctx: any,
+    minGames = MIN_GAMES,
+): Map<string, Board> {
     const byApi = new Map(
         ctx.champions.filter((c) => !c.lockOnly).map((c) => [c.apiName, c]),
     );
@@ -59,7 +63,7 @@ export function resolveBoards(oracle: any, ctx: any): Map<string, Board> {
     for (const [key, obs] of Object.entries<any>(oracle.observations)) {
         const n = games(obs.places);
 
-        if (n < MIN_GAMES || obs.units.length < 7) {
+        if (n < minGames || obs.units.length < 7) {
             continue;
         }
 
