@@ -115,13 +115,19 @@ jobs:
           php artisan migrate --force
 
           # Set change: import the target set and its MetaTFT stats while
-          # the old set keeps serving, then switch. A failed import stops
-          # the deploy here (set -e) and the site stays on the old set.
-          if [ "$(grep -E '^TFT_SET=' .env | cut -d= -f2)" != "$TARGET_SET" ]; then
-            php artisan tft:import --set="$TARGET_SET"
-            php artisan metatft:sync --set="$TARGET_SET"
-            set_env TFT_SET "$TARGET_SET"
-            set_env METATFT_QUEUE "$TARGET_QUEUE"
+          # the old set keeps serving, then switch. If either fails the site
+          # stays on the old set, the release still gets its caches and
+          # restarts below, and the job fails at the end.
+          SWITCH_FAILED=
+          LIVE_SET="$(grep -E '^TFT_SET=' .env | cut -d= -f2)"
+          if [ "$LIVE_SET" != "$TARGET_SET" ]; then
+            if php artisan tft:import --set="$TARGET_SET" && php artisan metatft:sync --set="$TARGET_SET"; then
+              set_env TFT_SET "$TARGET_SET"
+              set_env METATFT_QUEUE "$TARGET_QUEUE"
+            else
+              SWITCH_FAILED=1
+              echo "::error::Set $TARGET_SET import/sync failed; production stays on set $LIVE_SET"
+            fi
             # Import/sync ran as root: icons, logs and the CDragon cache
             # must stay writable for php-fpm.
             chown -R www-data:www-data public/icons storage
@@ -143,6 +149,11 @@ jobs:
           supervisorctl reread
           supervisorctl update
           supervisorctl restart all
+
+          if [ -n "$SWITCH_FAILED" ]; then
+            echo "Deployed on set $LIVE_SET; switch to set $TARGET_SET failed: $(date)"
+            exit 1
+          fi
 
           echo "Deploy complete: $(date)"
           DEPLOY
