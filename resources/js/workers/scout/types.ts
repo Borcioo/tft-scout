@@ -183,8 +183,33 @@ export type WorkerInMsg =
     | { type: 'rescore'; id: number; params: RescoreParams }
     | { type: 'roadTo'; id: number; params: unknown };
 
+/** A trait lock the constraints cannot reach (see lock-reach.ts). */
+export type LockIssue = {
+    traitApiName: string;
+    traitName: string;
+    minUnits: number;
+    /** Best case at the requested level, emblems included. */
+    reach: number;
+    /** Best case if the player owned every level-gated unit. */
+    reachIgnoringLevel: number;
+    /** Units the level gate keeps out; locking one lifts the gate. */
+    gatedUnits: {
+        apiName: string;
+        name: string;
+        cost: number;
+        amount: number;
+        fromLevel: number;
+    }[];
+};
+
+export type GenerateResult = {
+    results: ScoredTeam[];
+    insights: unknown;
+    lockIssues: LockIssue[];
+};
+
 export type WorkerOutMsg =
-    | { id: number; result: { results: ScoredTeam[]; insights: unknown } }
+    | { id: number; result: GenerateResult }
     | { id: number; rescore: RescoreResult }
     | { id: number; error: string };
 

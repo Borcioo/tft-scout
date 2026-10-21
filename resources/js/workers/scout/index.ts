@@ -5,8 +5,10 @@
 
 import { generate } from './engine';
 import { generateInsights } from './insights';
+import { findLockIssues, normalizeEmblems } from './lock-reach';
 import { rescoreTeam } from './re-score';
 import type {
+    GenerateResult,
     ScoredTeam,
     ScoutContext,
     ScoutParams,
@@ -77,7 +79,10 @@ function mapResult(r: any): ScoredTeam {
     };
 }
 
-async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
+async function runGenerate(
+    ctx: ScoutContext,
+    params: ScoutParams,
+): Promise<GenerateResult> {
     const p = params as any;
     const {
         lockedChampions = [],
@@ -122,12 +127,25 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
         champions: ctx.champions,
         traits: ctx.traits,
         lockedChampions,
-        emblems,
+        emblems: normalizeEmblems(emblems),
         level,
         scoringCtx: ctx.scoringCtx,
     });
 
-    return { results: results.map(mapResult), insights };
+    // Why a trait lock came back empty — a level-gated unit the player
+    // can lock, or no way at all. Only an empty slate needs it.
+    const lockIssues =
+        results.length === 0
+            ? findLockIssues({
+                  champions: ctx.champions,
+                  traits: ctx.traits,
+                  exclusionGroups: ctx.exclusionGroups,
+                  constraints,
+                  level,
+              })
+            : [];
+
+    return { results: results.map(mapResult), insights, lockIssues };
 }
 
 self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {

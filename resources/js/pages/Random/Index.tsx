@@ -231,7 +231,7 @@ function RandomIndexInner({ itemBuilds, savedPlannerCodes }: Props) {
                 </div>
 
                 {error && (
-                    <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-red-300 text-sm">
+                    <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 text-sm dark:border-red-800/60 dark:bg-red-950/20 dark:text-red-300">
                         {error}
                     </div>
                 )}

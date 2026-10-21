@@ -1,6 +1,7 @@
-import type { ScoredTeam } from '@/workers/scout/types';
+import type { LockIssue, ScoredTeam } from '@/workers/scout/types';
 import type { ItemBuildsMap } from './ChampionItemBuildsAccordion';
 import { ScoutCompCard } from './ScoutCompCard';
+import { TraitLockIssues } from './TraitLockIssues';
 
 type EmblemEntry = { apiName: string; count: number };
 
@@ -13,6 +14,8 @@ type Props = {
     onSaved: (code: string) => void;
     level: number;
     emblems: EmblemEntry[];
+    lockIssues: LockIssue[];
+    onLockChampion: (apiName: string) => void;
 };
 
 export function ScoutResultsList({
@@ -24,10 +27,12 @@ export function ScoutResultsList({
     onSaved,
     level,
     emblems,
+    lockIssues,
+    onLockChampion,
 }: Props) {
     if (error) {
         return (
-            <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-4 text-red-300 text-sm">
+            <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800 text-sm dark:border-red-800/60 dark:bg-red-950/20 dark:text-red-300">
                 Scout failed: {error}
             </div>
         );
@@ -38,6 +43,16 @@ export function ScoutResultsList({
             <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                 Running scout…
             </div>
+        );
+    }
+
+    if (teams.length === 0 && lockIssues.length > 0) {
+        return (
+            <TraitLockIssues
+                issues={lockIssues}
+                level={level}
+                onLockChampion={onLockChampion}
+            />
         );
     }
 

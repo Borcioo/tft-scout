@@ -45,7 +45,7 @@ export class ScoutErrorBoundary extends Component<Props, State> {
                         The scout component threw an error. Details below.
                         Reloading the page usually recovers.
                     </p>
-                    <pre className="max-h-[50vh] overflow-auto rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-red-300 text-xs">
+                    <pre className="max-h-[50vh] overflow-auto rounded-lg border border-red-300 bg-red-50 p-3 text-red-800 text-xs dark:border-red-800/60 dark:bg-red-950/20 dark:text-red-300">
                         {this.state.error.message}
                         {this.state.error.stack
                             ? `\n\n${this.state.error.stack}`
