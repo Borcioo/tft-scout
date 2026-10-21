@@ -108,9 +108,14 @@ export function CompCardBody({
                     {team.breakdown?.avgPlace != null && (
                         <span
                             className="font-mono text-muted-foreground text-sm"
-                            title="Estimated average placement (1–8) from MetaTFT unit, pair and trait stats, calibrated on real comp results"
+                            title={
+                                team.breakdown.beyondData
+                                    ? 'Rated above every board people played, so the estimate stops at the best real average; the score still ranks these boards'
+                                    : 'Estimated average placement (1–8) of players who end the game with this board — from MetaTFT unit, pair and trait stats, calibrated on ~4k boards people played'
+                            }
                         >
-                            ~{team.breakdown.avgPlace.toFixed(2)} avg
+                            {team.breakdown.beyondData ? '≤' : '~'}
+                            {team.breakdown.avgPlace.toFixed(2)} avg
                         </span>
                     )}
                     <span className="flex items-center gap-1.5 font-mono text-muted-foreground text-sm">

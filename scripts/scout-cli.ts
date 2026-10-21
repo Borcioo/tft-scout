@@ -18,6 +18,7 @@ Commands:
   context --trait N     Print one trait record from the saved snapshot
   generate [flags]      Run engine.generate end-to-end
   phase <name> [flags]  Run a single phase (candidates|graph|find-teams|score|active-traits|role-balance|insights)
+  oracle [flags]        Fetch real outcomes of meta + engine boards from MetaTFT's explorer, once, to tmp/ (--snapshot, --out, --patch, --levels, --min-games)
   eval [flags]          Quality report: strength vs real placements, search, sanity (--snapshot, --levels, --seeds, --json)
   experiment [flags]    Bulk runner — --preset <name> | --matrix '<json>' | --repeat N --seed-range A-B
   lab init              Create tmp/scout-lab/runs.db and apply schema
@@ -107,6 +108,13 @@ async function main() {
             './scout-cli/commands/experiment'
         );
         await runExperimentCommand(rest);
+
+        return;
+    }
+
+    if (command === 'oracle') {
+        const { runOracle } = await import('./scout-cli/commands/oracle');
+        await runOracle(rest);
 
         return;
     }

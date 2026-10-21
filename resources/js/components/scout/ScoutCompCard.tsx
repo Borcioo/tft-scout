@@ -100,7 +100,6 @@ export function ScoutCompCard({
                     meta: {
                         score: team.score,
                         scoreModel: SCORE_MODEL,
-                        avgPlace: team.breakdown?.avgPlace ?? null,
                         activeTraits: team.activeTraits,
                         roles: team.roles,
                         insights: team.insights,
