@@ -13,6 +13,7 @@ use App\Services\MetaTft\Dto\UnitRatingDto;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -56,6 +57,22 @@ class MetaTftClient
 
     private const DEFAULT_TTL = 3600;
 
+    // Same window for every endpoint — the MetaTFT site default ("Last 2
+    // Days"). Bulk stats used 3 days and the explorer 1, so a unit's
+    // affinity rows and its own rating described different games.
+    private const DAYS = '2';
+
+    /**
+     * Patch the current sync reads, resolved once per run (resolvePatch).
+     * Every endpoint is pinned to it: `patch=current` follows the newest
+     * patch the moment it ships, so right after a release the stats were
+     * a few thousand games (auto-widened to Iron) while cached endpoints
+     * still held the previous patch — one sync mixed both.
+     *
+     * @var array{patch: string, b_patch: string, label: string, games: int}|null
+     */
+    private ?array $patch = null;
+
     /**
      * Per-run memo for fetchTotalGames — the sync calls it once from
      * fetchItemStats and once from fetchItemBuilds for the SAME champion,
@@ -80,6 +97,80 @@ class MetaTftClient
     public function resetRunCache(): void
     {
         $this->totalGamesCache = [];
+        $this->patch = null;
+    }
+
+    /**
+     * Pick the patch to sync: the newest one with enough games in the
+     * window, else the one with the most games. A request without `patch`
+     * lists every patch in the window with its game count (MetaTFT's own
+     * patch picker shows the same numbers).
+     *
+     * @return array{patch: string, b_patch: string, label: string, games: int}
+     */
+    public function resolvePatch(): array
+    {
+        if ($this->patch !== null) {
+            return $this->patch;
+        }
+
+        try {
+            $games = $this->getWithCache(self::STATS_BASE_URL, 'units', [
+                'queue' => $this->queue,
+                'days' => self::DAYS,
+                'rank' => self::DEFAULT_RANK,
+                'permit_filter_adjustment' => 'false',
+            ])['games'] ?? [];
+        } catch (RuntimeException $e) {
+            Log::warning('MetaTFT patch discovery failed, using current: '.$e->getMessage());
+            $games = [];
+        }
+
+        return $this->patch = self::pickPatch(
+            $games,
+            (int) config('services.metatft.min_patch_games', 300_000),
+        );
+    }
+
+    /**
+     * @param  list<array{patch?: string, b_patch_version?: string, count?: int}>  $games
+     * @return array{patch: string, b_patch: string, label: string, games: int}
+     */
+    public static function pickPatch(array $games, int $minGames): array
+    {
+        $patches = array_values(array_filter(array_map(fn ($g) => [
+            'patch' => (string) ($g['patch'] ?? ''),
+            'b_patch' => (string) ($g['b_patch_version'] ?? ''),
+            'games' => (int) ($g['count'] ?? 0),
+        ], $games), fn ($p) => $p['patch'] !== ''));
+
+        if ($patches === []) {
+            return ['patch' => 'current', 'b_patch' => '', 'label' => 'current', 'games' => 0];
+        }
+
+        // Newest first: 18.5 > 18.4b > 18.4
+        usort($patches, fn ($a, $b) => version_compare($b['patch'], $a['patch']) ?: strcmp($b['b_patch'], $a['b_patch']));
+
+        $picked = null;
+        foreach ($patches as $p) {
+            if ($p['games'] >= $minGames) {
+                $picked = $p;
+                break;
+            }
+        }
+        $picked ??= array_reduce($patches, fn ($best, $p) => $best === null || $p['games'] > $best['games'] ? $p : $best);
+
+        return $picked + ['label' => $picked['patch'].$picked['b_patch']];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function patchParams(): array
+    {
+        $p = $this->resolvePatch();
+
+        return array_filter(['patch' => $p['patch'], 'b_patch' => $p['b_patch']], fn ($v) => $v !== '');
     }
 
     /**
@@ -98,7 +189,7 @@ class MetaTftClient
         $rows = $payload['results'] ?? [];
 
         return array_values(array_map(
-            function (array $row) use ($payload) {
+            function (array $row) {
                 $agg = self::aggregatePlaces($row['places'] ?? []);
 
                 return new UnitRatingDto(
@@ -107,7 +198,7 @@ class MetaTftClient
                     winRate: $agg['winRate'],
                     top4Rate: $agg['top4Rate'],
                     games: $agg['games'],
-                    patch: $payload['patch'] ?? null,
+                    patch: $this->resolvePatch()['label'],
                 );
             },
             $rows,
@@ -487,6 +578,7 @@ class MetaTftClient
             [
                 'queue' => $this->queue,
                 'region_hint' => 'eun1',
+                ...$this->patchParams(),
             ],
         );
 
@@ -524,14 +616,16 @@ class MetaTftClient
     {
         return [
             'queue' => $this->queue,
-            'patch' => 'current',
-            'days' => '3',
+            ...$this->patchParams(),
+            'days' => self::DAYS,
             // Apply rank filter to bulk units/traits stats too — without
             // this we were averaging across all ranks including low elo,
             // which biased avgPlace high on skill-demanding comps like
-            // Meta1 (SummonTrait+Viktor) vs easy stack comps.
+            // Meta1 (SummonTrait+Viktor) vs easy stack comps. No filter
+            // adjustment: MetaTFT widens a small sample to Iron on its
+            // own, which mixes player pools between endpoints.
             'rank' => self::DEFAULT_RANK,
-            'permit_filter_adjustment' => 'true',
+            'permit_filter_adjustment' => 'false',
         ];
     }
 
@@ -545,10 +639,10 @@ class MetaTftClient
             'formatnoarray' => 'true',
             'compact' => 'true',
             'queue' => $this->queue,
-            'patch' => 'current',
-            'days' => '1',
+            ...$this->patchParams(),
+            'days' => self::DAYS,
             'rank' => self::DEFAULT_RANK,
-            'permit_filter_adjustment' => 'true',
+            'permit_filter_adjustment' => 'false',
         ];
     }
 

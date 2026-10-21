@@ -46,6 +46,7 @@ Laravel: `php artisan ...` (przez Herd wrapper — `source ~/.bashrc` jeśli fai
 - **Ability descriptions**: plaintext RST keys w `SpellObject.mClientData`
 - **Set 18 = namespace `DA_`** (DA_18_Ahri, DA_Amumu18, DA_InfinityEdge) — nigdy nie zakładaj `TFT{N}_`; prefiksy i quirki setu w `config/tft.php` `sets` → `App\Support\SetProfile`
 - **Trait amounts / team size są danymi**: `champion_trait.amount` (bin `mLinkedTraits[].Amount`: Lux ×2, Elder Dragon ×2) → worker `traitAmounts`; `breakpoint.teamSizeBonus` (Riftbeast 10 → +2) — bez hardkodów `TFT17_Mecha`
+- **MetaTFT = jeden patch na sync** (`MetaTftClient::resolvePatch`): najnowszy z ≥300k gier w oknie 2 dni, inaczej poprzedni (np. 18.4b zamiast świeżego 18.5); `patch=X&b_patch=Y` na wszystkich endpointach, bez auto-poszerzania rangi. `patch=current` mieszał patche i dawał próbki po kilka tys. gier
 - **Set 18 role są inferowane** (`RoleInferenceHook`) — Riot nie wystawia ról; heurystyka, nie prawda
 - **Kha'Zix = 16 wpisów** (base + 15 kombinacji ewolucji, `sets.18.evolutions`); komplet 4 jest `lockOnly` (scout bierze tylko po locku), a Rival u niego jest w `unscoredTraits` (aktywny, widoczny, bez punktów). Zmiana logiki importu → podbij `TFT_DATA_REVISION` w `deploy.yml`, inaczej prod nie re-importuje
 - **Locked traits = HARD filter** (nie tylko score penalty); **trap traits penalized**; **no sell-all comps**
