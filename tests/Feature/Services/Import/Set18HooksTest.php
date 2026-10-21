@@ -96,14 +96,19 @@ test('roles are inferred from range, damage words and fighter traits', function 
         ->and($riotRole->fresh()->role)->toBe('ADTank');
 });
 
-test('kha\'zix gets one evolved form per configured trait', function () {
+test('kha\'zix gets a form per combination of evolutions', function () {
+    config(['tft.sets.18.unscored_traits' => ['DA_18_KhaZix' => ['DA_18_Rival']]]);
     config(['tft.sets.18.evolutions' => [
-        'DA_18_KhaZix' => ['DA_18_Executioner', 'DA_18_Slayer', 'DA_18_Missing'],
+        'DA_18_KhaZix' => [
+            'choices' => ['DA_18_Executioner', 'DA_18_Slayer', 'DA_18_Spellweaver', 'DA_18_Missing'],
+            'max' => 2,
+            'auto_max' => 1,
+        ],
     ]]);
     $rival = ($this->trait)('DA_18_Rival');
     ($this->trait)('DA_18_Executioner')->update(['name' => 'Executioner']);
-    $ravager = ($this->trait)('DA_18_Slayer');
-    $ravager->update(['name' => 'Ravager']);
+    ($this->trait)('DA_18_Slayer')->update(['name' => 'Ravager']);
+    ($this->trait)('DA_18_Spellweaver')->update(['name' => 'Spellweaver']);
     $base = ($this->champion)('DA_18_KhaZix', "Kha'Zix", [
         'cost' => 3,
         'role' => 'APFighter',
@@ -113,23 +118,56 @@ test('kha\'zix gets one evolved form per configured trait', function () {
 
     (new TraitEvolutionHook)->run($this->set);
 
-    $form = Champion::where('api_name', 'DA_18_KhaZix_Ravager')->firstOrFail();
-    expect(Champion::where('base_champion_id', $base->id)->count())->toBe(2)
-        ->and($form->name)->toBe("Kha'Zix (Ravager)")
-        ->and($form->variant_label)->toBe('ravager')
+    // 3 single picks + 3 pairs; the missing trait is skipped, max caps at 2
+    expect(Champion::where('base_champion_id', $base->id)->orderBy('id')->pluck('api_name')->all())->toBe([
+        'DA_18_KhaZix_Executioner',
+        'DA_18_KhaZix_Ravager',
+        'DA_18_KhaZix_Spellweaver',
+        'DA_18_KhaZix_Executioner_Ravager',
+        'DA_18_KhaZix_Executioner_Spellweaver',
+        'DA_18_KhaZix_Ravager_Spellweaver',
+    ]);
+
+    // Picks beyond auto_max are lock-only: the scout fields them only on a lock
+    expect(Champion::where('base_champion_id', $base->id)->pluck('lock_only', 'api_name')->all())->toBe([
+        'DA_18_KhaZix_Executioner' => false,
+        'DA_18_KhaZix_Ravager' => false,
+        'DA_18_KhaZix_Spellweaver' => false,
+        'DA_18_KhaZix_Executioner_Ravager' => true,
+        'DA_18_KhaZix_Executioner_Spellweaver' => true,
+        'DA_18_KhaZix_Ravager_Spellweaver' => true,
+    ]);
+
+    $form = Champion::where('api_name', 'DA_18_KhaZix_Executioner_Ravager')->firstOrFail();
+    expect($form->name)->toBe("Kha'Zix (Executioner + Ravager)")
+        ->and($form->variant_label)->toBe('executioner-ravager')
         ->and($form->is_playable)->toBeTrue()
         ->and($form->cost)->toBe(3)
         ->and($form->role)->toBe('APFighter')
         ->and($form->planner_code)->toBe(777)
         ->and($form->traits()->pluck('amount', 'api_name')->all())
-        ->toEqual(['DA_18_Rival' => 1, 'DA_18_Slayer' => 1])
+        ->toEqual(['DA_18_Rival' => 1, 'DA_18_Executioner' => 1, 'DA_18_Slayer' => 1])
         // Unevolved Kha'Zix stays a legal pick
         ->and($base->fresh()->is_playable)->toBeTrue()
         ->and($base->traits()->pluck('api_name')->all())->toBe(['DA_18_Rival']);
 
     // One Kha'Zix per board: base and every form share an exclusion group
     config(['services.tft.set' => 18]);
-    $groups = app(ScoutContextBuilder::class)->build(18)['exclusionGroups'];
-    expect(collect($groups)->map(fn ($g) => collect($g)->sort()->values()->all())->all())
-        ->toContain(['DA_18_KhaZix', 'DA_18_KhaZix_Executioner', 'DA_18_KhaZix_Ravager']);
+    $context = app(ScoutContextBuilder::class)->build(18);
+    expect(collect($context['exclusionGroups'])->firstWhere(fn ($g) => in_array('DA_18_KhaZix', $g)))->toHaveCount(7)
+        ->and(collect($context['champions'])->pluck('lockOnly', 'apiName')->only(['DA_18_KhaZix', 'DA_18_KhaZix_Ravager', 'DA_18_KhaZix_Ravager_Spellweaver'])->all())
+        ->toBe(['DA_18_KhaZix' => false, 'DA_18_KhaZix_Ravager' => false, 'DA_18_KhaZix_Ravager_Spellweaver' => true])
+        // Rival stays on every Kha'Zix but scores nothing for him
+        ->and(collect($context['champions'])->filter(fn ($c) => str_starts_with($c['apiName'], 'DA_18_KhaZix'))->pluck('unscoredTraits')->unique()->values()->all())
+        ->toBe([['DA_18_Rival']])
+        ->and(collect($context['champions'])->firstWhere('apiName', 'DA_18_KhaZix_Ravager')['traits'])->toContain('DA_18_Rival');
+});
+
+test('evolution combinations cover every pick count once', function () {
+    $all = TraitEvolutionHook::combinations(['E', 'R', 'V', 'S'], 4);
+
+    expect($all)->toHaveCount(15)
+        ->and(collect($all)->countBy(fn ($c) => count($c))->all())->toBe([1 => 4, 2 => 6, 3 => 4, 4 => 1])
+        ->and($all[14])->toBe(['E', 'R', 'V', 'S'])
+        ->and(TraitEvolutionHook::combinations(['E', 'R'], 1))->toBe([['E'], ['R']]);
 });

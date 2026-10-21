@@ -59,11 +59,7 @@
 | Diana | DA_18_Diana | APFighter | Lunar, Ravager, Vanguard | 1 |  |
 | Fiddlesticks | DA_Fiddlesticks18 | APTank | Defender, Flora Fatalis, Spellweaver | 1 |  |
 | Hecarim | DA_18_Hecarim | APTank | Elderwood, Vanguard | 1 |  |
-| Kha'Zix | DA_18_KhaZix | APFighter | Rival | 1 | nieewoluowany; 4 ewolucje poniżej (wykluczają się z nim) |
-| Kha'Zix (Executioner) | DA_18_KhaZix_Executioner | APFighter | Rival, Executioner | 1 | ewolucja (`TraitEvolutionHook`) |
-| Kha'Zix (Rapidfire) | DA_18_KhaZix_Rapidfire | APFighter | Rival, Rapidfire | 1 | ewolucja (`TraitEvolutionHook`) |
-| Kha'Zix (Ravager) | DA_18_KhaZix_Ravager | APFighter | Rival, Ravager | 1 | ewolucja (`TraitEvolutionHook`) |
-| Kha'Zix (Spellweaver) | DA_18_KhaZix_Spellweaver | APFighter | Rival, Spellweaver | 1 | ewolucja (`TraitEvolutionHook`) |
+| Kha'Zix | DA_18_KhaZix | APFighter | Rival | 1 | nieewoluowany; + 15 form ewolucji `DA_18_KhaZix_{Executioner,Rapidfire,Ravager,Spellweaver}[_…]` (każda kombinacja, komplet 4 = lock only); Rival bez punktów |
 | Kog'Maw | DA_KogMaw18_AD | ADCarry | Caustic, Adaptor, Invoker | 1 |  |
 | Krug | DA_Krug18 | HTank | Brawler, Riftbeast | 1 |  |
 | Mama Beak | DA_CrimsonRaptor18 | HCaster | Rapidfire, Riftbeast, Summoner | 1 |  |

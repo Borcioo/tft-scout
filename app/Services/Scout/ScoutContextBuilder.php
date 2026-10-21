@@ -15,6 +15,7 @@ use App\Models\TftTrait;
 use App\Models\TraitRating;
 use App\Models\TraitStyle;
 use App\Services\Tft\TraitTeamSize;
+use App\Support\SetProfile;
 
 /**
  * Assembles the JSON payload that the scout Web Worker consumes.
@@ -167,6 +168,8 @@ class ScoutContextBuilder
 
     private function buildChampions(Set $set): array
     {
+        $unscored = SetProfile::for($set->number)->unscoredTraits;
+
         return Champion::query()
             ->where('set_id', $set->id)
             ->where('is_playable', true)
@@ -187,6 +190,12 @@ class ScoutContextBuilder
                 'slotsUsed' => $c->slots_used,
                 'baseApiName' => $c->baseChampion?->api_name,
                 'variant' => $c->variant_label,
+                // Fielded only when the player locks it (Kha'Zix with all
+                // four evolutions)
+                'lockOnly' => $c->lock_only,
+                // Active but scoreless traits, per base champion so every
+                // form inherits them (Kha'Zix's Rival)
+                'unscoredTraits' => $unscored[$c->baseChampion?->api_name ?? $c->api_name] ?? [],
                 'role' => $c->role,
                 'damageType' => $c->damage_type,
                 'roleCategory' => $c->role_category,

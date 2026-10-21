@@ -32,8 +32,9 @@ tylko po hashu, więc **wszystkie** opisy umiejętności (też Set 17) przestał
   DataValues (`DataValue`, `OtherValue`, kalkulacje pod hashami `{d678dbfb}`). Szablony typu `@MagicDamageCalc1@`
   zostają bez wartości dla części championów (np. Ahri). Pełne liczby mają m.in. Alune, Kobuko.
 - **Placeholdery:** Lux i Mama Beak wskazują w binie na stub "Placeholder Tooltip" — zostaje tekst z `en_us.json`.
-- **Warunek odblokowania 2 Rivali** nie jest w danych. (Ewolucje Kha'Zixa są — tylko w opisie traita Rival, nie w
-  binie; modelowane przez `sets.18.evolutions`, patrz knowledge-base/special-mechanics.md.)
+- **Warunek odblokowania 2 Rivali** nie jest w danych. Ewolucje Kha'Zixa są tylko w opisie traita Rival (nie w
+  binie), a progi i liczba wyborów wcale — 7 zmiennych Rivala (po FNV1a) to same `Rengar*`; licznik "Kha'Zix
+  Takedowns: 0 / 0" wypełnia gra. Modelowane przez `sets.18.evolutions`, patrz knowledge-base/special-mechanics.md.
 - **Itemy Set 18** (`DA_InfinityEdge`, komponenty, emblematy) to w `map22.bin.json` stuby: `TftItemData` bez
   `mDescriptionNameTra` i bez `constants` (evergreen `TFT_Item_*` ma oba), w `en_us.json` `desc: null`,
   `effects: {}`, w stringtable tylko `*_name`. Opisów i statystyk nie ma skąd wziąć; kopiowanie z evergreen

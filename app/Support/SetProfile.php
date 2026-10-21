@@ -22,7 +22,8 @@ final class SetProfile
      * @param  array<string, int>  $slotsByTrait
      * @param  array<string, string>  $metatftUnitAliases
      * @param  list<string>  $fighterTraits
-     * @param  array<string, list<string>>  $evolutions
+     * @param  array<string, array{choices: list<string>, max: int, auto_max: int}>  $evolutions
+     * @param  array<string, list<string>>  $unscoredTraits
      */
     private function __construct(
         public readonly int $number,
@@ -33,6 +34,7 @@ final class SetProfile
         public readonly array $metatftUnitAliases,
         public readonly array $fighterTraits,
         public readonly array $evolutions,
+        public readonly array $unscoredTraits,
     ) {}
 
     public static function for(int $setNumber): self
@@ -47,7 +49,12 @@ final class SetProfile
             slotsByTrait: $cfg['slots_by_trait'] ?? [],
             metatftUnitAliases: $cfg['metatft_unit_aliases'] ?? [],
             fighterTraits: array_values($cfg['fighter_traits'] ?? []),
-            evolutions: array_map('array_values', $cfg['evolutions'] ?? []),
+            evolutions: array_map(fn (array $e) => [
+                'choices' => array_values($e['choices'] ?? []),
+                'max' => (int) ($e['max'] ?? 1),
+                'auto_max' => (int) ($e['auto_max'] ?? $e['max'] ?? 1),
+            ], $cfg['evolutions'] ?? []),
+            unscoredTraits: array_map('array_values', $cfg['unscored_traits'] ?? []),
         );
     }
 

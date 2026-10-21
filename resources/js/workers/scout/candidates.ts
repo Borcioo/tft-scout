@@ -99,6 +99,9 @@ export function filterCandidates(
         .filter((c: any) => !excludedSet.has(c.apiName))
         .filter((c: any) => !lockedSet.has(c.apiName))
         .filter((c: any) => c.variant !== 'hero')
+        // Lock-only units (Kha'Zix with all four evolutions) reach the
+        // team-builder only through getLockedChampions, like heroes.
+        .filter((c: any) => !c.lockOnly)
         .map((c: any) => ({
             ...c,
             relevance: c.traits.filter((t: any) => relevantTraits.has(t))

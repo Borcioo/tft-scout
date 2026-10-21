@@ -61,10 +61,20 @@ składane do championa z CDragon w ratingach jednostek, companions i meta compac
 fielded together, and their abilities grant each other bonuses". Co odblokowuje wariant z dwoma Rivalami, z danych
 nie wynika. Kha'Zix ewoluuje (wybór Executioner/Rapidfire/Ravager/Spellweaver), Rengar daje gold i AD.
 
-**Modelowanie:** trait `public` z breakpointem 1 — traktowany jak unikat. Ewolucje Kha'Zixa: bin linkuje tylko
-Rival, wybór jest wyłącznie w opisie traita → `config/tft.php` `sets.18.evolutions` + `TraitEvolutionHook` tworzy
-4 formy (`DA_18_KhaZix_Executioner|Rapidfire|Ravager|Spellweaver`, base + trait wyboru). Base zostaje grywalny
-(nieewoluowany Kha'Zix jest legalny), formy są w jednej grupie wykluczeń z basem; ratingi MetaTFT idą po base.
+**Modelowanie:** trait `public` z breakpointem 1. Ewolucje Kha'Zixa: bin linkuje tylko Rival, wybory są wyłącznie
+w opisie traita, a liczby wyborów nie ma nigdzie w danych (wiedza z gry: kolejne progi takedownów dają kolejny wybór,
+do wszystkich 4 w dowolnej kolejności). `config/tft.php` `sets.18.evolutions` (`choices`, `max: 4`, `auto_max: 3`) +
+`TraitEvolutionHook` tworzą formę na każdą kombinację (15: 4 pojedyncze, 6 par, 4 trójki, 1 komplet), np.
+`DA_18_KhaZix_Executioner_Ravager` = "Kha'Zix (Executioner + Ravager)". Base zostaje grywalny (nieewoluowany
+Kha'Zix jest legalny), base + formy to jedna grupa wykluczeń, ratingi MetaTFT idą po base.
+
+- **`lock_only`** — formy z więcej niż `auto_max` wyborami (komplet 4) scout bierze tylko po jawnym locku; reach /
+  empty-slate traktuje je jak jednostki spod bramki poziomu (przycisk "lock only").
+- **`unscored_traits`** — Rival u Kha'Zixa tylko nabija takedowny do ewolucji (modelowanych formami), więc trait
+  zostaje aktywny i widoczny, ale nie daje punktów (trait score, rating, affinity, filler; scorer i quickScore).
+  Rengar punktuje normalnie — jego gold i AD dla drużyny istnieją tylko przez trait. Jedno źródło prawdy:
+  `trait-amount.ts` `unscoredTraits()`.
+
 Warunek odblokowania 2 Rivali dalej nie wynika z danych.
 
 ## 6. Pozostałe unikalne traity (1 champion)

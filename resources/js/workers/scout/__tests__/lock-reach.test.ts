@@ -90,6 +90,7 @@ describe('findLockIssues', () => {
                         cost: 5,
                         amount: 2,
                         fromLevel: 9,
+                        reason: 'level',
                     },
                 ],
             },
@@ -136,5 +137,52 @@ describe('findLockIssues', () => {
 
         expect(issue.gatedUnits).toEqual([]);
         expect(issue.reachIgnoringLevel).toBe(4);
+    });
+});
+
+describe('findLockIssues — lock-only units', () => {
+    const kzAll = {
+        ...mini.championOf('Rb6'),
+        apiName: 'KzAll',
+        name: 'KzAll',
+        cost: 3,
+        traits: ['Bruiser', 'Sniper'],
+        lockOnly: true,
+    };
+
+    it('offers a lock-only unit with its reason', () => {
+        const [issue] = findLockIssues({
+            champions: [...mini.champions, kzAll],
+            traits: mini.traits,
+            exclusionGroups: mini.exclusionGroups,
+            constraints: {
+                lockedTraits: [{ apiName: 'Bruiser', minUnits: 7 }],
+            },
+            level: 9,
+        });
+
+        expect(issue.reach).toBe(6);
+        expect(issue.reachIgnoringLevel).toBe(7);
+        expect(issue.gatedUnits).toEqual([
+            expect.objectContaining({ apiName: 'KzAll', reason: 'lockOnly' }),
+        ]);
+    });
+
+    it('tells level-gated and lock-only units apart', () => {
+        const [issue] = findLockIssues({
+            champions: [...mini.champions, kzAll],
+            traits: mini.traits,
+            exclusionGroups: mini.exclusionGroups,
+            constraints: {
+                lockedTraits: [{ apiName: 'Bruiser', minUnits: 7 }],
+            },
+            level: 8,
+        });
+
+        expect(
+            Object.fromEntries(
+                issue.gatedUnits.map((u) => [u.apiName, u.reason]),
+            ),
+        ).toEqual({ Big5: 'level', KzAll: 'lockOnly' });
     });
 });

@@ -70,18 +70,37 @@ return [
             'metatft_unit_aliases' => [
                 'DA_NidaleeCougar18_AD' => 'DA_Nidalee18_AP',
             ],
-            // Champions that permanently gain a trait of the player's
-            // choice mid-game. Rival: "Takedowns evolve Kha'Zix, permanently
+            // Traits a unit activates without earning score for them (keyed
+            // by base champion, forms included). Rival on Kha'Zix only
+            // feeds his evolutions — modelled as forms below — so scoring
+            // the trait as well would reward them twice. It stays active
+            // and visible; Rengar's Rival (gold, team AD) scores as usual
+            // (user 2026-10-21).
+            'unscored_traits' => [
+                'DA_18_KhaZix' => ['DA_18_Rival'],
+            ],
+            // Champions that permanently gain traits of the player's choice
+            // mid-game. Rival: "Takedowns evolve Kha'Zix, permanently
             // granting him your choice of Executioner, Rapidfire, Ravager,
             // or Spellweaver." Only the trait description says so — the
-            // bin links just Rival — so TraitEvolutionHook adds one form
-            // per choice (mutually exclusive with the unevolved base).
+            // bin links just Rival — and the number of picks isn't in the
+            // data at all: further takedowns unlock another pick, up to all
+            // four in any order (game knowledge, user 2026-10-21).
+            // TraitEvolutionHook adds a form per combination of up to `max`
+            // choices, mutually exclusive with the unevolved base. Forms
+            // with more than `auto_max` picks are lock-only: all four is
+            // hard to reach, so the scout fields it only when the player
+            // locks it (user 2026-10-21).
             'evolutions' => [
                 'DA_18_KhaZix' => [
-                    'DA_18_Executioner',
-                    'DA_18_Rapidfire',
-                    'DA_18_Slayer',       // Ravager
-                    'DA_18_Spellweaver',
+                    'choices' => [
+                        'DA_18_Executioner',
+                        'DA_18_Rapidfire',
+                        'DA_18_Slayer',       // Ravager
+                        'DA_18_Spellweaver',
+                    ],
+                    'max' => 4,
+                    'auto_max' => 3,
                 ],
             ],
         ],

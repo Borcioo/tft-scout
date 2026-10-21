@@ -14,7 +14,7 @@
 import { SCORING_CONFIG } from './config';
 import { collectAffinityMatches } from './synergy-graph/shared/affinity';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
-import { traitAmount } from './trait-amount';
+import { traitAmount, unscoredTraits } from './trait-amount';
 
 const {
     weights,
@@ -394,7 +394,9 @@ export function fillerCount(
         for (const t of c.traits) {
             const trait = activeTraitsByApi[t];
 
-            if (!trait) {
+            // An unscored contribution (Kha'Zix's Rival) never makes a
+            // unit critical
+            if (!trait || c.unscoredTraits?.includes(t)) {
                 continue;
             }
 
@@ -471,7 +473,28 @@ export function companionBonus(team: any, ctx: any) {
 
 // ── Team scoring ────────────────────────────────
 
-export function teamScore(team: any, ctx: any) {
+/**
+ * `team` with only the active traits that earn score. Unscored traits
+ * (Kha'Zix's Rival without Rengar) stay in the comp's own activeTraits for
+ * display; the scorer never sees them.
+ */
+function scoringView(team: any) {
+    const unscored = unscoredTraits(team.champions);
+
+    if (unscored.size === 0) {
+        return team;
+    }
+
+    return {
+        ...team,
+        activeTraits: team.activeTraits.filter(
+            (t: any) => !unscored.has(t.apiName),
+        ),
+    };
+}
+
+export function teamScore(fullTeam: any, ctx: any) {
+    const team = scoringView(fullTeam);
     let score = 0;
     const { level = 8 } = team;
 
@@ -606,7 +629,8 @@ export function teamScore(team: any, ctx: any) {
     return score;
 }
 
-export function teamScoreBreakdown(team: any, ctx: any) {
+export function teamScoreBreakdown(fullTeam: any, ctx: any) {
+    const team = scoringView(fullTeam);
     const { level = 8 } = team;
     const breakdown = {
         champions: 0,

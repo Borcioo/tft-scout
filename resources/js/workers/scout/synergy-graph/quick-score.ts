@@ -8,7 +8,7 @@
 // @ts-nocheck
 
 import { SCORING_CONFIG } from '../config';
-import { traitAmount } from '../trait-amount';
+import { traitAmount, unscoredTraits } from '../trait-amount';
 import { collectAffinityMatches } from './shared/affinity';
 import { applyEmblems } from './shared/emblems';
 import type { Graph } from './types';
@@ -51,6 +51,13 @@ export function quickScore(champApis, graph: Graph, emblems = []) {
         (api) => new Set(nodes[api]?.traits || []),
     );
     applyEmblems(traitCounts, emblems, champTraitSets);
+
+    // Active but scoreless (Kha'Zix's Rival without Rengar) — same view as
+    // scorer.teamScore, so the search and the final ranking agree
+    const unscored = unscoredTraits(champApis.map((api) => nodes[api]));
+    for (const t of unscored) {
+        delete traitCounts[t];
+    }
 
     let score = 0;
 

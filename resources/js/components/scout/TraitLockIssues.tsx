@@ -10,8 +10,9 @@ type Props = {
 
 /**
  * Empty-slate explanation for trait locks the scout cannot reach. The
- * level gate keeps rare units out (5-costs before level 9), but a player
- * who already hit one can lock it — the button does exactly that.
+ * scout leaves rare units out on its own — the level gate (5-costs before
+ * level 9) and lock-only forms (Kha'Zix with all four evolutions) — but a
+ * player who already has one can lock it; the button does exactly that.
  */
 export function TraitLockIssues({ issues, level, onLockChampion }: Props) {
     return (
@@ -33,8 +34,8 @@ export function TraitLockIssues({ issues, level, onLockChampion }: Props) {
                                     <strong>{label}</strong> is out of reach at
                                     level {level} (best case {issue.reach}). It
                                     needs {issue.minUnits - issue.reach} more
-                                    from units the scout only fields at a higher
-                                    level — lock the ones you already have.
+                                    from units the scout doesn't field on its
+                                    own — lock the ones you already have.
                                 </p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     {issue.gatedUnits.map((unit) => (
@@ -51,7 +52,10 @@ export function TraitLockIssues({ issues, level, onLockChampion }: Props) {
                                             {unit.amount > 1
                                                 ? ` · counts ${unit.amount}`
                                                 : ''}{' '}
-                                            · level {unit.fromLevel}+
+                                            ·{' '}
+                                            {unit.reason === 'level'
+                                                ? `level ${unit.fromLevel}+`
+                                                : 'lock only'}
                                         </Button>
                                     ))}
                                 </div>
