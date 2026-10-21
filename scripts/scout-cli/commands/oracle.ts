@@ -13,25 +13,34 @@
  * result is a test and training set for `scout eval` (model vs reality,
  * which unit to add) — never an input to the engine.
  *
- * Fetches once: progress lives in the output file, a rerun only asks
- * what is missing. Prints a summary, not the data.
+ * Fetches once, through metatft-http (cached, one request per 2 s,
+ * budgeted per run and per day): progress lives in the output file, a
+ * rerun only asks what is missing, and past the budget the run saves and
+ * stops. A full run is ~650 requests, ~22 minutes at that pace. Prints
+ * a summary, not the data.
  *
  * Usage:
  *   npm run scout -- oracle [--snapshot tmp/scout-eval/context-18.4b.json]
  *                           [--out tmp/scout-eval/oracle-18.4b.json]
  *                           [--patch 18.4b] [--levels 8,9] [--min-games 30]
  *                           [--rank MASTER,GRANDMASTER,CHALLENGER]
+ *                           [--budget 1000]
  *
  * --rank narrows the sample to those tiers. Lobbies are matched by rank,
  * so placements within a tier average 4.5 — a board that places well
  * there beats players of that skill, not just weaker ones.
  */
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { generate } from '../../../resources/js/workers/scout/engine';
 import { loadContext } from '../context';
+import {
+    METATFT_BUDGET,
+    MetaTftBudgetError,
+    metatftGet,
+    metatftRequestsThisRun,
+} from '../metatft-http';
 
 const EXPLORER = 'https://api-hc.metatft.com/tft-explorer-api/units_unique';
 // Same sample as the sync (MetaTftClient): ranked, Gold+, 2 days, one
@@ -65,6 +74,7 @@ function parseArgs(argv: string[]) {
         patch: '18.4b',
         levels: [8, 9],
         minGames: 30,
+        budget: METATFT_BUDGET.perRun,
         rank: DEFAULT_RANK,
     };
 
@@ -79,6 +89,8 @@ function parseArgs(argv: string[]) {
             args.patch = argv[++i];
         } else if (a === '--levels') {
             args.levels = argv[++i].split(',').map(Number);
+        } else if (a === '--budget') {
+            args.budget = Number(argv[++i]);
         } else if (a === '--rank') {
             args.rank = argv[++i];
         } else if (a === '--min-games') {
@@ -102,26 +114,20 @@ function patchQuery(label: string): string {
     return `patch=${m[1]}${m[2] ? `&b_patch=${m[2]}` : ''}`;
 }
 
-/** curl rather than fetch: it honours the proxy settings everywhere. */
-function fetchCompletions(units: string[], patch: string, rank: string) {
+async function fetchCompletions(units: string[], patch: string, rank: string) {
     const filters = units
         .map((u) => `unit_tier_numitems_unique=${u}-1_.*_.*`)
         .join('&');
     const url = `${EXPLORER}?queue=1100&${patchQuery(patch)}&days=2&rank=${rank}&permit_filter_adjustment=false&formatnoarray=true&compact=true&${filters}`;
-    const body = execFileSync('curl', ['-sS', '--max-time', '60', url], {
-        encoding: 'utf8',
-        maxBuffer: 32 * 1024 * 1024,
-    });
 
-    return JSON.parse(body).data ?? [];
+    return (await metatftGet(url))?.data ?? [];
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const games = (places: number[]) => places.reduce((a, b) => a + b, 0);
 
 export async function runOracle(argv: string[]): Promise<void> {
     const args = parseArgs(argv);
+    METATFT_BUDGET.perRun = args.budget;
     const ctx = await loadContext({
         live: false,
         snapshotPath: args.snapshotPath,
@@ -198,8 +204,21 @@ export async function runOracle(argv: string[]): Promise<void> {
         `oracle: ${Object.keys(file.boards).length} boards, ${todo.length} requests to make (${done.size} done)\n`,
     );
 
+    let stopped = '';
+
     for (const [i, subset] of todo.entries()) {
-        const rows = fetchCompletions(subset, args.patch, args.rank);
+        let rows: any[];
+
+        try {
+            rows = await fetchCompletions(subset, args.patch, args.rank);
+        } catch (e) {
+            if (!(e instanceof MetaTftBudgetError)) {
+                throw e;
+            }
+
+            stopped = e.message;
+            break;
+        }
 
         for (const row of rows) {
             const unit = /^(.*)-1$/.exec(row.units_unique ?? '')?.[1];
@@ -226,8 +245,6 @@ export async function runOracle(argv: string[]): Promise<void> {
             writeFileSync(args.out, JSON.stringify(file));
             process.stderr.write(`  ${i + 1}/${todo.length}\n`);
         }
-
-        await sleep(250);
     }
 
     writeFileSync(args.out, JSON.stringify(file));
@@ -239,6 +256,6 @@ export async function runOracle(argv: string[]): Promise<void> {
     ).length;
 
     process.stdout.write(
-        `${args.out}: ${obs.length} boards with ≥${args.minGames} games (median ${counts[Math.floor(counts.length / 2)] ?? 0}), ${exact}/${Object.keys(file.boards).length} asked-about boards played as such\n`,
+        `${args.out}: ${obs.length} boards with ≥${args.minGames} games (median ${counts[Math.floor(counts.length / 2)] ?? 0}), ${exact}/${Object.keys(file.boards).length} asked-about boards played as such | MetaTFT requests this run: ${metatftRequestsThisRun()}${stopped ? `\nstopped: ${stopped}` : ''}\n`,
     );
 }
