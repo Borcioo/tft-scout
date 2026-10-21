@@ -299,15 +299,18 @@ class ScoutContextBuilder
                 'champion_ratings.top4_rate',
                 'champion_ratings.games',
                 'champion_ratings.score',
+                'champion_ratings.star_stats',
             ])
             ->mapWithKeys(fn ($row) => [
-                $row->api_name => [
+                $row->api_name => array_filter([
                     'avgPlace' => (float) $row->avg_place,
                     'winRate' => (float) $row->win_rate,
                     'top4Rate' => (float) $row->top4_rate,
                     'games' => (int) $row->games,
                     'score' => (float) $row->score,
-                ],
+                    // Per star: games, avgPlace, carryGames (see strength.ts)
+                    'stars' => $row->star_stats ?: null,
+                ], fn ($v) => $v !== null),
             ])
             ->all();
     }

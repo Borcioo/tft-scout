@@ -23,6 +23,7 @@ test('meta comp cluster ids are unique per set, not globally', function () {
     $client->shouldReceive('resetRunCache');
     $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
     $client->shouldReceive('fetchUnits')->andReturn([]);
+    $client->shouldReceive('fetchUnitStars')->andReturn([]);
     $client->shouldReceive('fetchTraits')->andReturn([]);
     $client->shouldReceive('fetchMetaComps')->with(18)->andReturn([
         new MetaCompDto(id: '426000', name: 'Defender, Rengar', championApiNames: [], traitApiNames: [], avgPlace: 4.14, games: 10327, level: 7),

@@ -36,6 +36,7 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('resetRunCache');
         $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
         $client->shouldReceive('fetchUnits')->andReturn([]);
+        $client->shouldReceive('fetchUnitStars')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
         $client->shouldReceive('fetchAffinity')->andReturn([]);
@@ -91,6 +92,7 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('resetRunCache');
         $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
         $client->shouldReceive('fetchUnits')->andReturn([]);
+        $client->shouldReceive('fetchUnitStars')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
         $client->shouldReceive('fetchAffinity')->andReturn([]);
@@ -140,6 +142,7 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('resetRunCache');
         $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
         $client->shouldReceive('fetchUnits')->andReturn([]);
+        $client->shouldReceive('fetchUnitStars')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
         $client->shouldReceive('fetchAffinity')->andReturn([]);
@@ -179,6 +182,7 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('resetRunCache');
         $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
         $client->shouldReceive('fetchUnits')->andReturn([]);
+        $client->shouldReceive('fetchUnitStars')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
         $client->shouldReceive('fetchAffinity')->andReturn([]);
@@ -237,6 +241,7 @@ class MetaTftSyncItemsTest extends TestCase
         $client->shouldReceive('resetRunCache');
         $client->shouldReceive('resolvePatch')->andReturn(['patch' => '18.4', 'b_patch' => 'b', 'label' => '18.4b', 'games' => 1000000]);
         $client->shouldReceive('fetchUnits')->andReturn([]);
+        $client->shouldReceive('fetchUnitStars')->andReturn([]);
         $client->shouldReceive('fetchTraits')->andReturn([]);
         $client->shouldReceive('fetchMetaComps')->andReturn([]);
         $client->shouldReceive('fetchAffinity')->andReturn([]);

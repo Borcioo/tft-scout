@@ -179,3 +179,8 @@ export function teamScoreBreakdown(team: ScoredBoard, ctx: any) {
         total: toScore(place),
     } as Record<string, number>;
 }
+
+/** The board's reroll plan (strength.ts): units to roll to 3★, hit chance. */
+export function teamReroll(team: ScoredBoard, ctx: any) {
+    return evaluate(team, ctx).strength.reroll;
+}

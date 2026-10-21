@@ -71,6 +71,7 @@ function mapResult(r: any): ScoredTeam {
         })),
         score: Math.round(r.score * 100) / 100,
         breakdown: r.breakdown ?? null,
+        reroll: r.reroll ?? [],
         level: r.level,
         slotsUsed: r.slotsUsed,
         roles: r.roles ?? null,

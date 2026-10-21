@@ -21,6 +21,9 @@ export function summariseGenerate(
                 ? `${r.metaMatch.name}(${Math.round((r.metaMatch.overlap / r.metaMatch.total) * 100)}%)`
                 : null,
             breakdown: roundBreakdown(r.breakdown),
+            reroll: (r.reroll ?? []).map(
+                (x: any) => `${x.apiName}@${Math.round(x.hitChance * 100)}%`,
+            ),
         })),
         filtered,
     };

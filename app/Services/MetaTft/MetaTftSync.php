@@ -210,6 +210,8 @@ class MetaTftSync
                 $this->log('Fetching bulk unit ratings...');
                 $counts['units'] = $this->syncUnitRatings($set, $championsByApiName);
                 $this->log("  → {$counts['units']} unit ratings upserted");
+                $stars = $this->syncUnitStars($championsByApiName);
+                $this->log("  → star stats on {$stars} unit ratings");
 
                 $this->log('Fetching bulk trait ratings...');
                 $counts['traits'] = $this->syncTraitRatings($set, $traitsByApiName);
@@ -500,6 +502,72 @@ class MetaTftSync
                 ->where('set_id', $set->id)
                 ->where(fn ($q) => $q->whereNull('patch')->orWhere('patch', '!=', $this->client->resolvePatch()['label']))
                 ->delete();
+        }
+
+        return $count;
+    }
+
+    /**
+     * Star-split placements onto this patch's unit ratings (star_stats).
+     * Optional: without them the scout rates units over all stars, so a
+     * failed fetch is logged, not fatal. Forms fold like the ratings.
+     *
+     * @param  array<string, mixed>  $championsByApiName
+     */
+    private function syncUnitStars($championsByApiName): int
+    {
+        try {
+            $byUnit = $this->client->fetchUnitStars();
+        } catch (RuntimeException $e) {
+            $this->log('  ! unit star stats unavailable: '.$e->getMessage());
+
+            return 0;
+        }
+
+        $merged = [];
+        foreach ($byUnit as $unit => $stars) {
+            $apiName = $this->profile->canonicalUnit($unit, $championsByApiName);
+            foreach ($stars as $star => $stat) {
+                $merged[$apiName][$star] ??= ['places' => array_fill(0, 8, 0), 'carryGames' => 0];
+                foreach ($stat['places'] as $i => $count) {
+                    $merged[$apiName][$star]['places'][$i] += $count;
+                }
+                $merged[$apiName][$star]['carryGames'] += $stat['carryGames'];
+            }
+        }
+
+        $patch = $this->client->resolvePatch()['label'];
+        $count = 0;
+
+        foreach ($merged as $apiName => $stars) {
+            $champion = $championsByApiName[$apiName] ?? null;
+            if ($champion === null) {
+                continue;
+            }
+
+            $stats = [];
+            foreach ($stars as $star => $stat) {
+                $games = array_sum($stat['places']);
+                if ($games === 0) {
+                    continue;
+                }
+
+                $placeSum = 0;
+                foreach ($stat['places'] as $i => $c) {
+                    $placeSum += ($i + 1) * $c;
+                }
+
+                $stats[(string) $star] = [
+                    'games' => $games,
+                    'avgPlace' => $placeSum / $games,
+                    'carryGames' => $stat['carryGames'],
+                ];
+            }
+
+            $count += ChampionRating::query()
+                ->where('champion_id', $champion->id)
+                ->where('patch', $patch)
+                ->update(['star_stats' => json_encode($stats)]);
         }
 
         return $count;

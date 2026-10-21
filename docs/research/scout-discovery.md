@@ -54,6 +54,30 @@ Metoda przewiduje wynik u najlepszych graczy, zanim ci zagrają planszę, a jej 
 Przykład (8 jednostek, bez 5-costów; najlepsza sprawdzona 1.92): Azir, Kayle, Leona, Sejuani, Soraka, Yunara,
 Fiddlesticks, Karma — 122 gry w Master+, średnio 1.72; ta sama rodzina co najwyższe propozycje silnika na lvl 8.
 
+## Top 200 graczy (`scout top-games`, 18.4, 14 dni)
+
+6 037 ich własnych plansz z 5 294 meczów, 201 zapytań (`tmp/scout-eval/top-games-18.json`).
+
+- **Co grają częściej niż reszta, nie wypada u nich lepiej** (ρ 0.05) — ten sam sygnał co w Master+: popularność ≠ siła.
+- **Jednostki "słabe" dla mas, dobre u najlepszych** — typowa różnica ogół → top 200 to 1.1 miejsca, tu 1.5–2.3:
+
+  | Jednostka | Ogólnie | Top 200 | 3★ u top | Itemy (top) | Z kim |
+  |---|---|---|---|---|---|
+  | Camille | 5.55 | 3.26 | 92% | Sterak 54%, IE 32%, HoJ 26% | Akali, Varus, Leona, Kayle, Sejuani |
+  | Elise | 5.11 | 3.32 | 80% | Titan 69%, Guinsoo 63%, Gargoyle 62% | Diana, Sentinel, Morgana, Cassiopeia |
+  | Kha'Zix | 4.52 | 2.93 | 71% | HoJ 94%, Rabadon 48% | Diana, Fiddlesticks, Hecarim, Ezreal |
+  | Akali (AD) | 4.90 | 3.35 | 76% | HoJ, Jeweled, EoN | Varus, Leona, Camille, Kayle |
+
+  Prawie zawsze to **reroll 1-costów do 3★ z konkretnymi itemami**. Średnia ogólna miesza to z graniem tych jednostek
+  na 1–2★ bez itemów, więc wygląda fatalnie. **Największa luka silnika: nie modeluje gwiazdek** — liczy Camille po
+  5.55 i nigdy nie zaproponuje rerollu Camille. Reroll 1–2 costów do 3★ to plan (osiągalny wg puli i szans sklepu),
+  nie fart jak 3★ 4/5-costów.
+- Rodzina Azir/Rammus/Soraka/Teemo/Veigar/Zyra/Fiddlesticks/Lux: 11 gier top 200 ze średnią 1.55 — ten sam układ
+  `discover` oznaczył jako "rising" w Master+ (40 gier, 1.55). Dwa niezależne źródła.
+- Pojedyncze plansze top 200 vs model: ρ 0.27 — jedna gra to szum (miejsce 1–8); agregaty z explorera dają 0.55–0.6.
+- Kolumna "Master+" przy planszach top 200 to tylko pokrycie naszego zbioru `oracle` (sąsiedztwa meta + wyniki
+  silnika), nie "nikt tego nie gra".
+
 ## Dane
 
 **Zasada:** MetaTFT to nieoficjalne API współdzielone z ich stroną — za dużo zapytań = ban. Wszystkie narzędzia
@@ -81,5 +105,7 @@ przyrostowo w syncu (to, co już mamy, nie jest pobierane ponownie); przeglądar
 2. **Integracja w aplikacji**: tryb "Odkrywanie" z etykietami i liczbą dowodów. Decyzja o źródle danych dla
    produkcji: MetaTFT (explorer ~1.3k zapytań + drabinka/profile/mecze top graczy; API nieoficjalne) vs Riot API
    (oficjalne, klucz).
-3. **Potencjał jednostek** ("źle budowane"): najlepszy build vs typowy, tylko w grach z 3 itemami.
-4. **Okno całego patcha** w syncu (więcej danych dla małych prób).
+3. ~~Gwiazdki i plany w silniku~~ — zrobione (SCORE_MODEL 3, `scout-strength-model.md`): bazy z 1–2★, plany rerollu
+   1–3 costów z szansą trafienia z danych. Dalej: szansa z puli i szans sklepu (kontest, złoto) jako uzupełnienie.
+4. **Potencjał jednostek** ("źle budowane"): jak top gracze je budują (itemy, gwiazdki, z kim) — pokazywać w UI.
+5. **Okno całego patcha** w syncu (więcej danych dla małych prób).

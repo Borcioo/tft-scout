@@ -8,10 +8,10 @@
 
 /**
  * Score scale version, saved with plans. A score from another model isn't
- * comparable with a live one (2 = board-strength model, hundredths of a
- * raw place; 1 = the old points scorer).
+ * comparable with a live one (3 = units rated at 1–2★ plus reroll plans;
+ * 2 = board-strength model over all stars; 1 = the old points scorer).
  */
-export const SCORE_MODEL = 2;
+export const SCORE_MODEL = 3;
 
 export const SCORING_CONFIG = {
     // Dedupe threshold for engine topN — team is dropped if it shares
