@@ -253,6 +253,8 @@ export type InsightItem =
           championName: string;
           traitApiName: string;
           traitName: string;
+          /** Units of the trait on the board (absent in older saved plans). */
+          count?: number;
           avgPlace: number;
       }
     | {
@@ -262,6 +264,8 @@ export type InsightItem =
           bApi: string;
           bName: string;
           avgPlace: number;
+          /** From each unit's own record (absent in older saved plans). */
+          expected?: number;
       }
     | {
           kind: 'highBreakpoint';

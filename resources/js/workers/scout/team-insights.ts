@@ -11,6 +11,7 @@
  */
 
 import { INSIGHTS_CONFIG } from './insights-config';
+import { STRENGTH } from './strength';
 import { findActiveBreakpointIdx } from './synergy-graph/shared/breakpoints';
 import type {
     InsightItem,
@@ -209,9 +210,12 @@ function pushAffinityHit(
         // Filter BEFORE sort — otherwise a 2-game "1.00 avg" noise row
         // lands in top-3 and pushes real signal out. Hero variants are
         // especially noise-prone on MetaTFT because their sample pool
-        // is a fraction of a normal champion's.
+        // is a fraction of a normal champion's. Own traits only: rows
+        // exist for every trait on the unit's boards, and "Azir with 3
+        // Solar" only said that Solar boards win.
+        const own = new Set(champ.traits ?? []);
         const eligible = rows.filter(
-            (r) => r.games >= CFG.affinityHit.minGames,
+            (r) => r.games >= CFG.affinityHit.minGames && own.has(r.trait),
         );
 
         if (eligible.length === 0) {
@@ -229,6 +233,18 @@ function pushAffinityHit(
                 continue;
             }
 
+            // The row's level must be the board's: Kayle's 2.09 at 4
+            // Executioner said nothing about a board with 3
+            const idx = findActiveBreakpointIdx(
+                active.count,
+                (active as unknown as { breakpoints: { minUnits: number }[] })
+                    .breakpoints ?? [],
+            );
+
+            if (row.breakpoint !== idx + 1) {
+                continue;
+            }
+
             if (row.avgPlace > CFG.affinityHit.maxAvgPlace) {
                 continue;
             }
@@ -239,6 +255,7 @@ function pushAffinityHit(
                 championName: champ.name,
                 traitApiName: row.trait,
                 traitName: active.name,
+                count: active.count,
                 avgPlace: row.avgPlace,
             });
             break; // one affinityHit per champion; best hit wins
@@ -246,69 +263,99 @@ function pushAffinityHit(
     }
 }
 
+/**
+ * Duos: two units that share a trait active on this board and place
+ * better together than each unit's own record says (the together average
+ * against avg_a + avg_b − 4.5). The plain together average mostly
+ * measured the partner — any unit next to a strong 4-cost passed — and
+ * the strongest pairs without a shared trait are reroll units next to a
+ * comp's carry (Kayle + Azir: Kayle is at 3★ in half her games), which
+ * reads as "Kayle at 3★", not a duo. Best first, each unit in one duo at
+ * most, so a unit that pairs well with everyone doesn't fill the list.
+ */
 function pushProvenPair(
     team: ScoredTeam,
     ctx: ScoringContext,
     out: InsightItem[],
 ): void {
-    const teamByApi = new Map<string, { api: string; name: string }>();
+    const names = new Map<string, string>();
+    const activeOf = new Map<string, Set<string>>();
+    const active = new Set(team.activeTraits.map((t) => t.apiName));
 
     for (const c of team.champions) {
         const api = lookupApi(c);
 
-        if (!teamByApi.has(api)) {
-            teamByApi.set(api, { api, name: c.name });
+        if (!names.has(api)) {
+            names.set(api, c.name);
+            activeOf.set(
+                api,
+                new Set((c.traits ?? []).filter((t) => active.has(t))),
+            );
         }
     }
 
-    const firedPairs = new Set<string>();
+    const shareActive = (a: string, b: string) =>
+        [...(activeOf.get(a) ?? [])].some((t) => activeOf.get(b)?.has(t));
 
-    for (const { api: aApi, name: aName } of teamByApi.values()) {
-        const rows = ctx.companions?.[aApi];
+    const seen = new Set<string>();
+    const pairs: Extract<InsightItem, { kind: 'provenPair' }>[] = [];
 
-        if (!rows) {
+    for (const [aApi, aName] of names) {
+        const aAvg = ctx.unitRatings?.[aApi]?.avgPlace;
+
+        for (const row of ctx.companions?.[aApi] ?? []) {
+            const bName = names.get(row.companion);
+            const bAvg = ctx.unitRatings?.[row.companion]?.avgPlace;
+            const key = pairKey(aApi, row.companion);
+
+            if (
+                bName === undefined ||
+                row.companion === aApi ||
+                aAvg === undefined ||
+                bAvg === undefined ||
+                row.games < CFG.provenPair.minGames ||
+                seen.has(key) ||
+                !shareActive(aApi, row.companion)
+            ) {
+                continue;
+            }
+
+            seen.add(key);
+            const expected = aAvg + bAvg - STRENGTH.baseline;
+
+            if (row.avgPlace - expected <= CFG.provenPair.maxInteraction) {
+                pairs.push({
+                    kind: 'provenPair',
+                    aApi,
+                    aName,
+                    bApi: row.companion,
+                    bName,
+                    avgPlace: row.avgPlace,
+                    expected,
+                });
+            }
+        }
+    }
+
+    const used = new Set<string>();
+    let shown = 0;
+
+    for (const p of pairs.sort(
+        (x, y) =>
+            x.avgPlace - (x.expected ?? 0) - (y.avgPlace - (y.expected ?? 0)),
+    )) {
+        if (shown >= CFG.provenPair.maxShown) {
+            break;
+        }
+
+        if (used.has(p.aApi) || used.has(p.bApi)) {
             continue;
         }
 
-        const topN = [...rows]
-            .sort((x, y) => x.avgPlace - y.avgPlace)
-            .slice(0, CFG.provenPair.topN);
-
-        for (const row of topN) {
-            const B = teamByApi.get(row.companion);
-
-            if (!B) {
-                continue;
-            }
-
-            if (B.api === aApi) {
-                continue;
-            }
-
-            if (row.games < CFG.provenPair.minGames) {
-                continue;
-            }
-
-            if (row.avgPlace > CFG.provenPair.maxAvgPlace) {
-                continue;
-            }
-
-            const key = pairKey(aApi, B.api);
-
-            if (firedPairs.has(key)) {
-                continue;
-            }
-
-            firedPairs.add(key);
-            out.push({
-                kind: 'provenPair',
-                aApi,
-                aName,
-                bApi: B.api,
-                bName: B.name,
-                avgPlace: row.avgPlace,
-            });
-        }
+        used.add(p.aApi);
+        used.add(p.bApi);
+        out.push(p);
+        shown++;
     }
 }
 
