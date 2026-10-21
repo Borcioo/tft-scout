@@ -1,6 +1,11 @@
 import { existsSync, unlinkSync } from 'node:fs';
 
-import { assertLabEnabled, DEFAULT_DB_PATH, initSchema, openDb } from '../../lab/db';
+import {
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    initSchema,
+    openDb,
+} from '../../lab/db';
 
 export async function runLabReset(argv: string[]): Promise<void> {
     assertLabEnabled();
@@ -11,16 +16,18 @@ export async function runLabReset(argv: string[]): Promise<void> {
         const a = argv[i];
 
         if (a === '--db') {
-dbPath = argv[++i];
-} else if (a === '--yes') {
-yes = true;
-} else {
-throw new Error(`Unknown flag for lab reset: ${a}`);
-}
+            dbPath = argv[++i];
+        } else if (a === '--yes') {
+            yes = true;
+        } else {
+            throw new Error(`Unknown flag for lab reset: ${a}`);
+        }
     }
 
     if (!yes) {
-        throw new Error('lab reset wipes all recorded runs. Pass --yes to confirm.');
+        throw new Error(
+            'lab reset wipes all recorded runs. Pass --yes to confirm.',
+        );
     }
 
     if (existsSync(dbPath)) {
@@ -32,6 +39,6 @@ throw new Error(`Unknown flag for lab reset: ${a}`);
     db.close();
 
     process.stdout.write(
-        JSON.stringify({ reset: dbPath, schemaVersion: 1 }, null, 2) + '\n',
+        `${JSON.stringify({ reset: dbPath, schemaVersion: 1 }, null, 2)}\n`,
     );
 }

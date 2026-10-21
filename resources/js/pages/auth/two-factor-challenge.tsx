@@ -91,6 +91,7 @@ export default function TwoFactorChallenge() {
                                                     { length: OTP_MAX_LENGTH },
                                                     (_, index) => (
                                                         <InputOTPSlot
+                                                            // biome-ignore lint/suspicious/noArrayIndexKey: one slot per OTP digit position
                                                             key={index}
                                                             index={index}
                                                         />
@@ -111,7 +112,7 @@ export default function TwoFactorChallenge() {
                                 Continue
                             </Button>
 
-                            <div className="text-center text-sm text-muted-foreground">
+                            <div className="text-center text-muted-foreground text-sm">
                                 <span>or you can </span>
                                 <button
                                     type="button"

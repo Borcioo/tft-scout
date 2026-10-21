@@ -1,4 +1,9 @@
-import { assertDbExists, assertLabEnabled, DEFAULT_DB_PATH, openDb } from '../../lab/db';
+import {
+    assertDbExists,
+    assertLabEnabled,
+    DEFAULT_DB_PATH,
+    openDb,
+} from '../../lab/db';
 
 type PruneArgs = {
     olderThan: string | null;
@@ -14,8 +19,8 @@ function parseDuration(s: string): number {
     const m = /^(\d+)([hdw])$/.exec(s);
 
     if (!m) {
-throw new Error(`Bad duration "${s}". Use e.g. 6h, 7d, 2w.`);
-}
+        throw new Error(`Bad duration "${s}". Use e.g. 6h, 7d, 2w.`);
+    }
 
     const n = Number(m[1]);
     const mult: Record<string, number> = { h: 3600, d: 86400, w: 604800 };
@@ -103,7 +108,7 @@ export async function runLabPrune(argv: string[]): Promise<void> {
         const tx = db.transaction(() => del.run(params));
         const info = tx();
         process.stdout.write(
-            JSON.stringify({ deleted: Number(info.changes) }, null, 2) + '\n',
+            `${JSON.stringify({ deleted: Number(info.changes) }, null, 2)}\n`,
         );
     } finally {
         db.close();

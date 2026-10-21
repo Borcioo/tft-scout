@@ -10,7 +10,9 @@
 // Why: Fix 1E — 3/4-cost carries drive team composition in practice.
 // 5-costs are spike units that rarely define comps. Index = cost - 1.
 // Curve: [0.3, 0.5, 1.0, 0.95, 0.55] — 3-costs weigh most, 1-costs least.
-export const FILLER_COST_WEIGHTS: readonly number[] = [0.3, 0.5, 1.0, 0.95, 0.55];
+export const FILLER_COST_WEIGHTS: readonly number[] = [
+    0.3, 0.5, 1.0, 0.95, 0.55,
+];
 
 // Decay applied after each companion filler pick so flex fillers
 // (Shen, Rhaast) surface once or twice without dominating the slate.

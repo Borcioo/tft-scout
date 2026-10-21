@@ -27,7 +27,7 @@ export function ScoutResultsList({
 }: Props) {
     if (error) {
         return (
-            <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-4 text-sm text-red-300">
+            <div className="rounded-lg border border-red-800/60 bg-red-950/20 p-4 text-red-300 text-sm">
                 Scout failed: {error}
             </div>
         );
@@ -35,7 +35,7 @@ export function ScoutResultsList({
 
     if (isRunning && teams.length === 0) {
         return (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                 Running scout…
             </div>
         );
@@ -43,7 +43,7 @@ export function ScoutResultsList({
 
     if (teams.length === 0) {
         return (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                 No comps yet. Adjust settings and click "Run scout".
             </div>
         );
@@ -51,9 +51,9 @@ export function ScoutResultsList({
 
     return (
         <div className="flex flex-col gap-4">
-            {teams.map((team, i) => (
+            {teams.map((team) => (
                 <ScoutCompCard
-                    key={i}
+                    key={team.champions.map((c) => c.apiName).join(',')}
                     team={team}
                     itemBuilds={itemBuilds}
                     savedCodes={savedCodes}

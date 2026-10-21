@@ -33,12 +33,35 @@ type Props = {
 };
 
 /** Cost-based border colors matching TFT in-game visuals */
-const COST_STYLES: Record<number, { border: string; text: string; bg: string }> = {
-    1: { border: 'border-zinc-400', text: 'text-zinc-300', bg: 'from-zinc-900/60' },
-    2: { border: 'border-green-500', text: 'text-green-300', bg: 'from-green-900/60' },
-    3: { border: 'border-blue-500', text: 'text-blue-300', bg: 'from-blue-900/60' },
-    4: { border: 'border-purple-500', text: 'text-purple-300', bg: 'from-purple-900/60' },
-    5: { border: 'border-yellow-500', text: 'text-yellow-300', bg: 'from-yellow-900/60' },
+const COST_STYLES: Record<
+    number,
+    { border: string; text: string; bg: string }
+> = {
+    1: {
+        border: 'border-zinc-400',
+        text: 'text-zinc-300',
+        bg: 'from-zinc-900/60',
+    },
+    2: {
+        border: 'border-green-500',
+        text: 'text-green-300',
+        bg: 'from-green-900/60',
+    },
+    3: {
+        border: 'border-blue-500',
+        text: 'text-blue-300',
+        bg: 'from-blue-900/60',
+    },
+    4: {
+        border: 'border-purple-500',
+        text: 'text-purple-300',
+        bg: 'from-purple-900/60',
+    },
+    5: {
+        border: 'border-yellow-500',
+        text: 'text-yellow-300',
+        bg: 'from-yellow-900/60',
+    },
 };
 
 export default function ChampionsIndex({ champions }: Props) {
@@ -65,7 +88,13 @@ export default function ChampionsIndex({ champions }: Props) {
     }, [champions, search, costFilter]);
 
     const grouped = useMemo(() => {
-        const groups: Record<number, Champion[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+        const groups: Record<number, Champion[]> = {
+            1: [],
+            2: [],
+            3: [],
+            4: [],
+            5: [],
+        };
 
         for (const champ of filtered) {
             const cost = Math.min(Math.max(champ.cost, 1), 5);
@@ -86,15 +115,15 @@ export default function ChampionsIndex({ champions }: Props) {
                     champion grid below scrolls. `-m-6 p-6 -mb-0 pb-6`
                     keeps the backdrop flush with the page padding so
                     content scrolling under it is properly masked. */}
-                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pt-6 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">
+                            <h1 className="font-bold text-2xl tracking-tight">
                                 Champions
                             </h1>
-                            <p className="text-sm text-muted-foreground">
-                                {champions.length} champions in Set 17. Click a cost
-                                to filter.
+                            <p className="text-muted-foreground text-sm">
+                                {champions.length} champions in Set 17. Click a
+                                cost to filter.
                             </p>
                         </div>
 
@@ -118,7 +147,9 @@ export default function ChampionsIndex({ champions }: Props) {
                                 key={cost}
                                 active={costFilter === cost}
                                 onClick={() =>
-                                    setCostFilter(costFilter === cost ? null : cost)
+                                    setCostFilter(
+                                        costFilter === cost ? null : cost,
+                                    )
                                 }
                                 label={`${cost} cost`}
                                 colorClass={COST_STYLES[cost].text}
@@ -129,7 +160,7 @@ export default function ChampionsIndex({ champions }: Props) {
 
                 {/* Results */}
                 {filtered.length === 0 ? (
-                    <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                    <Card className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                         No champions match your filters.
                     </Card>
                 ) : (
@@ -138,8 +169,8 @@ export default function ChampionsIndex({ champions }: Props) {
                             const champs = grouped[cost];
 
                             if (champs.length === 0) {
-return null;
-}
+                                return null;
+                            }
 
                             return (
                                 <section
@@ -197,7 +228,7 @@ function CostTab({
             type="button"
             onClick={onClick}
             className={cn(
-                'rounded-md border px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-md border px-3 py-1 font-medium text-xs transition-colors',
                 active
                     ? 'border-foreground bg-foreground text-background'
                     : 'border-border bg-background hover:border-foreground/40',
@@ -242,7 +273,7 @@ function ChampionCard({ champion }: { champion: Champion }) {
                 />
             </div>
             <div className="flex flex-col gap-2 p-3">
-                <p className="truncate text-sm font-semibold">
+                <p className="truncate font-semibold text-sm">
                     {champion.name}
                 </p>
                 {visibleTraits.length > 0 ? (
@@ -262,17 +293,14 @@ function ChampionCard({ champion }: { champion: Champion }) {
                                         }}
                                     />
                                 </TooltipTrigger>
-                                <TooltipContent
-                                    side="top"
-                                    className="text-xs"
-                                >
+                                <TooltipContent side="top" className="text-xs">
                                     {trait.name}
                                 </TooltipContent>
                             </Tooltip>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-xs text-muted-foreground">—</p>
+                    <p className="text-muted-foreground text-xs">—</p>
                 )}
             </div>
         </Card>

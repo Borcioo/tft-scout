@@ -14,12 +14,12 @@ export function parseSnapshotArgs(argv: string[]): SnapshotArgs {
         const a = argv[i];
 
         if (a === '--inspect') {
-inspect = true;
-} else if (a === '--snapshot') {
-snapshotPath = argv[++i];
-} else {
-throw new Error(`Unknown flag for snapshot: ${a}`);
-}
+            inspect = true;
+        } else if (a === '--snapshot') {
+            snapshotPath = argv[++i];
+        } else {
+            throw new Error(`Unknown flag for snapshot: ${a}`);
+        }
     }
 
     return { inspect, snapshotPath };
@@ -29,21 +29,21 @@ export async function runSnapshot(args: SnapshotArgs): Promise<void> {
     const ctx = await fetchLive();
 
     if (args.inspect) {
-        process.stdout.write(JSON.stringify(meta(ctx), null, 2) + '\n');
+        process.stdout.write(`${JSON.stringify(meta(ctx), null, 2)}\n`);
 
         return;
     }
 
     writeSnapshot(args.snapshotPath, ctx);
     process.stdout.write(
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 wrote: args.snapshotPath,
                 ...meta(ctx),
             },
             null,
             2,
-        ) + '\n',
+        )}\n`,
     );
 }
 
@@ -54,7 +54,8 @@ function meta(ctx: ScoutContext) {
         exclusionGroups: ctx.exclusionGroups?.length ?? 0,
         scoringCtx: {
             unitRatings: Object.keys(ctx.scoringCtx?.unitRatings ?? {}).length,
-            traitRatings: Object.keys(ctx.scoringCtx?.traitRatings ?? {}).length,
+            traitRatings: Object.keys(ctx.scoringCtx?.traitRatings ?? {})
+                .length,
             metaComps: ctx.scoringCtx?.metaComps?.length ?? 0,
         },
         syncedAt: ctx.syncedAt ?? null,

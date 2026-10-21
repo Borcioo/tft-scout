@@ -16,18 +16,18 @@
  * responsible for the sort; this function trusts the contract.
  */
 export function findActiveBreakpointIdx(
-  count: number,
-  breakpoints: readonly { minUnits: number }[],
+    count: number,
+    breakpoints: readonly { minUnits: number }[],
 ): number {
-  let idx = -1;
+    let idx = -1;
 
-  for (let i = 0; i < breakpoints.length; i++) {
-    if (count >= breakpoints[i].minUnits) {
-      idx = i;
-    } else {
-      break;
+    for (let i = 0; i < breakpoints.length; i++) {
+        if (count >= breakpoints[i].minUnits) {
+            idx = i;
+        } else {
+            break;
+        }
     }
-  }
 
-  return idx;
+    return idx;
 }

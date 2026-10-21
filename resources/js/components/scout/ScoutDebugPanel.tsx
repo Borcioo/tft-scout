@@ -20,7 +20,6 @@ export type ScoutDebugParams = {
     level: number;
     topN: number;
     max5Cost: number | null;
-    roleBalance: boolean;
     minFrontline: number;
     minDps: number;
     lockedChampions: string[];
@@ -110,7 +109,10 @@ export function ScoutDebugPanel({ params, results }: Props) {
         };
     }, [params, results]);
 
-    const jsonString = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
+    const jsonString = useMemo(
+        () => JSON.stringify(payload, null, 2),
+        [payload],
+    );
     const cliCommand = useMemo(() => buildCliCommand(params), [params]);
 
     const handleCopy = async (value: string, kind: 'json' | 'cli') => {
@@ -139,20 +141,25 @@ export function ScoutDebugPanel({ params, results }: Props) {
                     <DrawerHeader>
                         <DrawerTitle>Scout debug snapshot</DrawerTitle>
                         <DrawerDescription>
-                            Current filter state + a rank-1 marker so the assistant can repro via the CLI command below. Worker uses a fixed seed so the CLI output matches what you see here.
+                            Current filter state + a rank-1 marker so the
+                            assistant can repro via the CLI command below.
+                            Worker uses a fixed seed so the CLI output matches
+                            what you see here.
                         </DrawerDescription>
                     </DrawerHeader>
 
                     <div className="space-y-4 px-4 pb-2">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                                <h3 className="font-semibold text-muted-foreground text-xs uppercase">
                                     scout-cli command
-                                </label>
+                                </h3>
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => handleCopy(cliCommand, 'cli')}
+                                    onClick={() =>
+                                        handleCopy(cliCommand, 'cli')
+                                    }
                                 >
                                     {copied === 'cli' ? (
                                         <CheckIcon className="h-4 w-4" />
@@ -162,20 +169,22 @@ export function ScoutDebugPanel({ params, results }: Props) {
                                     {copied === 'cli' ? 'Copied' : 'Copy'}
                                 </Button>
                             </div>
-                            <pre className="max-h-24 overflow-auto rounded border border-border bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
+                            <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-muted px-3 py-2 font-mono text-xs">
                                 {cliCommand}
                             </pre>
                         </div>
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                                <h3 className="font-semibold text-muted-foreground text-xs uppercase">
                                     full JSON snapshot
-                                </label>
+                                </h3>
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => handleCopy(jsonString, 'json')}
+                                    onClick={() =>
+                                        handleCopy(jsonString, 'json')
+                                    }
                                 >
                                     {copied === 'json' ? (
                                         <CheckIcon className="h-4 w-4" />
@@ -185,7 +194,7 @@ export function ScoutDebugPanel({ params, results }: Props) {
                                     {copied === 'json' ? 'Copied' : 'Copy'}
                                 </Button>
                             </div>
-                            <pre className="max-h-[50vh] overflow-auto rounded border border-border bg-muted px-3 py-2 font-mono text-xs whitespace-pre">
+                            <pre className="max-h-[50vh] overflow-auto whitespace-pre rounded border border-border bg-muted px-3 py-2 font-mono text-xs">
                                 {jsonString}
                             </pre>
                         </div>

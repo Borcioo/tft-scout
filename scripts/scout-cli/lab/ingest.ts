@@ -101,7 +101,9 @@ export function recordRun(
             emblems_json: JSON.stringify(p.emblems ?? []),
             params_hash: paramsHash(p as Record<string, unknown>),
             result_count: input.results.length,
-            filtered_json: input.filtered ? JSON.stringify(input.filtered) : null,
+            filtered_json: input.filtered
+                ? JSON.stringify(input.filtered)
+                : null,
             notes: meta.notes ?? null,
         };
         const runInfo = insertRun.run(runRow);
@@ -115,12 +117,19 @@ export function recordRun(
                 score: Number(r.score) || 0,
                 slots_used: r.slotsUsed ?? null,
                 champions_json: JSON.stringify(
-                    (r.champions ?? []).map((c: any) => ({ apiName: c.apiName, cost: c.cost })),
+                    (r.champions ?? []).map((c: any) => ({
+                        apiName: c.apiName,
+                        cost: c.cost,
+                    })),
                 ),
                 active_traits_json: JSON.stringify(r.activeTraits ?? []),
                 roles_json: r.roles ? JSON.stringify(r.roles) : null,
-                breakdown_json: r.breakdown ? JSON.stringify(r.breakdown) : null,
-                meta_match_json: r.metaMatch ? JSON.stringify(r.metaMatch) : null,
+                breakdown_json: r.breakdown
+                    ? JSON.stringify(r.breakdown)
+                    : null,
+                meta_match_json: r.metaMatch
+                    ? JSON.stringify(r.metaMatch)
+                    : null,
             });
             const resultId = Number(resultInfo.lastInsertRowid);
 

@@ -1,52 +1,93 @@
 <?php
 
-namespace Tests\Feature;
+use App\Models\Champion;
+use App\Models\Set;
+use App\Models\TftTrait;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-use Tests\TestCase;
+uses(RefreshDatabase::class);
 
-class ScoutContextTest extends TestCase
-{
-    public function test_context_endpoint_returns_top_level_shape(): void
-    {
-        $response = $this->getJson('/api/scout/context');
+beforeEach(function () {
+    config(['services.tft.set' => 18]);
+    $set = Set::factory()->create(['number' => 18]);
 
-        $response->assertOk();
-        $response->assertJsonStructure([
-            'champions',
-            'traits',
+    $riftbeast = TftTrait::create([
+        'set_id' => $set->id,
+        'api_name' => 'DA_Riftbeast18',
+        'name' => 'Riftbeast',
+        'description' => '(@MinUnits@) Alpha Mark (@MinUnits@) +@TeamSize@ maximum team size',
+        'category' => 'public',
+    ]);
+    $riftbeast->breakpoints()->create(['position' => 1, 'min_units' => 3, 'max_units' => 9, 'style_id' => 1, 'effects' => []]);
+    $riftbeast->breakpoints()->create(['position' => 2, 'min_units' => 10, 'max_units' => 25000, 'style_id' => 5, 'effects' => ['TeamSize' => 2.0]]);
+
+    $coven = TftTrait::create([
+        'set_id' => $set->id, 'api_name' => 'DA_18_Coven', 'name' => 'Coven', 'category' => 'public',
+    ]);
+    $coven->breakpoints()->create(['position' => 1, 'min_units' => 3, 'max_units' => 25000, 'style_id' => 1, 'effects' => []]);
+
+    $elder = Champion::factory()->create([
+        'set_id' => $set->id, 'api_name' => 'DA_18_ElderDragon', 'name' => 'Elder Dragon', 'cost' => 5, 'slots_used' => 2,
+    ]);
+    $elder->traits()->attach($riftbeast->id, ['amount' => 2]);
+
+    $lux = Champion::factory()->create([
+        'set_id' => $set->id, 'api_name' => 'DA_Lux18_Base', 'name' => 'Lux', 'cost' => 5, 'is_playable' => false,
+    ]);
+    foreach (['DA_18_Lux_Coven' => 'coven', 'DA_18_Lux_Fae' => 'fae'] as $api => $label) {
+        $form = Champion::factory()->create([
+            'set_id' => $set->id, 'api_name' => $api, 'name' => "Lux ({$label})", 'cost' => 5,
+            'base_champion_id' => $lux->id, 'variant_label' => $label,
+        ]);
+        if ($label === 'coven') {
+            $form->traits()->attach($coven->id, ['amount' => 2]);
+        }
+    }
+
+    // A previous set's rows must not leak into the current context
+    $old = Set::factory()->create(['number' => 17, 'is_active' => false]);
+    Champion::factory()->create(['set_id' => $old->id, 'api_name' => 'TFT17_Jinx']);
+});
+
+test('context endpoint returns the worker payload shape', function () {
+    $this->getJson('/api/scout/context')
+        ->assertOk()
+        ->assertJsonStructure([
+            'champions' => [['apiName', 'cost', 'traits', 'traitAmounts', 'slotsUsed', 'baseApiName', 'variant', 'role']],
+            'traits' => [['apiName', 'category', 'breakpoints' => [['position', 'minUnits', 'maxUnits', 'style', 'teamSizeBonus']]]],
             'exclusionGroups',
-            'scoringCtx' => [
-                'unitRatings',
-                'traitRatings',
-                'affinity',
-                'companions',
-                'metaComps',
-                'styleScores',
-            ],
+            'scoringCtx' => ['unitRatings', 'traitRatings', 'affinity', 'companions', 'metaComps', 'styleScores'],
             'syncedAt',
             'stale',
         ]);
-    }
+});
 
-    public function test_champions_include_required_fields(): void
-    {
-        $response = $this->getJson('/api/scout/context');
-        $champion = $response->json('champions.0');
+test('only playable champions of the current set are sent', function () {
+    $apis = collect($this->getJson('/api/scout/context')->json('champions'))->pluck('apiName')->sort()->values()->all();
 
-        $this->assertIsArray($champion);
-        $this->assertArrayHasKey('apiName', $champion);
-        $this->assertArrayHasKey('cost', $champion);
-        $this->assertArrayHasKey('traits', $champion);
-        $this->assertArrayHasKey('slotsUsed', $champion);
-    }
+    expect($apis)->toBe(['DA_18_ElderDragon', 'DA_18_Lux_Coven', 'DA_18_Lux_Fae']);
+});
 
-    public function test_traits_include_breakpoints(): void
-    {
-        $response = $this->getJson('/api/scout/context');
-        $trait = $response->json('traits.0');
+test('trait amounts and slots reach the worker', function () {
+    $champions = collect($this->getJson('/api/scout/context')->json('champions'))->keyBy('apiName');
 
-        $this->assertIsArray($trait);
-        $this->assertArrayHasKey('breakpoints', $trait);
-        $this->assertIsArray($trait['breakpoints']);
-    }
-}
+    expect($champions['DA_18_ElderDragon']['slotsUsed'])->toBe(2)
+        ->and($champions['DA_18_ElderDragon']['traitAmounts'])->toBe(['DA_Riftbeast18' => 2])
+        ->and($champions['DA_18_Lux_Coven']['traitAmounts'])->toBe(['DA_18_Coven' => 2])
+        ->and($champions['DA_18_Lux_Coven']['baseApiName'])->toBe('DA_Lux18_Base')
+        ->and($champions['DA_18_Lux_Fae']['traitAmounts'])->toBe([]);
+});
+
+test('team size bonus is resolved per breakpoint', function () {
+    $traits = collect($this->getJson('/api/scout/context')->json('traits'))->keyBy('apiName');
+
+    expect(collect($traits['DA_Riftbeast18']['breakpoints'])->pluck('teamSizeBonus', 'minUnits')->all())
+        ->toBe([3 => 0, 10 => 2]);
+});
+
+test('lux forms form one exclusion group', function () {
+    $groups = $this->getJson('/api/scout/context')->json('exclusionGroups');
+
+    expect($groups)->toHaveCount(1)
+        ->and(collect($groups[0])->sort()->values()->all())->toBe(['DA_18_Lux_Coven', 'DA_18_Lux_Fae']);
+});

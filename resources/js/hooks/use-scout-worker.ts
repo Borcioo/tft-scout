@@ -3,8 +3,9 @@ import ScoutWorker from '@/workers/scout/index?worker&inline';
 import type {
     RescoreParams,
     RescoreResult,
-    ScoutParams,
     ScoredTeam,
+    ScoutParams,
+    WorkerInMsg,
     WorkerOutMsg,
 } from '@/workers/scout/types';
 
@@ -52,10 +53,8 @@ function createWorker(): Worker {
         // error) — instead we wrap it in a same-origin blob that
         // dynamically imports it. Vite's CORS headers allow the
         // import; the blob's origin satisfies the Worker SOP check.
-        const workerUrl = new URL(
-            '../workers/scout/index.ts',
-            import.meta.url,
-        ).href;
+        const workerUrl = new URL('../workers/scout/index.ts', import.meta.url)
+            .href;
         const stub =
             `self.__API_BASE__=${JSON.stringify(location.origin)};` +
             `import ${JSON.stringify(workerUrl)};`;
@@ -83,8 +82,8 @@ function getWorker(): Worker {
             const handler = pending.get(msg.id);
 
             if (!handler) {
-return;
-}
+                return;
+            }
 
             pending.delete(msg.id);
 
@@ -114,28 +113,39 @@ function releaseWorker() {
     }
 }
 
+function post(
+    msg: Extract<WorkerInMsg, { id: number }>,
+    resolve: (v: never) => void,
+    reject: (e: Error) => void,
+) {
+    if (!sharedWorker) {
+        reject(new Error('Scout worker is not running'));
+
+        return;
+    }
+
+    pending.set(msg.id, {
+        resolve: resolve as (v: WorkerReply) => void,
+        reject,
+    });
+    sharedWorker.postMessage(msg);
+}
+
 function sendGenerate(params: ScoutParams) {
     const id = ++msgId;
+
     return new Promise<{ results: ScoredTeam[]; insights: unknown }>(
-        (resolve, reject) => {
-            pending.set(id, {
-                resolve: resolve as (v: WorkerReply) => void,
-                reject,
-            });
-            sharedWorker!.postMessage({ type: 'generate', id, params });
-        },
+        (resolve, reject) =>
+            post({ type: 'generate', id, params }, resolve, reject),
     );
 }
 
 function sendRescore(params: RescoreParams) {
     const id = ++msgId;
-    return new Promise<RescoreResult>((resolve, reject) => {
-        pending.set(id, {
-            resolve: resolve as (v: WorkerReply) => void,
-            reject,
-        });
-        sharedWorker!.postMessage({ type: 'rescore', id, params });
-    });
+
+    return new Promise<RescoreResult>((resolve, reject) =>
+        post({ type: 'rescore', id, params }, resolve, reject),
+    );
 }
 
 export function useScoutWorker() {

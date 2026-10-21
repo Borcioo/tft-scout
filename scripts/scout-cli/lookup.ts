@@ -1,4 +1,8 @@
-import type { Champion, ScoutContext, Trait } from '../../resources/js/workers/scout/types';
+import type {
+    Champion,
+    ScoutContext,
+    Trait,
+} from '../../resources/js/workers/scout/types';
 
 /**
  * Find a champion by case-insensitive apiName. Throws with the three
@@ -9,8 +13,8 @@ export function findChampion(ctx: ScoutContext, apiName: string): Champion {
     const exact = ctx.champions.find((c) => c.apiName.toLowerCase() === lower);
 
     if (exact) {
-return exact;
-}
+        return exact;
+    }
 
     const nearest = nearestNames(
         apiName,
@@ -27,8 +31,8 @@ export function findTrait(ctx: ScoutContext, apiName: string): Trait {
     const exact = ctx.traits.find((t) => t.apiName.toLowerCase() === lower);
 
     if (exact) {
-return exact;
-}
+        return exact;
+    }
 
     const nearest = nearestNames(
         apiName,
@@ -41,7 +45,10 @@ return exact;
 }
 
 /** Map a list of apiNames to champions, throwing on the first unknown. */
-export function findChampions(ctx: ScoutContext, apiNames: string[]): Champion[] {
+export function findChampions(
+    ctx: ScoutContext,
+    apiNames: string[],
+): Champion[] {
     return apiNames.map((name) => findChampion(ctx, name));
 }
 
@@ -61,8 +68,8 @@ function nearestNames(query: string, pool: string[], k = 3): string[] {
     });
     scored.sort((a, b) => {
         if (a.substring !== b.substring) {
-return a.substring - b.substring;
-}
+            return a.substring - b.substring;
+        }
 
         return a.distance - b.distance;
     });
@@ -72,35 +79,39 @@ return a.substring - b.substring;
 
 function levenshtein(a: string, b: string): number {
     if (a === b) {
-return 0;
-}
+        return 0;
+    }
 
     if (a.length === 0) {
-return b.length;
-}
+        return b.length;
+    }
 
     if (b.length === 0) {
-return a.length;
-}
+        return a.length;
+    }
 
     const prev: number[] = new Array(b.length + 1);
     const curr: number[] = new Array(b.length + 1);
 
     for (let j = 0; j <= b.length; j++) {
-prev[j] = j;
-}
+        prev[j] = j;
+    }
 
     for (let i = 1; i <= a.length; i++) {
         curr[0] = i;
 
         for (let j = 1; j <= b.length; j++) {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-            curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+            curr[j] = Math.min(
+                curr[j - 1] + 1,
+                prev[j] + 1,
+                prev[j - 1] + cost,
+            );
         }
 
         for (let j = 0; j <= b.length; j++) {
-prev[j] = curr[j];
-}
+            prev[j] = curr[j];
+        }
     }
 
     return prev[b.length];

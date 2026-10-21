@@ -16,8 +16,8 @@ let cached: string | null = null;
  */
 export function currentGitSha(): string {
     if (cached !== null) {
-return cached;
-}
+        return cached;
+    }
 
     try {
         const gitDir = resolve(process.cwd(), '.git');
@@ -39,7 +39,7 @@ return cached;
             const packed = readFileSync(resolve(gitDir, 'packed-refs'), 'utf8');
             const line = packed
                 .split('\n')
-                .find((l) => l.endsWith(' ' + refPath));
+                .find((l) => l.endsWith(` ${refPath}`));
             cached = line ? line.split(' ')[0] : 'unknown';
         }
     } catch {

@@ -13,20 +13,20 @@
  * Mutates traitCounts in place.
  */
 export function applyEmblems(traitCounts, emblems, champTraitSets) {
-  // champTraitSets: array of Sets, one per champion (their natural traits)
-  // For each emblem trait, count how many champions DON'T have it → max usable
-  const emblemsByTrait = {};
+    // champTraitSets: array of Sets, one per champion (their natural traits)
+    // For each emblem trait, count how many champions DON'T have it → max usable
+    const emblemsByTrait = {};
 
-  for (const e of emblems) {
-emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
-}
+    for (const e of emblems) {
+        emblemsByTrait[e] = (emblemsByTrait[e] || 0) + 1;
+    }
 
-  for (const [trait, count] of Object.entries(emblemsByTrait)) {
-    const holders = champTraitSets.filter(ts => !ts.has(trait)).length;
-    const usable = Math.min(count, holders);
+    for (const [trait, count] of Object.entries(emblemsByTrait)) {
+        const holders = champTraitSets.filter((ts) => !ts.has(trait)).length;
+        const usable = Math.min(count, holders);
 
-    if (usable > 0) {
-traitCounts[trait] = (traitCounts[trait] || 0) + usable;
-}
-  }
+        if (usable > 0) {
+            traitCounts[trait] = (traitCounts[trait] || 0) + usable;
+        }
+    }
 }

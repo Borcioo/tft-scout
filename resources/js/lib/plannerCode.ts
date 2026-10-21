@@ -30,7 +30,9 @@ export function generatePlannerCode(
     champions: ChampLike[],
     setVersion?: string | null,
 ): string | null {
-    if (!champions || champions.length === 0) return null;
+    if (!champions || champions.length === 0) {
+        return null;
+    }
 
     const setNumber =
         (setVersion ?? deriveSetVersion(champions) ?? '').replace(/^TFT/, '') ||
@@ -38,14 +40,22 @@ export function generatePlannerCode(
 
     const slots: string[] = [];
     for (const c of champions) {
-        if (c.plannerCode == null) continue;
+        if (c.plannerCode == null) {
+            continue;
+        }
         slots.push(c.plannerCode.toString(16).padStart(SLOT_HEX_CHARS, '0'));
-        if (slots.length >= TEAM_SIZE) break;
+        if (slots.length >= TEAM_SIZE) {
+            break;
+        }
     }
 
-    if (slots.length === 0) return null;
+    if (slots.length === 0) {
+        return null;
+    }
 
-    while (slots.length < TEAM_SIZE) slots.push(EMPTY_SLOT);
+    while (slots.length < TEAM_SIZE) {
+        slots.push(EMPTY_SLOT);
+    }
 
     return VERSION_BYTE + slots.join('') + SUFFIX_PREFIX + setNumber;
 }
@@ -56,10 +66,14 @@ export function generatePlannerCode(
  * callers should pass the shared `tftSet` page prop as `setVersion`.
  */
 export function deriveSetVersion(champions: ChampLike[]): string | null {
-    if (!champions || champions.length === 0) return null;
+    if (!champions || champions.length === 0) {
+        return null;
+    }
     for (const c of champions) {
         const match = (c.apiName ?? '').match(/^(TFT\d+)_/);
-        if (match) return match[1];
+        if (match) {
+            return match[1];
+        }
     }
     return null;
 }

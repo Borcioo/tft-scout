@@ -1,5 +1,4 @@
 // @ts-nocheck
-/* eslint-disable */
 /**
  * Duplication scanner for the scout worker.
  *
@@ -15,9 +14,9 @@
  *   npx tsx scripts/scout-audit/duplication.ts
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 const WINDOW = 8;
 const ROOT = resolve(process.cwd(), 'resources/js/workers/scout');
@@ -48,7 +47,10 @@ function normalise(line: string): string {
 }
 
 function hashWindow(lines: string[]): string {
-    return createHash('sha1').update(lines.join('\n')).digest('hex').slice(0, 12);
+    return createHash('sha1')
+        .update(lines.join('\n'))
+        .digest('hex')
+        .slice(0, 12);
 }
 
 type Hit = { file: string; startLine: number; preview: string };
@@ -62,26 +64,27 @@ for (const file of walk(ROOT)) {
     for (let i = 0; i + WINDOW <= normalised.length; i++) {
         const window = normalised.slice(i, i + WINDOW);
 
-        if (window.filter(l => l.length > 0).length < WINDOW / 2) {
+        if (window.filter((l) => l.length > 0).length < WINDOW / 2) {
             continue;
         }
 
         const h = hashWindow(window);
         const hit: Hit = {
-            file: file.replace(process.cwd() + '/', '').replace(process.cwd() + '\\', ''),
+            file: file
+                .replace(`${process.cwd()}/`, '')
+                .replace(`${process.cwd()}\\`, ''),
             startLine: i + 1,
             preview: raw[i].trim().slice(0, 80),
         };
 
-        if (!buckets.has(h)) {
-            buckets.set(h, []);
-        }
+        const bucket = buckets.get(h) ?? [];
 
-        buckets.get(h)!.push(hit);
+        bucket.push(hit);
+        buckets.set(h, bucket);
     }
 }
 
-const collisions = [...buckets.values()].filter(hits => hits.length > 1);
+const collisions = [...buckets.values()].filter((hits) => hits.length > 1);
 
 console.log(`# Duplication scan — ${collisions.length} collision buckets\n`);
 

@@ -7,8 +7,8 @@ import type { ScoutContext } from '../../../resources/js/workers/scout/types';
 import type { Db } from './db';
 import { currentGitSha } from './git';
 import { recordRun } from './ingest';
-import { PRESETS  } from './presets';
-import type {Preset} from './presets';
+import type { Preset } from './presets';
+import { PRESETS } from './presets';
 
 export type ExperimentArgs = {
     preset: string | null;
@@ -35,8 +35,8 @@ export function expandMatrix(
     const keys = Object.keys(matrix);
 
     if (keys.length === 0) {
-return [{}];
-}
+        return [{}];
+    }
 
     const combos: Record<string, string | number | null>[] = [{}];
 
@@ -61,7 +61,11 @@ export async function runExperiment(
     db: Db,
     ctx: ScoutContext,
     args: ExperimentArgs,
-    onProgress: (done: number, total: number, combo: Record<string, unknown>) => void,
+    onProgress: (
+        done: number,
+        total: number,
+        combo: Record<string, unknown>,
+    ) => void,
 ): Promise<ExperimentResult> {
     const experimentId = randomUUID();
     const gitSha = currentGitSha();
@@ -72,10 +76,10 @@ export async function runExperiment(
         const preset: Preset | undefined = PRESETS[args.preset];
 
         if (!preset) {
-throw new Error(
+            throw new Error(
                 `Unknown preset: ${args.preset}. Available: ${Object.keys(PRESETS).join(', ')}`,
             );
-}
+        }
 
         combos = expandMatrix(preset.matrix);
     } else if (args.matrixJson) {
@@ -89,8 +93,8 @@ throw new Error(
         combos = [];
 
         for (let s = lo; s <= hi; s++) {
-combos.push({ seed: s });
-}
+            combos.push({ seed: s });
+        }
     } else {
         throw new Error(
             'experiment requires one of: --preset, --matrix, or --repeat + --seed-range',
@@ -105,8 +109,10 @@ combos.push({ seed: s });
         const combo = combos[i];
         onProgress(i + 1, combos.length, combo);
 
-        const level = typeof combo.level === 'number' ? combo.level : args.baseLevel;
-        const topN = typeof combo.topN === 'number' ? combo.topN : args.baseTopN;
+        const level =
+            typeof combo.level === 'number' ? combo.level : args.baseLevel;
+        const topN =
+            typeof combo.topN === 'number' ? combo.topN : args.baseTopN;
         const seed = typeof combo.seed === 'number' ? combo.seed : 0;
         const minFrontline =
             typeof combo.minFrontline === 'number' ? combo.minFrontline : 0;

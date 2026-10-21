@@ -30,16 +30,18 @@ function GridScanIcon() {
                 <div className="absolute inset-0 grid grid-cols-5 opacity-50">
                     {Array.from({ length: 5 }, (_, i) => (
                         <div
+                            // biome-ignore lint/suspicious/noArrayIndexKey: static decorative grid
                             key={`col-${i + 1}`}
-                            className="border-r border-border last:border-r-0"
+                            className="border-border border-r last:border-r-0"
                         />
                     ))}
                 </div>
                 <div className="absolute inset-0 grid grid-rows-5 opacity-50">
                     {Array.from({ length: 5 }, (_, i) => (
                         <div
+                            // biome-ignore lint/suspicious/noArrayIndexKey: static decorative grid
                             key={`row-${i + 1}`}
-                            className="border-b border-border last:border-b-0"
+                            className="border-border border-b last:border-b-0"
                         />
                     ))}
                 </div>
@@ -78,6 +80,7 @@ function TwoFactorSetupStep({
                                 {qrCodeSvg ? (
                                     <div
                                         className="aspect-square w-full rounded-lg bg-white p-2 [&_svg]:size-full"
+                                        // biome-ignore lint/security/noDangerouslySetInnerHtml: QR SVG generated server-side by Fortify, not user input
                                         dangerouslySetInnerHTML={{
                                             __html: qrCodeSvg,
                                         }}
@@ -123,8 +126,9 @@ function TwoFactorSetupStep({
                                         className="h-full w-full bg-background p-3 text-foreground outline-none"
                                     />
                                     <button
+                                        type="button"
                                         onClick={() => copy(manualSetupKey)}
-                                        className="border-l border-border px-3 hover:bg-muted"
+                                        className="border-border border-l px-3 hover:bg-muted"
                                     >
                                         <IconComponent className="w-4" />
                                     </button>
@@ -187,6 +191,7 @@ function TwoFactorVerificationStep({
                                         { length: OTP_MAX_LENGTH },
                                         (_, index) => (
                                             <InputOTPSlot
+                                                // biome-ignore lint/suspicious/noArrayIndexKey: one slot per OTP digit position
                                                 key={index}
                                                 index={index}
                                             />

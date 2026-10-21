@@ -6,7 +6,13 @@
 import { generate } from './engine';
 import { generateInsights } from './insights';
 import { rescoreTeam } from './re-score';
-import type { ScoutContext, ScoutParams, ScoredTeam, WorkerInMsg, WorkerOutMsg } from './types';
+import type {
+    ScoredTeam,
+    ScoutContext,
+    ScoutParams,
+    WorkerInMsg,
+    WorkerOutMsg,
+} from './types';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -14,23 +20,24 @@ let cachedContext: ScoutContext | null = null;
 
 async function fetchContext(): Promise<ScoutContext> {
     if (cachedContext) {
-return cachedContext;
-}
+        return cachedContext;
+    }
 
     // In dev the worker runs under a `blob:` origin injected by
     // use-scout-worker.ts, which can't resolve root-relative URLs.
     // The hook sets `self.__API_BASE__` so we can build absolutes.
     // Empty string falls through to normal same-origin behavior in
     // prod where the worker inherits the page origin directly.
-    const base = (self as unknown as { __API_BASE__?: string }).__API_BASE__ ?? '';
+    const base =
+        (self as unknown as { __API_BASE__?: string }).__API_BASE__ ?? '';
     const res = await fetch(`${base}/api/scout/context`, {
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
     });
 
     if (!res.ok) {
-throw new Error(`Context fetch failed: ${res.status}`);
-}
+        throw new Error(`Context fetch failed: ${res.status}`);
+    }
 
     cachedContext = (await res.json()) as ScoutContext;
 
@@ -70,7 +77,6 @@ function mapResult(r: any): ScoredTeam {
     };
 }
 
- 
 async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
     const p = params as any;
     const {
@@ -123,14 +129,14 @@ async function runGenerate(ctx: ScoutContext, params: ScoutParams) {
 
     return { results: results.map(mapResult), insights };
 }
- 
 
 self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
     const msg = e.data;
 
     // Prod blob workers have no origin — accept it via postMessage.
     if (msg.type === '__init__') {
-        (self as unknown as { __API_BASE__?: string }).__API_BASE__ = msg.origin ?? '';
+        (self as unknown as { __API_BASE__?: string }).__API_BASE__ =
+            msg.origin ?? '';
 
         return;
     }
@@ -150,7 +156,10 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
                 emblems,
                 context: ctx,
             });
-            const out: WorkerOutMsg = { id: msg.id, rescore: { score, missing } };
+            const out: WorkerOutMsg = {
+                id: msg.id,
+                rescore: { score, missing },
+            };
             self.postMessage(out);
         } else {
             // roadTo deferred to post-MVP per spec

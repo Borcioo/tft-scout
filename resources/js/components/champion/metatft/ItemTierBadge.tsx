@@ -26,7 +26,7 @@ export function ItemTierBadge({ tier, className }: Props) {
         return (
             <span
                 className={cn(
-                    'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 text-xs font-semibold text-muted-foreground',
+                    'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 font-semibold text-muted-foreground text-xs',
                     className,
                 )}
                 title="Not enough games to rate"
@@ -39,7 +39,7 @@ export function ItemTierBadge({ tier, className }: Props) {
     return (
         <span
             className={cn(
-                'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 text-xs font-bold',
+                'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 font-bold text-xs',
                 TIER_STYLES[tier],
                 className,
             )}

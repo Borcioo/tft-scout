@@ -1,8 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Info, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { MetaTftPerformanceSection  } from '@/components/champion/metatft/MetaTftPerformanceSection';
-import type {MetaTftData} from '@/components/champion/metatft/MetaTftPerformanceSection';
+import type { MetaTftData } from '@/components/champion/metatft/MetaTftPerformanceSection';
+import { MetaTftPerformanceSection } from '@/components/champion/metatft/MetaTftPerformanceSection';
 import { TopPickCard } from '@/components/champion/metatft/TopPickCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -147,16 +147,16 @@ const TAG_CLASS_MAP: Record<string, string> = {
 
 function scaleStat(base: number, starLevel: number): number {
     if (starLevel === 1) {
-return base;
-}
+        return base;
+    }
 
     if (starLevel === 2) {
-return base * STAR_SCALING;
-}
+        return base * STAR_SCALING;
+    }
 
     if (starLevel === 3) {
-return base * STAR_SCALING * STAR_SCALING;
-}
+        return base * STAR_SCALING * STAR_SCALING;
+    }
 
     return base;
 }
@@ -180,8 +180,8 @@ function humanizeShowIfCondition(condition: string): string {
     const traitName = parts[0];
 
     if (!traitName) {
-return `${condition} active`;
-}
+        return `${condition} active`;
+    }
 
     return `${traitName} active`;
 }
@@ -210,7 +210,6 @@ return `${condition} active`;
  *
  * Stats parameter is unused but kept so callers don't need to change.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function detectStatOffset(_stats: AbilityStat[]): number {
     return 1;
 }
@@ -224,8 +223,8 @@ function getStarValue(
     const allSame = stat.value.every((v) => v === stat.value[0]);
 
     if (allSame) {
-return stat.value[0];
-}
+        return stat.value[0];
+    }
 
     return stat.value[offset + starLevel - 1];
 }
@@ -258,15 +257,15 @@ function resolvePlaceholderStat(
         const hit = stats.find((s) => s.name.toLowerCase() === candidate);
 
         if (hit) {
-return hit;
-}
+            return hit;
+        }
     }
 
     const stripped = varName.replace(/^Modified/, '').toLowerCase();
 
     if (!stripped) {
-return null;
-}
+        return null;
+    }
 
     // Phase 2: prefix matches
     const prefixMatches = stats.filter((s) =>
@@ -275,35 +274,33 @@ return null;
 
     const pickBest = (pool: AbilityStat[]): AbilityStat | null => {
         if (pool.length === 0) {
-return null;
-}
+            return null;
+        }
 
         // Prefer names without "Percent" (those are usually scaling coefficients)
         const nonPercent = pool.filter((s) => !/percent/i.test(s.name));
         const candidatePool = nonPercent.length > 0 ? nonPercent : pool;
 
         // Tiebreak by max non-zero value in the array (primary = larger magnitude)
-        return candidatePool
-            .slice()
-            .sort((a, b) => {
-                const maxA = Math.max(
-                    ...a.value.filter((v) => v !== 0).map(Math.abs),
-                    0,
-                );
-                const maxB = Math.max(
-                    ...b.value.filter((v) => v !== 0).map(Math.abs),
-                    0,
-                );
+        return candidatePool.slice().sort((a, b) => {
+            const maxA = Math.max(
+                ...a.value.filter((v) => v !== 0).map(Math.abs),
+                0,
+            );
+            const maxB = Math.max(
+                ...b.value.filter((v) => v !== 0).map(Math.abs),
+                0,
+            );
 
-                return maxB - maxA;
-            })[0];
+            return maxB - maxA;
+        })[0];
     };
 
     const prefixPick = pickBest(prefixMatches);
 
     if (prefixPick) {
-return prefixPick;
-}
+        return prefixPick;
+    }
 
     // Phase 3: substring match anywhere in stat name
     const substrMatches = stats.filter((s) =>
@@ -312,8 +309,8 @@ return prefixPick;
     const substrPick = pickBest(substrMatches);
 
     if (substrPick) {
-return substrPick;
-}
+        return substrPick;
+    }
 
     // Phase 4: Scaling-variable fallback for @Modified*@ placeholders.
     // When @ModifiedDamage@ has no Damage-named variable, the damage is
@@ -327,8 +324,8 @@ return substrPick;
         const scalingPick = pickBest(scalingStats);
 
         if (scalingPick) {
-return scalingPick;
-}
+            return scalingPick;
+        }
     }
 
     return null;
@@ -347,13 +344,13 @@ function autoColorForStat(stat: AbilityStat): string {
 
     // Healing — green (TFT standard)
     if (/heal/.test(name)) {
-return 'font-semibold text-emerald-400';
-}
+        return 'font-semibold text-emerald-400';
+    }
 
     // Shields — cyan (defensive, TFT uses blue-ish for shield bars)
     if (/shield/.test(name)) {
-return 'font-semibold text-cyan-400';
-}
+        return 'font-semibold text-cyan-400';
+    }
 
     // Damage — orange (physical damage TFT convention)
     if (/damage|shockwave|burst|nova/.test(name)) {
@@ -367,11 +364,15 @@ return 'font-semibold text-cyan-400';
 
     // Mana-related — blue (TFT mana bar color)
     if (/mana|cost/.test(name)) {
-return 'font-semibold text-blue-400';
-}
+        return 'font-semibold text-blue-400';
+    }
 
     // Stat bonuses / defensive buffs — amber
-    if (/durability|bonus|resist|tenacity|armor|attackspeed|critchance/.test(name)) {
+    if (
+        /durability|bonus|resist|tenacity|armor|attackspeed|critchance/.test(
+            name,
+        )
+    ) {
         return 'font-semibold text-amber-400';
     }
 
@@ -399,8 +400,8 @@ function parseAbilityDescription(
     statOffset: number,
 ): React.ReactNode | null {
     if (!desc) {
-return null;
-}
+        return null;
+    }
 
     let text = desc;
 
@@ -451,8 +452,8 @@ return null;
     text = text.trim();
 
     if (!text) {
-return null;
-}
+        return null;
+    }
 
     // Tokenize tags AND placeholders together, carrying the "am I inside a
     // color tag" context so we can decide between inherited tag colors
@@ -502,8 +503,8 @@ function renderAbilityTokens(
 
     for (const match of matches) {
         if (match.index === undefined) {
-continue;
-}
+            continue;
+        }
 
         if (match.index > lastIndex) {
             nodes.push(text.slice(lastIndex, match.index));
@@ -528,7 +529,7 @@ continue;
                 nodes.push(
                     <span
                         key={`cond-${key++}`}
-                        className="italic text-muted-foreground/90"
+                        className="text-muted-foreground/90 italic"
                         title={`Only active when ${label}`}
                     >
                         {innerNodes}
@@ -643,14 +644,14 @@ type FormatOpts = {
 function isPercentStat(stat: AbilityStat): boolean {
     // Duration variables are handled separately by isDurationStat — never %
     if (isDurationStat(stat)) {
-return false;
-}
+        return false;
+    }
 
     const nonZeroValues = stat.value.filter((v) => v !== 0);
 
     if (nonZeroValues.length === 0) {
-return false;
-}
+        return false;
+    }
 
     return nonZeroValues.every((v) => Math.abs(v) < 1);
 }
@@ -679,8 +680,8 @@ function formatStatValue(val: number, opts: FormatOpts = {}): string {
     // as-is, the description has literal "%" or context surrounding it.
     if (explicitMultiplier) {
         if (Number.isInteger(val)) {
-return String(val);
-}
+            return String(val);
+        }
 
         return val.toFixed(1);
     }
@@ -691,15 +692,17 @@ return String(val);
         // values table — in the ability description the surrounding prose
         // already says "seconds" or "-hex range", so we return bare numbers.
         if (isDurationStat(stat)) {
-            const formatted = Number.isInteger(val) ? String(val) : val.toFixed(1);
+            const formatted = Number.isInteger(val)
+                ? String(val)
+                : val.toFixed(1);
 
-            return suppressUnitSuffix ? formatted : formatted + 's';
+            return suppressUnitSuffix ? formatted : `${formatted}s`;
         }
 
         if (isHexStat(stat)) {
             const rounded = String(Math.round(val));
 
-            return suppressUnitSuffix ? rounded : rounded + ' hex';
+            return suppressUnitSuffix ? rounded : `${rounded} hex`;
         }
 
         if (isPercentStat(stat)) {
@@ -715,12 +718,12 @@ return String(val);
 
     // Default formatting rules (used when no stat context)
     if (Number.isInteger(val)) {
-return String(val);
-}
+        return String(val);
+    }
 
     if (Math.abs(val) < 1) {
-return Math.round(val * 100) + '%';
-}
+        return `${Math.round(val * 100)}%`;
+    }
 
     return val.toFixed(1);
 }
@@ -731,7 +734,9 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
     const style = COST_STYLES[Math.min(Math.max(champion.cost, 1), 5)];
 
     // Traits grouped for display — public on top, unique below, hidden never shown
-    const displayTraits = champion.traits.filter((t) => t.category !== 'hidden');
+    const displayTraits = champion.traits.filter(
+        (t) => t.category !== 'hidden',
+    );
 
     // Scale HP and AD for the selected star level
     const scaledStats = useMemo(
@@ -777,7 +782,7 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                 {/* Back link */}
                 <Link
                     href="/champions"
-                    className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex w-fit items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground"
                 >
                     <ArrowLeft className="size-4" />
                     Back to Champions
@@ -823,7 +828,7 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <div className="flex items-center gap-3">
-                                    <h1 className="text-3xl font-bold tracking-tight">
+                                    <h1 className="font-bold text-3xl tracking-tight">
                                         {champion.name}
                                     </h1>
                                     <Badge
@@ -837,13 +842,13 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                                     </Badge>
                                 </div>
                                 {champion.role && (
-                                    <p className="mt-1 text-sm text-muted-foreground">
+                                    <p className="mt-1 text-muted-foreground text-sm">
                                         {champion.damage_type} ·{' '}
                                         {champion.role_category}
                                     </p>
                                 )}
                                 {!champion.is_playable && (
-                                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                    <p className="mt-2 inline-flex items-center gap-1 text-amber-600 text-xs dark:text-amber-400">
                                         <Info className="size-3" />
                                         Not directly playable — pick a form
                                         below
@@ -855,7 +860,7 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
                         {/* Traits */}
                         {displayTraits.length > 0 && (
                             <div className="flex flex-col gap-2">
-                                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                                <p className="font-semibold text-muted-foreground text-xs uppercase">
                                     Traits
                                 </p>
                                 <div className="flex flex-wrap gap-2">
@@ -932,186 +937,202 @@ export default function ChampionShow({ champion, variants, metatft }: Props) {
 
                 {/* ── Stats + Ability side by side on lg ── */}
                 <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            Stats at{' '}
-                            <span className="text-amber-500">
-                                {'★'.repeat(starLevel)}
-                            </span>{' '}
-                            level
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-                        <StatCell
-                            label="HP"
-                            value={scaledStats.hp}
-                            highlighted={starLevel > 1}
-                        />
-                        <StatCell
-                            label="Attack Damage"
-                            value={scaledStats.attack_damage}
-                            highlighted={starLevel > 1}
-                        />
-                        <StatCell
-                            label="Attack Speed"
-                            value={champion.stats.attack_speed.toFixed(2)}
-                        />
-                        <StatCell label="Armor" value={champion.stats.armor} />
-                        <StatCell
-                            label="Magic Resist"
-                            value={champion.stats.magic_resist}
-                        />
-                        <StatCell
-                            label="Range"
-                            value={champion.stats.range}
-                        />
-                        <StatCell
-                            label="Mana"
-                            value={`${champion.stats.start_mana} / ${champion.stats.mana}`}
-                        />
-                        <StatCell
-                            label="Crit Chance"
-                            value={`${Math.round(champion.stats.crit_chance * 100)}%`}
-                        />
-                        <StatCell
-                            label="Crit Multiplier"
-                            value={`${champion.stats.crit_multiplier.toFixed(1)}×`}
-                        />
-                    </CardContent>
-                </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">
+                                Stats at{' '}
+                                <span className="text-amber-500">
+                                    {'★'.repeat(starLevel)}
+                                </span>{' '}
+                                level
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                            <StatCell
+                                label="HP"
+                                value={scaledStats.hp}
+                                highlighted={starLevel > 1}
+                            />
+                            <StatCell
+                                label="Attack Damage"
+                                value={scaledStats.attack_damage}
+                                highlighted={starLevel > 1}
+                            />
+                            <StatCell
+                                label="Attack Speed"
+                                value={champion.stats.attack_speed.toFixed(2)}
+                            />
+                            <StatCell
+                                label="Armor"
+                                value={champion.stats.armor}
+                            />
+                            <StatCell
+                                label="Magic Resist"
+                                value={champion.stats.magic_resist}
+                            />
+                            <StatCell
+                                label="Range"
+                                value={champion.stats.range}
+                            />
+                            <StatCell
+                                label="Mana"
+                                value={`${champion.stats.start_mana} / ${champion.stats.mana}`}
+                            />
+                            <StatCell
+                                label="Crit Chance"
+                                value={`${Math.round(champion.stats.crit_chance * 100)}%`}
+                            />
+                            <StatCell
+                                label="Crit Multiplier"
+                                value={`${champion.stats.crit_multiplier.toFixed(1)}×`}
+                            />
+                        </CardContent>
+                    </Card>
 
-                {/* ── Ability ─────────────────────────────── */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-start gap-3">
-                            {champion.ability_icon_path && (
-                                <img
-                                    src={`/icons/abilities/${champion.api_name}.png`}
-                                    alt={champion.ability_name ?? 'Ability icon'}
-                                    className="h-12 w-12 shrink-0 rounded border border-border/60 object-cover"
-                                    onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                    }}
-                                />
-                            )}
-                            <div className="min-w-0 flex-1">
-                                {champion.ability_name && (
-                                    <CardTitle className="truncate text-lg">
-                                        {champion.ability_name}
-                                    </CardTitle>
+                    {/* ── Ability ─────────────────────────────── */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-start gap-3">
+                                {champion.ability_icon_path && (
+                                    <img
+                                        src={`/icons/abilities/${champion.api_name}.png`}
+                                        alt={
+                                            champion.ability_name ??
+                                            'Ability icon'
+                                        }
+                                        className="h-12 w-12 shrink-0 rounded border border-border/60 object-cover"
+                                        onError={(e) => {
+                                            (
+                                                e.currentTarget as HTMLImageElement
+                                            ).style.display = 'none';
+                                        }}
+                                    />
                                 )}
-                                <p className="text-xs text-muted-foreground">
-                                    Ability values shown for{' '}
-                                    <span className="text-amber-500">
-                                        {'★'.repeat(starLevel)}
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {parsedAbility ? (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                                {parsedAbility}
-                            </p>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No ability description available.
-                            </p>
-                        )}
-
-                        {/* Raw ability stats table for debugging / power users */}
-                        {champion.ability_stats.length > 0 && (
-                            <details className="mt-4">
-                                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                                    Raw ability values per star level ({champion.ability_stats.length})
-                                </summary>
-                                <div className="mt-2 overflow-x-auto">
-                                    <table className="w-full text-xs">
-                                        <thead>
-                                            <tr className="border-b text-left text-muted-foreground">
-                                                <th className="py-1 pr-4">
-                                                    Variable
-                                                </th>
-                                                {visibleStarLevels.map((s) => (
-                                                    <th
-                                                        key={s}
-                                                        className={cn(
-                                                            'py-1 pr-4 text-right',
-                                                            s === starLevel &&
-                                                                'text-amber-500',
-                                                        )}
-                                                    >
-                                                        ★{s}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {champion.ability_stats.map(
-                                                (stat) => (
-                                                    <tr
-                                                        key={stat.name}
-                                                        className={cn(
-                                                            'border-b border-border/40',
-                                                            stat.kind === 'calculated' &&
-                                                                'bg-amber-500/5',
-                                                        )}
-                                                    >
-                                                        <td className="py-1 pr-4 font-mono">
-                                                            {stat.name}
-                                                            {stat.kind === 'calculated' && (
-                                                                <span
-                                                                    className="ml-1 text-[9px] text-amber-500/70"
-                                                                    title="Computed from raw data values via spell formula"
-                                                                >
-                                                                    fx
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        {visibleStarLevels.map(
-                                                            (s) => {
-                                                                const value =
-                                                                    getStarValue(
-                                                                        stat,
-                                                                        s,
-                                                                        statOffset,
-                                                                    );
-
-                                                                return (
-                                                                    <td
-                                                                        key={s}
-                                                                        className={cn(
-                                                                            'py-1 pr-4 text-right font-mono',
-                                                                            s ===
-                                                                                starLevel &&
-                                                                                'text-amber-500',
-                                                                        )}
-                                                                    >
-                                                                        {value !==
-                                                                        undefined
-                                                                            ? formatStatValue(
-                                                                                  value,
-                                                                                  {
-                                                                                      stat,
-                                                                                  },
-                                                                              )
-                                                                            : '—'}
-                                                                    </td>
-                                                                );
-                                                            },
-                                                        )}
-                                                    </tr>
-                                                ),
-                                            )}
-                                        </tbody>
-                                    </table>
+                                <div className="min-w-0 flex-1">
+                                    {champion.ability_name && (
+                                        <CardTitle className="truncate text-lg">
+                                            {champion.ability_name}
+                                        </CardTitle>
+                                    )}
+                                    <p className="text-muted-foreground text-xs">
+                                        Ability values shown for{' '}
+                                        <span className="text-amber-500">
+                                            {'★'.repeat(starLevel)}
+                                        </span>
+                                    </p>
                                 </div>
-                            </details>
-                        )}
-                    </CardContent>
-                </Card>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {parsedAbility ? (
+                                <p className="whitespace-pre-wrap text-foreground/90 text-sm leading-relaxed">
+                                    {parsedAbility}
+                                </p>
+                            ) : (
+                                <p className="text-muted-foreground text-sm">
+                                    No ability description available.
+                                </p>
+                            )}
+
+                            {/* Raw ability stats table for debugging / power users */}
+                            {champion.ability_stats.length > 0 && (
+                                <details className="mt-4">
+                                    <summary className="cursor-pointer text-muted-foreground text-xs hover:text-foreground">
+                                        Raw ability values per star level (
+                                        {champion.ability_stats.length})
+                                    </summary>
+                                    <div className="mt-2 overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                            <thead>
+                                                <tr className="border-b text-left text-muted-foreground">
+                                                    <th className="py-1 pr-4">
+                                                        Variable
+                                                    </th>
+                                                    {visibleStarLevels.map(
+                                                        (s) => (
+                                                            <th
+                                                                key={s}
+                                                                className={cn(
+                                                                    'py-1 pr-4 text-right',
+                                                                    s ===
+                                                                        starLevel &&
+                                                                        'text-amber-500',
+                                                                )}
+                                                            >
+                                                                ★{s}
+                                                            </th>
+                                                        ),
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {champion.ability_stats.map(
+                                                    (stat) => (
+                                                        <tr
+                                                            key={stat.name}
+                                                            className={cn(
+                                                                'border-border/40 border-b',
+                                                                stat.kind ===
+                                                                    'calculated' &&
+                                                                    'bg-amber-500/5',
+                                                            )}
+                                                        >
+                                                            <td className="py-1 pr-4 font-mono">
+                                                                {stat.name}
+                                                                {stat.kind ===
+                                                                    'calculated' && (
+                                                                    <span
+                                                                        className="ml-1 text-[9px] text-amber-500/70"
+                                                                        title="Computed from raw data values via spell formula"
+                                                                    >
+                                                                        fx
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            {visibleStarLevels.map(
+                                                                (s) => {
+                                                                    const value =
+                                                                        getStarValue(
+                                                                            stat,
+                                                                            s,
+                                                                            statOffset,
+                                                                        );
+
+                                                                    return (
+                                                                        <td
+                                                                            key={
+                                                                                s
+                                                                            }
+                                                                            className={cn(
+                                                                                'py-1 pr-4 text-right font-mono',
+                                                                                s ===
+                                                                                    starLevel &&
+                                                                                    'text-amber-500',
+                                                                            )}
+                                                                        >
+                                                                            {value !==
+                                                                            undefined
+                                                                                ? formatStatValue(
+                                                                                      value,
+                                                                                      {
+                                                                                          stat,
+                                                                                      },
+                                                                                  )
+                                                                                : '—'}
+                                                                        </td>
+                                                                    );
+                                                                },
+                                                            )}
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* ── MetaTFT Performance ────────────────── */}
@@ -1147,9 +1168,7 @@ function StarSelector({
                         >
                             <Star
                                 className="size-5"
-                                fill={
-                                    current >= star ? 'currentColor' : 'none'
-                                }
+                                fill={current >= star ? 'currentColor' : 'none'}
                                 strokeWidth={current >= star ? 0 : 2}
                             />
                         </button>
@@ -1174,7 +1193,7 @@ function StatCell({
 }) {
     return (
         <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
                 {label}
             </span>
             <span
@@ -1198,7 +1217,7 @@ function VariantList({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">
+            <p className="font-semibold text-muted-foreground text-xs uppercase">
                 Forms
             </p>
             <div className="flex flex-wrap gap-2">

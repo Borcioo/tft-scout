@@ -43,16 +43,20 @@ class ChampionsShowMetaTftTest extends TestCase
             'synced_at' => now(),
         ]);
 
+        // The builds table lists full 3-item builds only
+        foreach (['TFT_Item_InfinityEdge', 'TFT_Item_Bloodthirster'] as $api) {
+            Item::factory()->create(['set_id' => $set->id, 'api_name' => $api]);
+        }
         ChampionItemSet::create([
             'champion_id' => $champ->id,
             'set_id' => $set->id,
-            'item_api_names' => ['TFT_Item_GuinsoosRageblade'],
+            'item_api_names' => ['TFT_Item_Bloodthirster', 'TFT_Item_GuinsoosRageblade', 'TFT_Item_InfinityEdge'],
             'avg_place' => 3.9,
             'games' => 200,
             'frequency' => 0.2,
             'win_rate' => 0.22,
             'top4_rate' => 0.6,
-            'item_count' => 1,
+            'item_count' => 3,
             'tier' => 'S',
             'synced_at' => now(),
         ]);

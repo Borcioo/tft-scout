@@ -1,5 +1,5 @@
-import { Component  } from 'react';
-import type {ReactNode} from 'react';
+import type { ReactNode } from 'react';
+import { Component } from 'react';
 
 type Props = {
     children: ReactNode;
@@ -30,7 +30,7 @@ export class ScoutErrorBoundary extends Component<Props, State> {
         // Surface the stack in dev tools — the production bundle still
         // calls this but DevTools keeps the stack readable via source
         // maps, so we log both so the user can copy either.
-         
+
         console.error('[Scout] crashed:', error, info.componentStack);
     }
 
@@ -38,16 +38,18 @@ export class ScoutErrorBoundary extends Component<Props, State> {
         if (this.state.error) {
             return (
                 <div className="flex flex-col gap-3 p-6">
-                    <h1 className="text-2xl font-bold text-red-400">
+                    <h1 className="font-bold text-2xl text-red-400">
                         Scout crashed
                     </h1>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                         The scout component threw an error. Details below.
                         Reloading the page usually recovers.
                     </p>
-                    <pre className="max-h-[50vh] overflow-auto rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-xs text-red-300">
+                    <pre className="max-h-[50vh] overflow-auto rounded-lg border border-red-800/60 bg-red-950/20 p-3 text-red-300 text-xs">
                         {this.state.error.message}
-                        {this.state.error.stack ? '\n\n' + this.state.error.stack : ''}
+                        {this.state.error.stack
+                            ? `\n\n${this.state.error.stack}`
+                            : ''}
                     </pre>
                     <button
                         type="button"

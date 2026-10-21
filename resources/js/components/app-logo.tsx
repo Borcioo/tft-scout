@@ -11,7 +11,7 @@ export default function AppLogo() {
                 <Target className="size-5" strokeWidth={2.5} />
             </div>
             <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="truncate leading-tight font-semibold">
+                <span className="truncate font-semibold leading-tight">
                     TFT Scout
                 </span>
                 <span className="truncate text-[10px] text-muted-foreground leading-tight">

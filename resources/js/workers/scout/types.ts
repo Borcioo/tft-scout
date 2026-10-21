@@ -6,14 +6,14 @@ export type Champion = {
     apiName: string;
     name: string;
     cost: number;
-    traits: string[];        // trait api_names
-    traitNames: string[];    // human-readable names (for UI rendering)
+    traits: string[]; // trait api_names
+    traitNames: string[]; // human-readable names (for UI rendering)
     /** Trait contributions other than 1 (Lux form → its element: 2,
      *  Elder Dragon → Riftbeast: 2, Mecha Enhanced → Mecha: 2). */
     traitAmounts?: Record<string, number>;
-    slotsUsed: number;       // 2 for Mecha Enhanced / Elder Dragon
+    slotsUsed: number; // 2 for Mecha Enhanced / Elder Dragon
     baseApiName: string | null;
-    variant: string | null;  // 'hero' | 'enhanced' | 'conduit' | 'coven' (Lux form) | ...
+    variant: string | null; // 'hero' | 'enhanced' | 'conduit' | 'coven' (Lux form) | ...
     role: string | null;
     damageType: string | null;
     roleCategory: string | null;
@@ -176,6 +176,9 @@ export type RescoreResult = {
 };
 
 export type WorkerInMsg =
+    // Prod workers are inline blobs without an origin; the page sends it
+    // once right after construction (see use-scout-worker.ts).
+    | { type: '__init__'; origin: string }
     | { type: 'generate'; id: number; params: ScoutParams }
     | { type: 'rescore'; id: number; params: RescoreParams }
     | { type: 'roadTo'; id: number; params: unknown };
@@ -192,14 +195,64 @@ export type WorkerOutMsg =
 
 export type InsightItem =
     | { kind: 'metaMatch'; compName: string; avgPlace: number; games: number }
-    | { kind: 'topCarry'; championApiName: string; displayName: string; avgPlace: number; games: number }
-    | { kind: 'strongTrait'; traitApiName: string; displayName: string; count: number; avgPlace: number; games: number }
-    | { kind: 'affinityHit'; championApiName: string; championName: string; traitApiName: string; traitName: string; avgPlace: number }
-    | { kind: 'provenPair'; aApi: string; aName: string; bApi: string; bName: string; avgPlace: number }
-    | { kind: 'highBreakpoint'; traitApiName: string; displayName: string; count: number; avgPlace: number }
-    | { kind: 'weakChampion'; championApiName: string; championName: string; avgPlace: number; reasonTraitName: string }
-    | { kind: 'lowBreakpoint'; traitApiName: string; displayName: string; count: number; avgPlace: number }
-    | { kind: 'unprovenTrait'; traitApiName: string; displayName: string; games: number }
+    | {
+          kind: 'topCarry';
+          championApiName: string;
+          displayName: string;
+          avgPlace: number;
+          games: number;
+      }
+    | {
+          kind: 'strongTrait';
+          traitApiName: string;
+          displayName: string;
+          count: number;
+          avgPlace: number;
+          games: number;
+      }
+    | {
+          kind: 'affinityHit';
+          championApiName: string;
+          championName: string;
+          traitApiName: string;
+          traitName: string;
+          avgPlace: number;
+      }
+    | {
+          kind: 'provenPair';
+          aApi: string;
+          aName: string;
+          bApi: string;
+          bName: string;
+          avgPlace: number;
+      }
+    | {
+          kind: 'highBreakpoint';
+          traitApiName: string;
+          displayName: string;
+          count: number;
+          avgPlace: number;
+      }
+    | {
+          kind: 'weakChampion';
+          championApiName: string;
+          championName: string;
+          avgPlace: number;
+          reasonTraitName: string;
+      }
+    | {
+          kind: 'lowBreakpoint';
+          traitApiName: string;
+          displayName: string;
+          count: number;
+          avgPlace: number;
+      }
+    | {
+          kind: 'unprovenTrait';
+          traitApiName: string;
+          displayName: string;
+          games: number;
+      }
     | { kind: 'singleCore'; traitApiName: string; displayName: string }
     | { kind: 'noMetaMatch' }
     | { kind: 'staleData' };

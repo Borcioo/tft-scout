@@ -1,7 +1,5 @@
 <?php
 
-namespace Tests\Feature\Services\Import;
-
 use App\Models\Champion;
 use App\Models\Set;
 use App\Models\TftTrait;
@@ -9,122 +7,89 @@ use App\Services\Import\SetHooks\Shared\DisplayNameVariantHook;
 use App\Services\Import\SetHooks\Shared\RoleInferenceHook;
 use App\Services\Import\SetHooks\Shared\TraitSlotOverrideHook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 
-class Set18HooksTest extends TestCase
-{
-    use RefreshDatabase;
+uses(RefreshDatabase::class);
 
-    private Set $set;
+beforeEach(function () {
+    $this->set = Set::factory()->create(['number' => 18]);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->set = Set::factory()->create(['number' => 18]);
-    }
+    $this->champion = fn (string $apiName, string $name, array $attrs = []) => Champion::factory()->create([
+        'set_id' => $this->set->id,
+        'api_name' => $apiName,
+        'name' => $name,
+        ...$attrs,
+    ]);
 
-    public function test_lux_forms_become_variants_of_a_non_playable_base(): void
-    {
-        $base = $this->champion('DA_Lux18_Base', 'Lux', cost: 5, plannerCode: 1029);
-        $coven = $this->champion('DA_18_Lux_Coven', 'Lux (Coven)', cost: 5);
-        $base->update(['ability_stats' => [['name' => 'ManaCalc1', 'value' => [0, 10, 20, 30]]]]);
+    $this->trait = fn (string $apiName) => TftTrait::create([
+        'set_id' => $this->set->id,
+        'api_name' => $apiName,
+        'name' => $apiName,
+        'category' => 'public',
+        'is_unique' => false,
+    ]);
+});
 
-        (new DisplayNameVariantHook)->run($this->set);
+test('lux forms become variants of a non-playable base', function () {
+    $base = ($this->champion)('DA_Lux18_Base', 'Lux', [
+        'cost' => 5,
+        'planner_code' => 1029,
+        'ability_stats' => [['name' => 'ManaCalc1', 'value' => [0, 10, 20, 30]]],
+    ]);
+    $coven = ($this->champion)('DA_18_Lux_Coven', 'Lux (Coven)', ['cost' => 5]);
 
-        $coven->refresh();
-        $this->assertFalse($base->fresh()->is_playable);
-        $this->assertSame($base->id, $coven->base_champion_id);
-        $this->assertSame('coven', $coven->variant_label);
+    (new DisplayNameVariantHook)->run($this->set);
+
+    $coven->refresh();
+    expect($base->fresh()->is_playable)->toBeFalse()
+        ->and($coven->base_champion_id)->toBe($base->id)
+        ->and($coven->variant_label)->toBe('coven')
         // The Team Planner only knows the base unit
-        $this->assertSame(1029, $coven->planner_code);
+        ->and($coven->planner_code)->toBe(1029)
         // Form bins have no SpellObject — stats come from the base spell
-        $this->assertSame('ManaCalc1', $coven->ability_stats[0]['name']);
-    }
+        ->and($coven->ability_stats[0]['name'])->toBe('ManaCalc1');
+});
 
-    public function test_display_name_link_requires_matching_cost(): void
-    {
-        $this->champion('DA_X18', 'Gnar', cost: 5);
-        $other = $this->champion('DA_Y18', 'Gnar (Mega)', cost: 3);
+test('display name link requires matching cost', function () {
+    ($this->champion)('DA_X18', 'Gnar', ['cost' => 5]);
+    $other = ($this->champion)('DA_Y18', 'Gnar (Mega)', ['cost' => 3]);
 
-        (new DisplayNameVariantHook)->run($this->set);
+    (new DisplayNameVariantHook)->run($this->set);
 
-        $this->assertNull($other->fresh()->base_champion_id);
-    }
+    expect($other->fresh()->base_champion_id)->toBeNull();
+});
 
-    public function test_apex_predator_takes_two_slots(): void
-    {
-        $apex = $this->trait('DA_18_ApexPredator');
-        $elder = $this->champion('DA_18_ElderDragon', 'Elder Dragon', cost: 5);
-        $elder->traits()->attach($apex->id);
-        $other = $this->champion('DA_18_Ahri', 'Ahri', cost: 4);
+test('apex predator takes two slots', function () {
+    $elder = ($this->champion)('DA_18_ElderDragon', 'Elder Dragon', ['cost' => 5]);
+    $elder->traits()->attach(($this->trait)('DA_18_ApexPredator')->id);
+    $other = ($this->champion)('DA_18_Ahri', 'Ahri', ['cost' => 4]);
 
-        (new TraitSlotOverrideHook)->run($this->set);
+    (new TraitSlotOverrideHook)->run($this->set);
 
-        $this->assertSame(2, $elder->fresh()->slots_used);
-        $this->assertSame(1, $other->fresh()->slots_used);
-    }
+    expect($elder->fresh()->slots_used)->toBe(2)
+        ->and($other->fresh()->slots_used)->toBe(1);
+});
 
-    public function test_roles_are_inferred_from_range_damage_words_and_fighter_traits(): void
-    {
-        $ravager = $this->trait('DA_18_Slayer');
+test('roles are inferred from range, damage words and fighter traits', function () {
+    $carry = ($this->champion)('DA_18_Aphelios', 'Aphelios', ['range' => 4,
+        'ability_desc' => 'Swipe the target dealing @X@ %i:scaleAD% physical damage, then @Y@ %i:scaleAP%.']);
+    $caster = ($this->champion)('DA_18_Ahri', 'Ahri', ['range' => 4,
+        'ability_desc' => 'It deals @MagicDamageCalc1@ %i:scaleAP% magic damage.']);
+    $tank = ($this->champion)('DA_18_Leona', 'Leona', ['range' => 1,
+        'ability_desc' => 'Gain @Shield@ %i:scaleAP% Shield and deal magic damage.']);
+    $fighter = ($this->champion)('DA_18_Warwick', 'Warwick', ['range' => 1,
+        'ability_desc' => 'Bite for @Dmg@ %i:scaleAD% physical damage.']);
+    $fighter->traits()->attach(($this->trait)('DA_18_Slayer')->id);
+    $riotRole = ($this->champion)('DA_18_Kept', 'Kept', ['range' => 4,
+        'ability_desc' => 'magic damage', 'role' => 'ADTank']);
 
-        $carry = $this->champion('DA_18_Aphelios', 'Aphelios', range: 4,
-            desc: 'Swipe the target dealing @X@ %i:scaleAD% physical damage, then @Y@ %i:scaleAP%.');
-        $caster = $this->champion('DA_18_Ahri', 'Ahri', range: 4,
-            desc: 'It deals @MagicDamageCalc1@ %i:scaleAP% magic damage.');
-        $tank = $this->champion('DA_18_Leona', 'Leona', range: 1,
-            desc: 'Gain @Shield@ %i:scaleAP% Shield and deal magic damage.');
-        $fighter = $this->champion('DA_18_Warwick', 'Warwick', range: 1,
-            desc: 'Bite for @Dmg@ %i:scaleAD% physical damage.');
-        $fighter->traits()->attach($ravager->id);
-        $riotRole = $this->champion('DA_18_Kept', 'Kept', range: 4, desc: 'magic damage');
-        $riotRole->update(['role' => 'ADTank']);
+    (new RoleInferenceHook)->run($this->set);
 
-        (new RoleInferenceHook)->run($this->set);
+    $roleOf = fn (Champion $c) => [$c->fresh()->role, $c->fresh()->damage_type, $c->fresh()->role_category];
 
-        $this->assertSame(['ADCarry', 'AD', 'Carry'], $this->roleOf($carry));
-        $this->assertSame(['APCaster', 'AP', 'Caster'], $this->roleOf($caster));
-        $this->assertSame(['APTank', 'AP', 'Tank'], $this->roleOf($tank));
-        $this->assertSame(['ADFighter', 'AD', 'Fighter'], $this->roleOf($fighter));
+    expect($roleOf($carry))->toBe(['ADCarry', 'AD', 'Carry'])
+        ->and($roleOf($caster))->toBe(['APCaster', 'AP', 'Caster'])
+        ->and($roleOf($tank))->toBe(['APTank', 'AP', 'Tank'])
+        ->and($roleOf($fighter))->toBe(['ADFighter', 'AD', 'Fighter'])
         // CDragon-supplied roles are left alone
-        $this->assertSame('ADTank', $riotRole->fresh()->role);
-    }
-
-    private function champion(
-        string $apiName,
-        string $name,
-        int $cost = 1,
-        ?int $plannerCode = null,
-        float $range = 1,
-        string $desc = '',
-    ): Champion {
-        return Champion::factory()->create([
-            'set_id' => $this->set->id,
-            'api_name' => $apiName,
-            'name' => $name,
-            'cost' => $cost,
-            'planner_code' => $plannerCode,
-            'range' => $range,
-            'ability_desc' => $desc,
-        ]);
-    }
-
-    private function trait(string $apiName): TftTrait
-    {
-        return TftTrait::create([
-            'set_id' => $this->set->id,
-            'api_name' => $apiName,
-            'name' => $apiName,
-            'category' => 'public',
-            'is_unique' => false,
-        ]);
-    }
-
-    /** @return array{string|null, string|null, string|null} */
-    private function roleOf(Champion $c): array
-    {
-        $c->refresh();
-
-        return [$c->role, $c->damage_type, $c->role_category];
-    }
-}
+        ->and($riotRole->fresh()->role)->toBe('ADTank');
+});

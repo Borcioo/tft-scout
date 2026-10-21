@@ -28,21 +28,19 @@ export function WhyThisComp({ insights }: Props) {
     return (
         <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="why" className="border-0">
-                <AccordionTrigger
-                    className="py-2 text-sm"
-                    disabled={empty}
-                >
+                <AccordionTrigger className="py-2 text-sm" disabled={empty}>
                     {empty ? 'No insights for this comp' : 'Why this comp?'}
                 </AccordionTrigger>
                 <AccordionContent>
                     <div className="flex flex-col gap-4 pt-2 text-sm">
                         {strengths.length > 0 && (
                             <section>
-                                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                                <h4 className="mb-1 font-semibold text-emerald-400 text-xs uppercase tracking-wider">
                                     💪 Strengths
                                 </h4>
                                 <ul className="flex flex-col gap-1 text-muted-foreground">
                                     {strengths.map((item, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: derived list, rebuilt per render, never reordered
                                         <li key={i} className="leading-snug">
                                             {renderInsight(item)}
                                         </li>
@@ -52,11 +50,12 @@ export function WhyThisComp({ insights }: Props) {
                         )}
                         {concerns.length > 0 && (
                             <section>
-                                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-400">
+                                <h4 className="mb-1 font-semibold text-amber-400 text-xs uppercase tracking-wider">
                                     ⚠️ Concerns
                                 </h4>
                                 <ul className="flex flex-col gap-1 text-muted-foreground">
                                     {concerns.map((item, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: derived list, rebuilt per render, never reordered
                                         <li key={i} className="leading-snug">
                                             {renderInsight(item)}
                                         </li>
@@ -76,21 +75,28 @@ function renderInsight(item: InsightItem): ReactNode {
         case 'metaMatch':
             return (
                 <>
-                    Matches meta comp <strong>{item.compName}</strong> ({fmtAvg(item.avgPlace)} avg, {fmtGames(item.games)} games)
+                    Matches meta comp <strong>{item.compName}</strong> (
+                    {fmtAvg(item.avgPlace)} avg, {fmtGames(item.games)} games)
                 </>
             );
         case 'topCarry':
             return (
                 <>
                     <ChampIcon api={item.championApiName} />{' '}
-                    <strong>{item.displayName}</strong> is a top carry this patch ({fmtAvg(item.avgPlace)} avg, {fmtGames(item.games)} games)
+                    <strong>{item.displayName}</strong> is a top carry this
+                    patch ({fmtAvg(item.avgPlace)} avg, {fmtGames(item.games)}{' '}
+                    games)
                 </>
             );
         case 'strongTrait':
             return (
                 <>
                     <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.displayName} {item.count}</strong> is a strong trait ({fmtAvg(item.avgPlace)} avg across {fmtGames(item.games)} games)
+                    <strong>
+                        {item.displayName} {item.count}
+                    </strong>{' '}
+                    is a strong trait ({fmtAvg(item.avgPlace)} avg across{' '}
+                    {fmtGames(item.games)} games)
                 </>
             );
         case 'affinityHit':
@@ -98,50 +104,65 @@ function renderInsight(item: InsightItem): ReactNode {
                 <>
                     <ChampIcon api={item.championApiName} />{' '}
                     <strong>{item.championName}</strong> performs best in{' '}
-                    <TraitIcon api={item.traitApiName} /> <strong>{item.traitName}</strong> ({fmtAvg(item.avgPlace)} avg)
+                    <TraitIcon api={item.traitApiName} />{' '}
+                    <strong>{item.traitName}</strong> ({fmtAvg(item.avgPlace)}{' '}
+                    avg)
                 </>
             );
         case 'provenPair':
             return (
                 <>
                     <ChampIcon api={item.aApi} />{' '}
-                    <strong>{item.aName} + {item.bName}</strong>{' '}
-                    <ChampIcon api={item.bApi} /> — proven duo ({fmtAvg(item.avgPlace)} avg when together)
+                    <strong>
+                        {item.aName} + {item.bName}
+                    </strong>{' '}
+                    <ChampIcon api={item.bApi} /> — proven duo (
+                    {fmtAvg(item.avgPlace)} avg when together)
                 </>
             );
         case 'highBreakpoint':
             return (
                 <>
                     <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.displayName} {item.count}</strong> — peak breakpoint, consistently top 4
+                    <strong>
+                        {item.displayName} {item.count}
+                    </strong>{' '}
+                    — peak breakpoint, consistently top 4
                 </>
             );
         case 'weakChampion':
             return (
                 <>
                     <ChampIcon api={item.championApiName} />{' '}
-                    <strong>{item.championName}</strong> struggles this patch ({fmtAvg(item.avgPlace)} avg) — held for {item.reasonTraitName} count
+                    <strong>{item.championName}</strong> struggles this patch (
+                    {fmtAvg(item.avgPlace)} avg) — held for{' '}
+                    {item.reasonTraitName} count
                 </>
             );
         case 'lowBreakpoint':
             return (
                 <>
                     <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.displayName} {item.count}</strong> — weakest breakpoint, low impact
+                    <strong>
+                        {item.displayName} {item.count}
+                    </strong>{' '}
+                    — weakest breakpoint, low impact
                 </>
             );
         case 'unprovenTrait':
             return (
                 <>
                     <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.displayName}</strong> — too few games to know if it works ({fmtGames(item.games)})
+                    <strong>{item.displayName}</strong> — too few games to know
+                    if it works ({fmtGames(item.games)})
                 </>
             );
         case 'singleCore':
             return (
                 <>
                     Comp leans on <TraitIcon api={item.traitApiName} />{' '}
-                    <strong>{item.displayName}</strong> alone — no backup synergy
+                    <strong>{item.displayName}</strong> alone — no backup
+                    synergy
                 </>
             );
         case 'noMetaMatch':

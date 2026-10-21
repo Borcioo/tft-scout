@@ -10,11 +10,11 @@ export function paramsHash(params: Record<string, unknown>): string {
 
 function normalise(value: unknown): string {
     if (value === null || value === undefined) {
-return 'null';
-}
+        return 'null';
+    }
 
     if (Array.isArray(value)) {
-        return '[' + value.map(normalise).join(',') + ']';
+        return `[${value.map(normalise).join(',')}]`;
     }
 
     if (typeof value === 'object') {
@@ -22,7 +22,11 @@ return 'null';
             .filter(([, v]) => v !== null && v !== undefined)
             .sort(([a], [b]) => a.localeCompare(b));
 
-        return '{' + entries.map(([k, v]) => `${k}:${normalise(v)}`).join(',') + '}';
+        return (
+            '{' +
+            entries.map(([k, v]) => `${k}:${normalise(v)}`).join(',') +
+            '}'
+        );
     }
 
     return JSON.stringify(value);

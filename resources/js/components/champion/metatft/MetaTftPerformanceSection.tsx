@@ -6,7 +6,13 @@ import { Toggle } from '@/components/ui/toggle';
 import { ItemStatsTable } from './ItemStatsTable';
 import type { Tier } from './ItemTierBadge';
 
-type ItemType = 'base' | 'craftable' | 'radiant' | 'support' | 'artifact' | 'trait_item';
+type ItemType =
+    | 'base'
+    | 'craftable'
+    | 'radiant'
+    | 'support'
+    | 'artifact'
+    | 'trait_item';
 
 type ItemSingle = {
     api_name: string;
@@ -64,14 +70,18 @@ type Props = {
  * can be placed in the 4-col grid.
  */
 export function MetaTftPerformanceSection({ data }: Props) {
-    const hasData = data.items_single.length > 0 || data.items_builds.length > 0;
+    const hasData =
+        data.items_single.length > 0 || data.items_builds.length > 0;
 
     const [hideRadiant, setHideRadiant] = useState(false);
     const [hideArtifact, setHideArtifact] = useState(false);
 
     // Tactician hatbox items (TacticiansRing/Scepter/ForceOfNature) are
     // never combat-relevant for a champion's BIS — always filtered.
-    const shouldHide = (types: (ItemType | null)[], tactFlags: boolean[]): boolean => {
+    const shouldHide = (
+        types: (ItemType | null)[],
+        tactFlags: boolean[],
+    ): boolean => {
         if (tactFlags.some((f) => f)) {
             return true;
         }
@@ -113,13 +123,17 @@ export function MetaTftPerformanceSection({ data }: Props) {
             {!hasData && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">MetaTFT Performance</CardTitle>
+                        <CardTitle className="text-base">
+                            MetaTFT Performance
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="inline-flex items-center gap-2 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-400">
+                        <div className="inline-flex items-center gap-2 rounded-md bg-amber-500/10 px-2 py-1 text-amber-600 text-xs dark:text-amber-400">
                             <Info className="size-3" />
                             MetaTFT data not synced yet — run{' '}
-                            <code className="rounded bg-muted px-1">php artisan metatft:sync</code>
+                            <code className="rounded bg-muted px-1">
+                                php artisan metatft:sync
+                            </code>
                         </div>
                     </CardContent>
                 </Card>
@@ -170,11 +184,15 @@ export function MetaTftPerformanceSection({ data }: Props) {
                             emptyHint="No items logged yet."
                         />
                     </TabsContent>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs">
                         {data.synced_at && (
-                            <>Last updated {new Date(data.synced_at).toLocaleString()}. </>
+                            <>
+                                Last updated{' '}
+                                {new Date(data.synced_at).toLocaleString()}.{' '}
+                            </>
                         )}
-                        Items with fewer than 15 games are shown without a tier. Data from MetaTFT.
+                        Items with fewer than 15 games are shown without a tier.
+                        Data from MetaTFT.
                     </p>
                 </Tabs>
             )}

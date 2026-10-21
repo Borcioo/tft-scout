@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
 import type { CostTier } from '@/lib/random-picker';
+import { cn } from '@/lib/utils';
 
 type Props = {
     value: CostTier;
@@ -17,7 +17,9 @@ const OPTIONS: { value: CostTier; label: string }[] = [
 export function CostTierPicker({ value, onChange, disabled = false }: Props) {
     return (
         <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Carry cost:</span>
+            <span className="font-medium text-muted-foreground text-xs">
+                Carry cost:
+            </span>
             <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
                 {OPTIONS.map((opt) => {
                     const active = opt.value === value;

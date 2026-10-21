@@ -9,12 +9,15 @@
  * in the report so drift between warmup and steady state is visible.
  */
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 import { generate } from '../../../resources/js/workers/scout/engine';
-import { resetProfiler, dumpProfile } from '../../../resources/js/workers/scout/scout-profiler';
-import { loadContext, DEFAULT_SNAPSHOT_PATH } from '../context';
+import {
+    dumpProfile,
+    resetProfiler,
+} from '../../../resources/js/workers/scout/scout-profiler';
+import { DEFAULT_SNAPSHOT_PATH, loadContext } from '../context';
 
 type Scenario = {
     id: string;
@@ -99,26 +102,40 @@ function runScenario(scenario: Scenario, ctx: any) {
     return { wallMs, spans: dumpProfile() };
 }
 
-function formatSpanTable(spans: Array<{ name: string; durationMs: number; count: number }>): string {
-    const lines = ['| span | durationMs | count | mean ms |', '| --- | ---: | ---: | ---: |'];
+function formatSpanTable(
+    spans: Array<{ name: string; durationMs: number; count: number }>,
+): string {
+    const lines = [
+        '| span | durationMs | count | mean ms |',
+        '| --- | ---: | ---: | ---: |',
+    ];
 
     for (const s of spans) {
         const mean = s.count > 0 ? (s.durationMs / s.count).toFixed(3) : '-';
-        lines.push(`| ${s.name} | ${s.durationMs.toFixed(2)} | ${s.count} | ${mean} |`);
+        lines.push(
+            `| ${s.name} | ${s.durationMs.toFixed(2)} | ${s.count} | ${mean} |`,
+        );
     }
 
     return lines.join('\n');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function runProfile(_argv: string[]): Promise<void> {
     if (process.env.SCOUT_PROFILE !== '1') {
-        throw new Error('scout-cli profile: set SCOUT_PROFILE=1 before running so the profiler actually collects spans');
+        throw new Error(
+            'scout-cli profile: set SCOUT_PROFILE=1 before running so the profiler actually collects spans',
+        );
     }
 
-    const ctx = await loadContext({ live: false, snapshotPath: DEFAULT_SNAPSHOT_PATH });
+    const ctx = await loadContext({
+        live: false,
+        snapshotPath: DEFAULT_SNAPSHOT_PATH,
+    });
     const date = new Date().toISOString().slice(0, 10);
-    const outPath = resolve(process.cwd(), `docs/superpowers/research/scout-perf-${date}.md`);
+    const outPath = resolve(
+        process.cwd(),
+        `docs/superpowers/research/scout-perf-${date}.md`,
+    );
 
     mkdirSync(dirname(outPath), { recursive: true });
 
@@ -139,9 +156,13 @@ export async function runProfile(_argv: string[]): Promise<void> {
         sections.push('');
 
         const measured = runScenario(scenario, ctx);
-        sections.push(`**Measured wall time:** ${measured.wallMs.toFixed(1)} ms`);
+        sections.push(
+            `**Measured wall time:** ${measured.wallMs.toFixed(1)} ms`,
+        );
         sections.push('');
-        sections.push('### Top spans (measured run, sorted by total durationMs)');
+        sections.push(
+            '### Top spans (measured run, sorted by total durationMs)',
+        );
         sections.push('');
         sections.push(formatSpanTable(measured.spans.slice(0, 25)));
         sections.push('');

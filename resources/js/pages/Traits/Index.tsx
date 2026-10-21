@@ -47,11 +47,31 @@ const STYLE_STYLES: Record<
     string,
     { border: string; bg: string; text: string }
 > = {
-    Bronze: { border: 'border-amber-700', bg: 'bg-amber-950/40', text: 'text-amber-400' },
-    Silver: { border: 'border-zinc-400', bg: 'bg-zinc-800/60', text: 'text-zinc-200' },
-    Gold: { border: 'border-yellow-500', bg: 'bg-yellow-950/40', text: 'text-yellow-300' },
-    Prismatic: { border: 'border-fuchsia-400', bg: 'bg-fuchsia-950/40', text: 'text-fuchsia-300' },
-    Unique: { border: 'border-red-500', bg: 'bg-red-950/40', text: 'text-red-300' },
+    Bronze: {
+        border: 'border-amber-700',
+        bg: 'bg-amber-950/40',
+        text: 'text-amber-400',
+    },
+    Silver: {
+        border: 'border-zinc-400',
+        bg: 'bg-zinc-800/60',
+        text: 'text-zinc-200',
+    },
+    Gold: {
+        border: 'border-yellow-500',
+        bg: 'bg-yellow-950/40',
+        text: 'text-yellow-300',
+    },
+    Prismatic: {
+        border: 'border-fuchsia-400',
+        bg: 'bg-fuchsia-950/40',
+        text: 'text-fuchsia-300',
+    },
+    Unique: {
+        border: 'border-red-500',
+        bg: 'bg-red-950/40',
+        text: 'text-red-300',
+    },
 };
 
 const FALLBACK_STYLE = {
@@ -101,8 +121,8 @@ const SCALE_ICON_LABELS: Record<string, string> = {
  */
 function renderDescription(text: string | null | undefined): React.ReactNode[] {
     if (!text) {
-return [];
-}
+        return [];
+    }
 
     let normalised = text.replace(/<br\s*\/?>/gi, '\n');
     normalised = normalised.replace(/&nbsp;/g, ' ');
@@ -125,17 +145,22 @@ function tokenize(text: string): React.ReactNode[] {
     const nodes: React.ReactNode[] = [];
     const tagRegex = /<(\/?)([A-Za-z_][A-Za-z0-9_]*)(?:\s[^>]*)?>/g;
     let lastIndex = 0;
-    let match: RegExpExecArray | null;
     let keyCounter = 0;
 
-    while ((match = tagRegex.exec(text)) !== null) {
+    for (;;) {
+        const match = tagRegex.exec(text);
+
+        if (match === null) {
+            break;
+        }
+
         const [full, closingSlash, tagName] = match;
         const start = match.index;
 
         if (closingSlash) {
             if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+                nodes.push(text.slice(lastIndex, start));
+            }
 
             lastIndex = start + full.length;
             continue;
@@ -146,8 +171,8 @@ nodes.push(text.slice(lastIndex, start));
 
         if (closeIdx === -1) {
             if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+                nodes.push(text.slice(lastIndex, start));
+            }
 
             nodes.push(full);
             lastIndex = start + full.length;
@@ -155,8 +180,8 @@ nodes.push(text.slice(lastIndex, start));
         }
 
         if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+            nodes.push(text.slice(lastIndex, start));
+        }
 
         const innerText = text.slice(start + full.length, closeIdx);
         const innerNodes = tokenize(innerText);
@@ -173,24 +198,25 @@ nodes.push(text.slice(lastIndex, start));
     }
 
     if (lastIndex < text.length) {
-nodes.push(text.slice(lastIndex));
-}
+        nodes.push(text.slice(lastIndex));
+    }
 
     return nodes.flatMap((node, i) => {
         if (typeof node !== 'string') {
-return [node];
-}
+            return [node];
+        }
 
         const parts = node.split('\n');
         const out: React.ReactNode[] = [];
         parts.forEach((part, pi) => {
             if (pi > 0) {
-out.push(<br key={`br-${i}-${pi}`} />);
-}
+                // biome-ignore lint/suspicious/noArrayIndexKey: line breaks of a static description, position is the identity
+                out.push(<br key={`br-${i}-${pi}`} />);
+            }
 
             if (part) {
-out.push(part);
-}
+                out.push(part);
+            }
         });
 
         return out;
@@ -220,8 +246,8 @@ function findMatchingClose(
         const closeMatch = closes.exec(text);
 
         if (!closeMatch) {
-return -1;
-}
+            return -1;
+        }
 
         if (openMatch && openMatch.index < closeMatch.index) {
             depth++;
@@ -232,8 +258,8 @@ return -1;
         depth--;
 
         if (depth === 0) {
-return closeMatch.index;
-}
+            return closeMatch.index;
+        }
 
         cursor = closeMatch.index + closeMatch[0].length;
     }
@@ -276,10 +302,12 @@ export default function TraitsIndex({ public_traits, unique_traits }: Props) {
             <Head title="Traits — TFT Scout" />
 
             <div className="flex flex-col gap-8 p-6">
-                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-wrap items-end justify-between gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-wrap items-end justify-between gap-3 bg-background/95 px-6 pt-6 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Traits</h1>
-                        <p className="text-sm text-muted-foreground">
+                        <h1 className="font-bold text-2xl tracking-tight">
+                            Traits
+                        </h1>
+                        <p className="text-muted-foreground text-sm">
                             {public_traits.length} origins &amp; classes,{' '}
                             {unique_traits.length} unique traits in Set 17.
                         </p>
@@ -295,7 +323,7 @@ export default function TraitsIndex({ public_traits, unique_traits }: Props) {
                 </div>
 
                 {totalCount === 0 ? (
-                    <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                    <Card className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                         No traits match your search.
                     </Card>
                 ) : (
@@ -332,14 +360,14 @@ function TraitSection({
 }) {
     return (
         <section className="flex flex-col gap-4">
-            <div className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2">
+            <div className="flex items-baseline justify-between gap-3 border-border/60 border-b pb-2">
                 <div>
-                    <h2 className="text-lg font-semibold tracking-tight">
+                    <h2 className="font-semibold text-lg tracking-tight">
                         {title}
                     </h2>
-                    <p className="text-xs text-muted-foreground">{subtitle}</p>
+                    <p className="text-muted-foreground text-xs">{subtitle}</p>
                 </div>
-                <span className="text-xs font-mono text-muted-foreground">
+                <span className="font-mono text-muted-foreground text-xs">
                     {traits.length}
                 </span>
             </div>
@@ -380,25 +408,26 @@ function TraitCard({ trait }: { trait: Trait }) {
                         className="size-12 object-contain"
                         loading="lazy"
                         onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).style.display =
+                                'none';
                         }}
                     />
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <h3 className="truncate text-lg font-bold tracking-tight">
+                        <h3 className="truncate font-bold text-lg tracking-tight">
                             {trait.name}
                         </h3>
                         {isUnique && (
                             <Badge
                                 variant="outline"
-                                className="border-red-700/60 bg-red-950/40 px-1.5 py-0 text-[10px] uppercase tracking-wider text-red-300"
+                                className="border-red-700/60 bg-red-950/40 px-1.5 py-0 text-[10px] text-red-300 uppercase tracking-wider"
                             >
                                 Unique
                             </Badge>
                         )}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-muted-foreground text-xs">
                         {trait.champions.length} champion
                         {trait.champions.length === 1 ? '' : 's'}
                         {trait.breakpoints.length > 0 && (
@@ -413,13 +442,13 @@ function TraitCard({ trait }: { trait: Trait }) {
             </div>
 
             {descriptionNodes.length > 0 && (
-                <p className="text-sm leading-relaxed text-foreground/90">
+                <p className="text-foreground/90 text-sm leading-relaxed">
                     {descriptionNodes}
                 </p>
             )}
 
             {trait.breakpoints.length > 0 && !isUnique && (
-                <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
+                <div className="flex flex-col gap-2 border-border/50 border-t pt-3">
                     {trait.breakpoints.map((bp) => (
                         <BreakpointRow
                             key={bp.position}
@@ -431,13 +460,13 @@ function TraitCard({ trait }: { trait: Trait }) {
             )}
 
             {trait.champions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 border-t border-border/50 pt-3">
+                <div className="flex flex-wrap gap-1.5 border-border/50 border-t pt-3">
                     {trait.champions.map((champ) => (
                         <Tooltip key={champ.api_name}>
                             <TooltipTrigger asChild>
                                 <Badge
                                     variant="outline"
-                                    className="gap-1.5 py-0.5 pl-0.5 pr-2 text-xs font-normal"
+                                    className="gap-1.5 py-0.5 pr-2 pl-0.5 font-normal text-xs"
                                 >
                                     <span className="inline-block size-5 overflow-hidden rounded-sm bg-muted">
                                         <img
@@ -446,7 +475,9 @@ function TraitCard({ trait }: { trait: Trait }) {
                                             className="size-full object-cover"
                                             loading="lazy"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none';
                                             }}
                                         />
                                     </span>
@@ -472,7 +503,7 @@ function BreakpointRow({
     traitName: string;
 }) {
     const style = breakpoint.style
-        ? STYLE_STYLES[breakpoint.style] ?? FALLBACK_STYLE
+        ? (STYLE_STYLES[breakpoint.style] ?? FALLBACK_STYLE)
         : FALLBACK_STYLE;
 
     const label =
@@ -490,7 +521,7 @@ function BreakpointRow({
         <div className="flex items-start gap-3">
             <span
                 className={cn(
-                    'mt-0.5 inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center rounded border px-2 font-mono text-xs font-semibold',
+                    'mt-0.5 inline-flex h-6 min-w-[2.5rem] shrink-0 items-center justify-center rounded border px-2 font-mono font-semibold text-xs',
                     style.border,
                     style.bg,
                     style.text,
@@ -499,13 +530,13 @@ function BreakpointRow({
                 {label}
             </span>
             {renderedNodes.length > 0 ? (
-                <p className="text-sm leading-snug text-foreground/85">
+                <p className="text-foreground/85 text-sm leading-snug">
                     {renderedNodes}
                 </p>
             ) : (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <span className="cursor-help text-xs italic text-muted-foreground">
+                        <span className="cursor-help text-muted-foreground text-xs italic">
                             No description
                         </span>
                     </TooltipTrigger>

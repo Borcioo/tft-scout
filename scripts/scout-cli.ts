@@ -63,14 +63,18 @@ async function main() {
     }
 
     if (command === 'snapshot') {
-        const { parseSnapshotArgs, runSnapshot } = await import('./scout-cli/commands/snapshot');
+        const { parseSnapshotArgs, runSnapshot } = await import(
+            './scout-cli/commands/snapshot'
+        );
         await runSnapshot(parseSnapshotArgs(rest));
 
         return;
     }
 
     if (command === 'context') {
-        const { parseContextArgs, runContext } = await import('./scout-cli/commands/context');
+        const { parseContextArgs, runContext } = await import(
+            './scout-cli/commands/context'
+        );
         await runContext(parseContextArgs(rest));
 
         return;
@@ -98,7 +102,9 @@ async function main() {
     }
 
     if (command === 'experiment') {
-        const { runExperimentCommand } = await import('./scout-cli/commands/experiment');
+        const { runExperimentCommand } = await import(
+            './scout-cli/commands/experiment'
+        );
         await runExperimentCommand(rest);
 
         return;
@@ -116,6 +122,8 @@ async function main() {
 }
 
 main().catch((err) => {
-    process.stderr.write(`scout-cli: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+    process.stderr.write(
+        `scout-cli: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+    );
     process.exit(1);
 });

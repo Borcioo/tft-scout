@@ -17,12 +17,12 @@
  */
 
 export const HERO_EXCLUSION_EXEMPT: ReadonlySet<string> = new Set([
-  'TFT17_Aatrox_hero',
+    'TFT17_Aatrox_hero',
 ]);
 
 type MinimalChampion = {
-  apiName: string;
-  variant: string | null;
+    apiName: string;
+    variant: string | null;
 };
 
 /**
@@ -34,10 +34,15 @@ type MinimalChampion = {
  * members — a group of 0 or 1 contributes nothing to exclusion and
  * would only bloat the downstream lookup.
  */
-export function buildHeroExclusionGroup(champions: MinimalChampion[]): string[] {
-  const group = champions
-    .filter(c => c.variant === 'hero' && !HERO_EXCLUSION_EXEMPT.has(c.apiName))
-    .map(c => c.apiName);
+export function buildHeroExclusionGroup(
+    champions: MinimalChampion[],
+): string[] {
+    const group = champions
+        .filter(
+            (c) =>
+                c.variant === 'hero' && !HERO_EXCLUSION_EXEMPT.has(c.apiName),
+        )
+        .map((c) => c.apiName);
 
-  return group.length >= 2 ? group : [];
+    return group.length >= 2 ? group : [];
 }

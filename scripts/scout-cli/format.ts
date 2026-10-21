@@ -4,7 +4,10 @@
  * `--full` at the command layer to skip these and print raw output.
  */
 
-export function summariseGenerate(rawResults: any[], filtered: GenerateFilteredCounts): unknown {
+export function summariseGenerate(
+    rawResults: any[],
+    filtered: GenerateFilteredCounts,
+): unknown {
     return {
         topN: rawResults.length,
         results: rawResults.map((r, i) => ({
@@ -38,8 +41,8 @@ export function summariseCandidates(candidates: any[]): unknown {
         byCost[c.cost] = (byCost[c.cost] ?? 0) + 1;
 
         for (const t of c.traits ?? []) {
-byTrait[t] = (byTrait[t] ?? 0) + 1;
-}
+            byTrait[t] = (byTrait[t] ?? 0) + 1;
+        }
     }
 
     return {
@@ -52,21 +55,23 @@ byTrait[t] = (byTrait[t] ?? 0) + 1;
 
 export function summariseGraph(graph: any): unknown {
     const nodes = Object.keys(graph?.nodes ?? {}).length;
-    const edges: Array<[string, string]> = [];
+    const edges: [string, string][] = [];
 
     // adjacency shape: { championApiName: [{ champ, sharedTraits, traits }, ...] }
     // Each undirected edge is stored on BOTH endpoints, so dedupe by ordering.
-    for (const [from, neighbourList] of Object.entries(graph?.adjacency ?? {})) {
+    for (const [from, neighbourList] of Object.entries(
+        graph?.adjacency ?? {},
+    )) {
         if (!Array.isArray(neighbourList)) {
-continue;
-}
+            continue;
+        }
 
         for (const edge of neighbourList) {
             const to = edge?.champ;
 
             if (typeof to === 'string' && from < to) {
-edges.push([from, to]);
-}
+                edges.push([from, to]);
+            }
         }
     }
 
@@ -82,11 +87,17 @@ export function summariseFindTeams(teams: any[]): unknown {
     return teams.map((t) => ({
         champions: t.champions.map((c: any) => c.apiName),
         teamSize: t.champions.length,
-        slotsUsed: t.champions.reduce((s: number, c: any) => s + (c.slotsUsed ?? 1), 0),
+        slotsUsed: t.champions.reduce(
+            (s: number, c: any) => s + (c.slotsUsed ?? 1),
+            0,
+        ),
     }));
 }
 
-export function summariseScore(scored: { score: number; breakdown: Record<string, number> }): unknown {
+export function summariseScore(scored: {
+    score: number;
+    breakdown: Record<string, number>;
+}): unknown {
     return {
         score: round1(scored.score),
         breakdown: roundBreakdown(scored.breakdown),
@@ -114,20 +125,23 @@ export function summariseRoleBalance(roles: any): unknown {
 
 export function formatActiveTraits(traits: any[]): string {
     return traits
-        .map((t) => `${t.apiName ?? t.name}:${t.count}(${t.style ?? t.activeStyle ?? '-'})`)
+        .map(
+            (t) =>
+                `${t.apiName ?? t.name}:${t.count}(${t.style ?? t.activeStyle ?? '-'})`,
+        )
         .join(' ');
 }
 
 export function formatRoles(roles: any): string {
     if (!roles) {
-return '';
-}
+        return '';
+    }
 
     const parts = [`fl:${roles.frontline}`, `dps:${roles.dps}`];
 
     if (roles.fighter > 0) {
-parts.push(`fighter:${roles.fighter}`);
-}
+        parts.push(`fighter:${roles.fighter}`);
+    }
 
     return parts.join(' ');
 }
@@ -136,16 +150,18 @@ function round1(n: number): number {
     return Math.round(n * 10) / 10;
 }
 
-function roundBreakdown(b: Record<string, number> | null | undefined): Record<string, number> {
+function roundBreakdown(
+    b: Record<string, number> | null | undefined,
+): Record<string, number> {
     if (!b) {
-return {};
-}
+        return {};
+    }
 
     const out: Record<string, number> = {};
 
     for (const [k, v] of Object.entries(b)) {
-out[k] = round1(v);
-}
+        out[k] = round1(v);
+    }
 
     return out;
 }

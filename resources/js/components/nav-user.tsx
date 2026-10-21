@@ -36,7 +36,10 @@ export function NavUser() {
                     </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip={{ children: 'Sign up' }}>
+                    <SidebarMenuButton
+                        asChild
+                        tooltip={{ children: 'Sign up' }}
+                    >
                         <Link href={register()} prefetch>
                             <UserPlus />
                             <span>Sign up</span>

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { ScoutContext } from '../../resources/js/workers/scout/types';
@@ -45,7 +45,9 @@ export async function fetchLive(): Promise<ScoutContext> {
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
 
     if (!res.ok) {
-        throw new Error(`Live fetch ${url} failed: HTTP ${res.status} ${res.statusText}`);
+        throw new Error(
+            `Live fetch ${url} failed: HTTP ${res.status} ${res.statusText}`,
+        );
     }
 
     return (await res.json()) as ScoutContext;

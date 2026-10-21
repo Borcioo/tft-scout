@@ -66,7 +66,7 @@ export function ChampionItemBuildsAccordion({ champions, itemBuilds }: Props) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="flex w-full items-center justify-between font-medium text-muted-foreground text-sm transition-colors hover:text-foreground"
             >
                 <span>Item builds</span>
                 <ChevronDown
@@ -85,7 +85,11 @@ export function ChampionItemBuildsAccordion({ champions, itemBuilds }: Props) {
                             <ChampionBuildsRow
                                 key={champ.apiName}
                                 champ={champ}
-                                builds={itemBuilds[champ.baseApiName ?? champ.apiName] ?? []}
+                                builds={
+                                    itemBuilds[
+                                        champ.baseApiName ?? champ.apiName
+                                    ] ?? []
+                                }
                             />
                         ))}
                 </div>
@@ -120,7 +124,7 @@ function ChampionBuildsRow({
             </div>
 
             <div className="flex flex-1 flex-col gap-1">
-                <div className="text-xs font-semibold text-foreground/90">
+                <div className="font-semibold text-foreground/90 text-xs">
                     {champ.name}
                 </div>
 
@@ -130,21 +134,25 @@ function ChampionBuildsRow({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-1">
-                        {builds.map((build, i) => (
+                        {builds.map((build) => (
                             <div
-                                key={build.items.join('|') + i}
+                                key={build.items.join('|')}
                                 className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded border border-border/60 bg-muted/20 px-2 py-1 text-xs"
                             >
                                 <div className="flex items-center gap-1">
                                     {build.items.map((item, j) => (
                                         <img
-                                            key={item + j}
+                                            // Same item can sit in two slots; position is the identity
+                                            // biome-ignore lint/suspicious/noArrayIndexKey: fixed ≤3-slot build, never reordered
+                                            key={`${item}-${j}`}
                                             src={`/icons/items/${item}.png`}
                                             alt={build.names[j] ?? item}
                                             title={build.names[j] ?? item}
                                             className="size-8 rounded border border-border/60 object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none';
                                             }}
                                         />
                                     ))}
@@ -157,7 +165,7 @@ function ChampionBuildsRow({
                                 {build.tier && (
                                     <span
                                         className={cn(
-                                            'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 text-[10px] font-bold',
+                                            'inline-flex h-5 min-w-7 items-center justify-center rounded px-1 font-bold text-[10px]',
                                             TIER_STYLES[build.tier] ?? '',
                                         )}
                                     >

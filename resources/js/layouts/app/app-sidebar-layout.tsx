@@ -19,9 +19,8 @@ export default function AppSidebarLayout({
     //   - `page` → overflow-y-auto so long lists/grids scroll naturally
     //   - `inset` → overflow-hidden; Scout handles scroll in its own
     //     3-column internal layout
-    const insetClass = scrollMode === 'inset'
-        ? 'overflow-hidden'
-        : 'overflow-y-auto';
+    const insetClass =
+        scrollMode === 'inset' ? 'overflow-hidden' : 'overflow-y-auto';
 
     return (
         <AppShell variant="sidebar">

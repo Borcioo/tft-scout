@@ -18,7 +18,9 @@ export function MetaSyncIndicator() {
     const [refreshing, setRefreshing] = useState(initial);
 
     useEffect(() => {
-        if (!refreshing) return;
+        if (!refreshing) {
+            return;
+        }
 
         let cancelled = false;
         const tick = async () => {
@@ -27,9 +29,13 @@ export function MetaSyncIndicator() {
                     headers: { Accept: 'application/json' },
                     credentials: 'same-origin',
                 });
-                if (!res.ok) return;
+                if (!res.ok) {
+                    return;
+                }
                 const json = (await res.json()) as { refreshing: boolean };
-                if (!cancelled) setRefreshing(json.refreshing);
+                if (!cancelled) {
+                    setRefreshing(json.refreshing);
+                }
             } catch {
                 // Swallow — the indicator is non-critical. If the network
                 // is flaky we just keep the last known state.
@@ -43,14 +49,16 @@ export function MetaSyncIndicator() {
         };
     }, [refreshing]);
 
-    if (!refreshing) return null;
+    if (!refreshing) {
+        return null;
+    }
 
     return (
         // Bottom-CENTER — bottom-left collided with guest auth buttons,
         // bottom-right is the Laravel debug bar. Horizontal centering
         // with translate-x keeps it out of the way on any viewport.
         <div
-            className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border/60 bg-card/95 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur"
+            className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border/60 bg-card/95 px-3 py-1.5 text-muted-foreground text-xs shadow-lg backdrop-blur"
             role="status"
             aria-live="polite"
             title="Stats are being refreshed in the background"

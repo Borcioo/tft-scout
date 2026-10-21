@@ -1,10 +1,9 @@
 import { cn } from '@/lib/utils';
 
 type Props = {
-    /** 1..3 parallel arrays — empty strings allowed for missing icons */
+    /** 1..3 parallel arrays; icons are served from /icons/items/{apiName}.png */
     apiNames: string[];
     names: string[];
-    icons: (string | null)[];
     size?: 'sm' | 'md';
     className?: string;
 };
@@ -17,7 +16,6 @@ type Props = {
 export function ItemIconStack({
     apiNames,
     names,
-    icons,
     size = 'md',
     className,
 }: Props) {
@@ -27,11 +25,16 @@ export function ItemIconStack({
         <div className={cn('flex items-center gap-1', className)}>
             {apiNames.map((api, i) => (
                 <img
-                    key={api + i}
+                    // Same item can sit in two slots; position is the identity
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed ≤3-slot build, never reordered
+                    key={`${api}-${i}`}
                     src={`/icons/items/${api}.png`}
                     alt={names[i] ?? api}
                     title={names[i] ?? api}
-                    className={cn(dim, 'rounded border border-border/60 object-cover')}
+                    className={cn(
+                        dim,
+                        'rounded border border-border/60 object-cover',
+                    )}
                     onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                     }}

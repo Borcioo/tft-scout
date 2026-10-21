@@ -72,8 +72,8 @@ const SCALE_ICON_LABELS: Record<string, string> = {
  */
 function renderDescription(text: string | null | undefined): React.ReactNode[] {
     if (!text) {
-return [];
-}
+        return [];
+    }
 
     let normalised = text.replace(/<br\s*\/?>/gi, '\n');
     normalised = normalised.replace(/&nbsp;/g, ' ');
@@ -96,17 +96,22 @@ function tokenize(text: string): React.ReactNode[] {
     const nodes: React.ReactNode[] = [];
     const tagRegex = /<(\/?)([A-Za-z_][A-Za-z0-9_]*)(?:\s[^>]*)?>/g;
     let lastIndex = 0;
-    let match: RegExpExecArray | null;
     let keyCounter = 0;
 
-    while ((match = tagRegex.exec(text)) !== null) {
+    for (;;) {
+        const match = tagRegex.exec(text);
+
+        if (match === null) {
+            break;
+        }
+
         const [full, closingSlash, tagName] = match;
         const start = match.index;
 
         if (closingSlash) {
             if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+                nodes.push(text.slice(lastIndex, start));
+            }
 
             lastIndex = start + full.length;
             continue;
@@ -117,8 +122,8 @@ nodes.push(text.slice(lastIndex, start));
 
         if (closeIdx === -1) {
             if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+                nodes.push(text.slice(lastIndex, start));
+            }
 
             nodes.push(full);
             lastIndex = start + full.length;
@@ -126,8 +131,8 @@ nodes.push(text.slice(lastIndex, start));
         }
 
         if (start > lastIndex) {
-nodes.push(text.slice(lastIndex, start));
-}
+            nodes.push(text.slice(lastIndex, start));
+        }
 
         const innerText = text.slice(start + full.length, closeIdx);
         const innerNodes = tokenize(innerText);
@@ -144,24 +149,25 @@ nodes.push(text.slice(lastIndex, start));
     }
 
     if (lastIndex < text.length) {
-nodes.push(text.slice(lastIndex));
-}
+        nodes.push(text.slice(lastIndex));
+    }
 
     return nodes.flatMap((node, i) => {
         if (typeof node !== 'string') {
-return [node];
-}
+            return [node];
+        }
 
         const parts = node.split('\n');
         const out: React.ReactNode[] = [];
         parts.forEach((part, pi) => {
             if (pi > 0) {
-out.push(<br key={`br-${i}-${pi}`} />);
-}
+                // biome-ignore lint/suspicious/noArrayIndexKey: line breaks of a static description, position is the identity
+                out.push(<br key={`br-${i}-${pi}`} />);
+            }
 
             if (part) {
-out.push(part);
-}
+                out.push(part);
+            }
         });
 
         return out;
@@ -185,8 +191,8 @@ function findMatchingClose(
         const closeMatch = closes.exec(text);
 
         if (!closeMatch) {
-return -1;
-}
+            return -1;
+        }
 
         if (openMatch && openMatch.index < closeMatch.index) {
             depth++;
@@ -197,8 +203,8 @@ return -1;
         depth--;
 
         if (depth === 0) {
-return closeMatch.index;
-}
+            return closeMatch.index;
+        }
 
         cursor = closeMatch.index + closeMatch[0].length;
     }
@@ -277,7 +283,11 @@ const TYPE_STYLES: Record<
  * `flat` = render as-is). Anything outside this list is left out of the
  * stats row and shown via the description text instead.
  */
-const CORE_STATS: { key: string; label: string; format: 'flat' | 'pct' | 'pctFlat' }[] = [
+const CORE_STATS: {
+    key: string;
+    label: string;
+    format: 'flat' | 'pct' | 'pctFlat';
+}[] = [
     { key: 'Health', label: 'HP', format: 'flat' },
     { key: 'AD', label: 'AD', format: 'pctFlat' },
     { key: 'AP', label: 'AP', format: 'flat' },
@@ -291,14 +301,17 @@ const CORE_STATS: { key: string; label: string; format: 'flat' | 'pct' | 'pctFla
     { key: 'StatOmnivamp', label: 'Omni', format: 'pctFlat' },
 ];
 
-function formatCoreStat(value: number, format: 'flat' | 'pct' | 'pctFlat'): string {
+function formatCoreStat(
+    value: number,
+    format: 'flat' | 'pct' | 'pctFlat',
+): string {
     if (format === 'pctFlat') {
-return `${Math.round(value * 100)}%`;
-}
+        return `${Math.round(value * 100)}%`;
+    }
 
     if (format === 'pct') {
-return `${Math.round(value)}%`;
-}
+        return `${Math.round(value)}%`;
+    }
 
     // Flat — keep half-integers (e.g. 2.5 sec) but trim trailing zeros.
     return Number.isInteger(value)
@@ -320,7 +333,10 @@ function pickCoreStats(
         const raw = effects[stat.key];
 
         if (typeof raw === 'number' && raw !== 0) {
-            out.push({ label: stat.label, value: '+' + formatCoreStat(raw, stat.format) });
+            out.push({
+                label: stat.label,
+                value: `+${formatCoreStat(raw, stat.format)}`,
+            });
         }
     }
 
@@ -376,16 +392,16 @@ export default function ItemsIndex({ items }: Props) {
             <Head title="Items — TFT Scout" />
 
             <div className="flex flex-col gap-6 p-6">
-                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pb-3 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                <div className="sticky top-0 z-20 -mx-6 -mt-6 flex flex-col gap-3 bg-background/95 px-6 pt-6 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight">
+                            <h1 className="font-bold text-2xl tracking-tight">
                                 Items
                             </h1>
-                            <p className="text-sm text-muted-foreground">
-                                {items.length} items across {availableTypes.length}{' '}
-                                categories. Effects shown are the raw CDragon
-                                values.
+                            <p className="text-muted-foreground text-sm">
+                                {items.length} items across{' '}
+                                {availableTypes.length} categories. Effects
+                                shown are the raw CDragon values.
                             </p>
                         </div>
 
@@ -409,7 +425,7 @@ export default function ItemsIndex({ items }: Props) {
                                     type="button"
                                     onClick={() => setActiveType(type)}
                                     className={cn(
-                                        'rounded-md border px-3 py-1 text-xs font-medium transition-colors',
+                                        'rounded-md border px-3 py-1 font-medium text-xs transition-colors',
                                         isActive
                                             ? 'border-foreground bg-foreground text-background'
                                             : 'border-border bg-background hover:border-foreground/40',
@@ -424,7 +440,7 @@ export default function ItemsIndex({ items }: Props) {
                 </div>
 
                 {filtered.length === 0 ? (
-                    <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                    <Card className="flex h-40 items-center justify-center text-muted-foreground text-sm">
                         No items match your search.
                     </Card>
                 ) : activeType === 'craftable' ? (
@@ -477,7 +493,9 @@ function ItemSubsections({
             title: g.title,
             items: items.filter(g.filter),
         }));
-        const used = new Set(out.flatMap((b) => b.items.map((i) => i.api_name)));
+        const used = new Set(
+            out.flatMap((b) => b.items.map((i) => i.api_name)),
+        );
         const leftover = items.filter((i) => !used.has(i.api_name));
 
         if (leftover.length > 0) {
@@ -491,11 +509,11 @@ function ItemSubsections({
         <div className="flex flex-col gap-6">
             {buckets.map((bucket) => (
                 <section key={bucket.title} className="flex flex-col gap-3">
-                    <div className="flex items-baseline justify-between border-b border-border/60 pb-1">
-                        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="flex items-baseline justify-between border-border/60 border-b pb-1">
+                        <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wider">
                             {bucket.title}
                         </h2>
-                        <span className="text-xs font-mono text-muted-foreground">
+                        <span className="font-mono text-muted-foreground text-xs">
                             {bucket.items.length}
                         </span>
                     </div>
@@ -517,7 +535,10 @@ function ItemCard({ item }: { item: Item }) {
         () => renderDescription(item.description),
         [item.description],
     );
-    const coreStats = useMemo(() => pickCoreStats(item.effects), [item.effects]);
+    const coreStats = useMemo(
+        () => pickCoreStats(item.effects),
+        [item.effects],
+    );
     const effectEntries = Object.entries(item.effects);
 
     return (
@@ -535,31 +556,32 @@ function ItemCard({ item }: { item: Item }) {
                         className="size-16 object-contain"
                         loading="lazy"
                         onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).style.display =
+                                'none';
                         }}
                     />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-lg font-bold tracking-tight">
+                    <h3 className="truncate font-bold text-lg tracking-tight">
                         {item.name}
                     </h3>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <Badge
                             variant="outline"
                             className={cn(
-                                'px-2 py-0 text-xs font-normal',
+                                'px-2 py-0 font-normal text-xs',
                                 style.accent,
                             )}
                         >
                             {style.label}
                         </Badge>
                         {item.trait && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-muted-foreground text-xs">
                                 {item.trait.name}
                             </span>
                         )}
                         {item.tier && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-muted-foreground text-xs">
                                 {item.tier}
                             </span>
                         )}
@@ -585,14 +607,16 @@ function ItemCard({ item }: { item: Item }) {
                 {(item.component_1 || item.component_2) && (
                     <div className="flex shrink-0 items-center gap-1 self-start">
                         <RecipeComponent component={item.component_1} />
-                        <span className="text-xs text-muted-foreground opacity-60">+</span>
+                        <span className="text-muted-foreground text-xs opacity-60">
+                            +
+                        </span>
                         <RecipeComponent component={item.component_2} />
                     </div>
                 )}
             </div>
 
             {descriptionNodes.length > 0 ? (
-                <p className="text-sm leading-relaxed text-foreground/90">
+                <p className="text-foreground/90 text-sm leading-relaxed">
                     {descriptionNodes}
                 </p>
             ) : effectEntries.length > 0 ? (
@@ -610,7 +634,7 @@ function ItemCard({ item }: { item: Item }) {
                     ))}
                 </ul>
             ) : (
-                <p className="text-xs italic text-muted-foreground">
+                <p className="text-muted-foreground text-xs italic">
                     No description available.
                 </p>
             )}
@@ -618,11 +642,7 @@ function ItemCard({ item }: { item: Item }) {
     );
 }
 
-function RecipeComponent({
-    component,
-}: {
-    component: ItemComponent | null;
-}) {
+function RecipeComponent({ component }: { component: ItemComponent | null }) {
     if (!component) {
         return <span className="opacity-40">?</span>;
     }
@@ -657,8 +677,8 @@ function RecipeComponent({
  */
 function formatEffectValue(value: number | string): string {
     if (typeof value === 'string') {
-return value;
-}
+        return value;
+    }
 
     if (Math.abs(value) > 0 && Math.abs(value) < 1) {
         return `${(value * 100).toFixed(0)}%`;

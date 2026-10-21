@@ -26,15 +26,23 @@ type TraitDef = {
 };
 
 /** traitApiName → breakpoints granting a bonus, highest minUnits first. */
-export type TeamSizeRules = Record<string, { minUnits: number; bonus: number }[]>;
+export type TeamSizeRules = Record<
+    string,
+    { minUnits: number; bonus: number }[]
+>;
 
-export function buildTeamSizeRules(traits: TraitDef[] | undefined | null): TeamSizeRules {
+export function buildTeamSizeRules(
+    traits: TraitDef[] | undefined | null,
+): TeamSizeRules {
     const rules: TeamSizeRules = {};
 
     for (const t of traits ?? []) {
         const granting = (t.breakpoints ?? [])
-            .filter(bp => (bp.teamSizeBonus ?? 0) > 0)
-            .map(bp => ({ minUnits: bp.minUnits, bonus: bp.teamSizeBonus as number }))
+            .filter((bp) => (bp.teamSizeBonus ?? 0) > 0)
+            .map((bp) => ({
+                minUnits: bp.minUnits,
+                bonus: bp.teamSizeBonus as number,
+            }))
             .sort((a, b) => b.minUnits - a.minUnits);
 
         if (granting.length > 0) {
@@ -64,7 +72,7 @@ export function teamSizeBonus(
 
     for (const t of traits) {
         const n = t.count ?? t.minUnits ?? 0;
-        const hit = rules[t.apiName]?.find(r => n >= r.minUnits);
+        const hit = rules[t.apiName]?.find((r) => n >= r.minUnits);
 
         if (hit) {
             bonus += hit.bonus;

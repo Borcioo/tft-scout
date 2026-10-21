@@ -10,8 +10,16 @@ type Props = {
 
 const OPTIONS: { value: RandomMode; label: string; hint: string }[] = [
     { value: 'full', label: 'Full random', hint: 'Losowy team z puli' },
-    { value: 'carry', label: 'Carry seed', hint: 'Losowy carry + scout wokół niego' },
-    { value: 'trait', label: 'Trait seed', hint: 'Losowy trait + scout wokół niego' },
+    {
+        value: 'carry',
+        label: 'Carry seed',
+        hint: 'Losowy carry + scout wokół niego',
+    },
+    {
+        value: 'trait',
+        label: 'Trait seed',
+        hint: 'Losowy trait + scout wokół niego',
+    },
 ];
 
 export function RandomModeTabs({ mode, onChange, disabled = false }: Props) {

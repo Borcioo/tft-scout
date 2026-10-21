@@ -51,7 +51,7 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border bg-card p-4">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                 Emblems ({emblems.reduce((n, e) => n + e.count, 0)})
             </Label>
             <Input
@@ -90,7 +90,9 @@ export function EmblemPicker({ traits, emblems, onChange }: Props) {
                                                 : 'outline'
                                         }
                                         className="cursor-pointer"
-                                        onClick={() => setCount(trait.apiName, n)}
+                                        onClick={() =>
+                                            setCount(trait.apiName, n)
+                                        }
                                     >
                                         {n}
                                     </Badge>

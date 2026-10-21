@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ItemIconStack } from './ItemIconStack';
-import { ItemTierBadge } from './ItemTierBadge';
 import type { Tier } from './ItemTierBadge';
+import { ItemTierBadge } from './ItemTierBadge';
 import type { BuildsMeta } from './MetaTftPerformanceSection';
 import { PlaceChangeBadge } from './PlaceChangeBadge';
 
@@ -45,7 +45,12 @@ const COLUMNS: Column[] = [
     { key: 'items', label: 'Items', defaultDir: 'asc' },
     { key: 'tier', label: 'Tier', defaultDir: 'desc' },
     { key: 'avg_place', label: 'Avg Place', align: 'right', defaultDir: 'asc' },
-    { key: 'place_change', label: 'Place Δ', align: 'right', defaultDir: 'asc' },
+    {
+        key: 'place_change',
+        label: 'Place Δ',
+        align: 'right',
+        defaultDir: 'asc',
+    },
     { key: 'win_rate', label: 'Win Rate', align: 'right', defaultDir: 'desc' },
     { key: 'top4_rate', label: 'Top 4', align: 'right', defaultDir: 'desc' },
     { key: 'frequency', label: 'Freq', align: 'right', defaultDir: 'desc' },
@@ -62,7 +67,9 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
         key !== 'items' && serverMeta !== undefined;
 
     const handleSort = (col: Column) => {
-        if (!serverMeta || !isSortable(col.key)) return;
+        if (!serverMeta || !isSortable(col.key)) {
+            return;
+        }
         // Toggle direction if clicking the active column, else use default.
         const nextDir =
             serverMeta.sort === col.key
@@ -83,7 +90,9 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
     };
 
     const handleLoadMore = () => {
-        if (!serverMeta) return;
+        if (!serverMeta) {
+            return;
+        }
         setLoading(true);
         router.reload({
             only: ['metatft'],
@@ -97,7 +106,9 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
     };
 
     const sortIcon = (col: Column) => {
-        if (!serverMeta || !isSortable(col.key)) return null;
+        if (!serverMeta || !isSortable(col.key)) {
+            return null;
+        }
         if (serverMeta.sort !== col.key) {
             return <ArrowUpDown className="ml-1 inline size-3 opacity-40" />;
         }
@@ -115,15 +126,17 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
             </CardHeader>
             <CardContent>
                 {rows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{emptyHint}</p>
+                    <p className="text-muted-foreground text-sm">{emptyHint}</p>
                 ) : (
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b text-left text-xs text-muted-foreground">
+                                    <tr className="border-b text-left text-muted-foreground text-xs">
                                         {COLUMNS.map((col) => {
-                                            const clickable = isSortable(col.key);
+                                            const clickable = isSortable(
+                                                col.key,
+                                            );
                                             const active =
                                                 serverMeta?.sort === col.key;
                                             return (
@@ -131,7 +144,10 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
                                                     key={col.key}
                                                     onClick={
                                                         clickable
-                                                            ? () => handleSort(col)
+                                                            ? () =>
+                                                                  handleSort(
+                                                                      col,
+                                                                  )
                                                             : undefined
                                                     }
                                                     className={cn(
@@ -153,24 +169,26 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
                                 </thead>
                                 <tbody
                                     className={cn(
-                                        loading && 'opacity-60 transition-opacity',
+                                        loading &&
+                                            'opacity-60 transition-opacity',
                                     )}
                                 >
-                                    {rows.map((row, idx) => (
+                                    {rows.map((row) => (
                                         <tr
-                                            key={row.items.join('|') + idx}
-                                            className="border-b border-border/40 hover:bg-muted/30"
+                                            key={row.items.join('|')}
+                                            className="border-border/40 border-b hover:bg-muted/30"
                                         >
                                             <td className="py-2 pr-4">
                                                 <ItemIconStack
                                                     apiNames={row.items}
                                                     names={row.names}
-                                                    icons={row.icons}
                                                     size="sm"
                                                 />
                                             </td>
                                             <td className="py-2 pr-4">
-                                                <ItemTierBadge tier={row.tier} />
+                                                <ItemTierBadge
+                                                    tier={row.tier}
+                                                />
                                             </td>
                                             <td className="py-2 pr-4 text-right font-mono">
                                                 {row.avg_place.toFixed(2)}
@@ -181,13 +199,22 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
                                                 />
                                             </td>
                                             <td className="py-2 pr-4 text-right font-mono">
-                                                {(row.win_rate * 100).toFixed(1)}%
+                                                {(row.win_rate * 100).toFixed(
+                                                    1,
+                                                )}
+                                                %
                                             </td>
                                             <td className="py-2 pr-4 text-right font-mono">
-                                                {(row.top4_rate * 100).toFixed(1)}%
+                                                {(row.top4_rate * 100).toFixed(
+                                                    1,
+                                                )}
+                                                %
                                             </td>
                                             <td className="py-2 pr-4 text-right font-mono">
-                                                {(row.frequency * 100).toFixed(1)}%
+                                                {(row.frequency * 100).toFixed(
+                                                    1,
+                                                )}
+                                                %
                                             </td>
                                             <td className="py-2 text-right font-mono text-muted-foreground">
                                                 {row.games}
@@ -199,7 +226,7 @@ export function ItemStatsTable({ title, rows, emptyHint, serverMeta }: Props) {
                         </div>
                         {serverMeta && (
                             <div className="mt-3 flex items-center justify-between gap-3">
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-muted-foreground text-xs">
                                     Showing {rows.length} of {serverMeta.total}
                                 </span>
                                 {serverMeta.has_more && (
