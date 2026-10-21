@@ -50,6 +50,8 @@ type Props = {
  * insights / item builds accordion. Action buttons are injected via
  * `headerRight` so each context owns its own behavior.
  */
+const pct = (x: number | undefined) => `${Math.round((x ?? 0) * 100)}%`;
+
 export function CompCardBody({
     team,
     itemBuilds,
@@ -57,6 +59,9 @@ export function CompCardBody({
     headerLeft,
     scoreAddon,
 }: Props) {
+    const rerollOf = new Map(
+        (team.reroll ?? []).map((r) => [r.apiName, r.hitChance]),
+    );
     const titleTraits = [...team.activeTraits]
         .filter((t) => (t.style ?? 'Bronze') !== 'Unique')
         .sort((a, b) => {
@@ -158,8 +163,17 @@ export function CompCardBody({
                                 'relative flex size-12 items-center justify-center overflow-hidden rounded border-2 bg-muted',
                                 COST_BORDER[c.cost] ?? 'border-zinc-500',
                             )}
-                            title={c.name}
+                            title={
+                                rerollOf.has(c.apiName)
+                                    ? `${c.name} — reroll to 3★ (${pct(rerollOf.get(c.apiName))} hit)`
+                                    : c.name
+                            }
                         >
+                            {rerollOf.has(c.apiName) && (
+                                <span className="absolute inset-x-0 top-0 z-10 bg-black/70 text-center text-[9px] text-amber-300 leading-3">
+                                    ★★★
+                                </span>
+                            )}
                             {c.icon ? (
                                 <img
                                     src={c.icon}
@@ -179,6 +193,21 @@ export function CompCardBody({
                         </div>
                     ))}
             </div>
+
+            {rerollOf.size > 0 && (
+                <p
+                    className="font-mono text-amber-300/90 text-xs"
+                    title="Reroll plan: roll these units to 3★. Hit chance = how often players carrying the unit with 3 items had it at 3★ (MetaTFT); the board is rated at that expected result"
+                >
+                    Reroll to 3★:{' '}
+                    {(team.reroll ?? [])
+                        .map(
+                            (r) =>
+                                `${team.champions.find((c) => c.apiName === r.apiName)?.name ?? r.apiName} (${pct(r.hitChance)} hit)`,
+                        )
+                        .join(' · ')}
+                </p>
+            )}
 
             <div className="flex flex-wrap gap-1">
                 {[...team.activeTraits]

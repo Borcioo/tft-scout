@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Champion;
+use App\Models\ChampionRating;
 use App\Models\Set;
 use App\Models\TftTrait;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,4 +91,24 @@ test('lux forms form one exclusion group', function () {
 
     expect($groups)->toHaveCount(1)
         ->and(collect($groups[0])->sort()->values()->all())->toBe(['DA_18_Lux_Coven', 'DA_18_Lux_Fae']);
+});
+
+test('unit ratings carry star stats when the sync has them', function () {
+    $set = Set::where('number', 18)->first();
+    $elder = Champion::where('api_name', 'DA_18_ElderDragon')->first();
+    $lux = Champion::where('api_name', 'DA_18_Lux_Coven')->first();
+    $stars = ['1' => ['games' => 900, 'avgPlace' => 5.1, 'carryGames' => 10], '3' => ['games' => 100, 'avgPlace' => 1.4, 'carryGames' => 80]];
+
+    foreach ([[$elder, $stars], [$lux, null]] as [$champion, $starStats]) {
+        ChampionRating::create([
+            'champion_id' => $champion->id, 'set_id' => $set->id, 'patch' => '18.4b',
+            'avg_place' => 4.2, 'win_rate' => 0.1, 'top4_rate' => 0.5, 'games' => 1000, 'score' => 0.6,
+            'star_stats' => $starStats,
+        ]);
+    }
+
+    $ratings = $this->getJson('/api/scout/context')->assertOk()->json('scoringCtx.unitRatings');
+
+    expect($ratings['DA_18_ElderDragon']['stars'])->toBe($stars)
+        ->and($ratings['DA_18_Lux_Coven'])->not->toHaveKey('stars');
 });

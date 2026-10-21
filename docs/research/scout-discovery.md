@@ -105,8 +105,7 @@ przyrostowo w syncu (to, co już mamy, nie jest pobierane ponownie); przeglądar
 2. **Integracja w aplikacji**: tryb "Odkrywanie" z etykietami i liczbą dowodów. Decyzja o źródle danych dla
    produkcji: MetaTFT (explorer ~1.3k zapytań + drabinka/profile/mecze top graczy; API nieoficjalne) vs Riot API
    (oficjalne, klucz).
-3. **Gwiazdki i plany w silniku** (największa luka): siła jednostki zależna od planu — 1–2 costy jako 3★ reroll
-   carry z itemami (dane: jednostka × gwiazdki × itemy, `tmp/scout-eval/unit-star-items-18.4b.json`), szansa
-   trafienia 3★ z puli i szans sklepu na danym poziomie; 3★ tylko dla 1–3 costów.
+3. ~~Gwiazdki i plany w silniku~~ — zrobione (SCORE_MODEL 3, `scout-strength-model.md`): bazy z 1–2★, plany rerollu
+   1–3 costów z szansą trafienia z danych. Dalej: szansa z puli i szans sklepu (kontest, złoto) jako uzupełnienie.
 4. **Potencjał jednostek** ("źle budowane"): jak top gracze je budują (itemy, gwiazdki, z kim) — pokazywać w UI.
 5. **Okno całego patcha** w syncu (więcej danych dla małych prób).

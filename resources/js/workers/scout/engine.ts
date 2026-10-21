@@ -30,7 +30,12 @@ import {
     traitReach,
 } from './lock-reach';
 import { polishTeam } from './polish';
-import { teamRoleBalance, teamScore, teamScoreBreakdown } from './scorer';
+import {
+    teamReroll,
+    teamRoleBalance,
+    teamScore,
+    teamScoreBreakdown,
+} from './scorer';
 import { startSpan } from './scout-profiler';
 import { buildGraph, findTeams } from './synergy-graph';
 import { buildTeamInsights } from './team-insights';
@@ -334,6 +339,7 @@ export function generate(input) {
 
         const withBreakdown = (r) => {
             r.breakdown ??= teamScoreBreakdown(r.board, scoringCtx);
+            r.reroll ??= teamReroll(r.board, scoringCtx);
 
             return r;
         };

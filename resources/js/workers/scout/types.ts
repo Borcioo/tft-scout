@@ -157,6 +157,8 @@ export type ScoredTeam = {
     activeTraits: ScoredActiveTrait[];
     score: number;
     breakdown: Record<string, number> | null;
+    /** Units to roll to 3★ and the chance it hits (empty: no reroll). */
+    reroll?: { apiName: string; hitChance: number }[];
     level: number;
     slotsUsed: number;
     roles: Record<string, number> | null;

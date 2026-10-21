@@ -182,3 +182,91 @@ describe('estimatedAvgPlace', () => {
         expect(estimatedAvgPlace(2, 8)).toBeLessThan(estimatedAvgPlace(3, 8));
     });
 });
+
+describe('stars and reroll plans', () => {
+    // 1★ 5.5 / 2★ 5.0 / 3★ 3.5; 40k of its 50k 3-item games at 3★
+    const rerollable = (avg1 = 5.5, avg2 = 5.0, avg3 = 3.5) => ({
+        avgPlace: 4.8,
+        games: 3e6,
+        stars: {
+            '1': { games: 1e6, avgPlace: avg1, carryGames: 1e3 },
+            '2': { games: 1e6, avgPlace: avg2, carryGames: 9e3 },
+            '3': { games: 1e6, avgPlace: avg3, carryGames: 4e4 },
+        },
+    });
+    const starCtx = {
+        unitRatings: {
+            One: rerollable(),
+            Two: rerollable(5.5, 5.0, 4.0),
+            Three: rerollable(5.5, 5.0, 4.5),
+            Cost3: rerollable(),
+            Cost3b: rerollable(),
+            // 3★ 4-cost: 1% of its games and nearly always first
+            Four: {
+                avgPlace: 4.3,
+                games: 1e6,
+                stars: {
+                    '1': { games: 6e5, avgPlace: 4.6, carryGames: 1e4 },
+                    '2': { games: 3.9e5, avgPlace: 4.1, carryGames: 1e4 },
+                    '3': { games: 1e4, avgPlace: 1.2, carryGames: 5e3 },
+                },
+            },
+            Plain: { avgPlace: 4.4, games: 1e6 },
+        },
+    };
+    const champ = (apiName: string, cost: number) => ({
+        apiName,
+        cost,
+        traits: [] as string[],
+    });
+    const strength = (champs: any[]) => boardStrength(champs, [], starCtx);
+    const base2 = 5.25;
+
+    it('rates a unit at 1–2★, so 4-cost 3★ luck lifts nobody', () => {
+        const s = strength([champ('Four', 4), champ('Plain', 4)]);
+
+        close(s.units, (4.4 + (6 * 4.6 + 3.9 * 4.1) / 9.9) / 2);
+        expect(s.reroll).toEqual([]);
+    });
+
+    it('counts a rerolled unit at its expected 3★ result', () => {
+        const s = strength([champ('One', 1), champ('Plain', 4)]);
+        // 40k hits of 50k carried games, shrunk 200 games towards 1/2
+        const p = (4e4 + 200 * 0.5) / (5e4 + 200);
+
+        expect(s.reroll).toEqual([
+            { apiName: 'One', hitChance: expect.closeTo(p, 6) },
+        ]);
+        close(s.units, (base2 + p * (3.5 - base2) + 4.4) / 2);
+    });
+
+    it('rolls at most two 1-costs, the ones that gain most', () => {
+        const s = strength([
+            champ('Three', 1),
+            champ('One', 1),
+            champ('Two', 1),
+        ]);
+
+        expect(s.reroll.map((r) => r.apiName)).toEqual(['One', 'Two']);
+    });
+
+    it('rolls one 3-cost and keeps a plan to one cost', () => {
+        const s = strength([
+            champ('Cost3', 3),
+            champ('Cost3b', 3),
+            champ('One', 1),
+        ]);
+
+        // Two 1-costs aren't on the board, so the single best plan wins:
+        // one 1-cost and one 3-cost gain the same; ties keep the cheaper
+        expect(s.reroll).toHaveLength(1);
+        expect(s.reroll[0].apiName).toBe('One');
+    });
+
+    it('keeps the board at 1–2★ when 3★ would not help', () => {
+        const s = strength([champ('Plain', 1)]);
+
+        expect(s.reroll).toEqual([]);
+        close(s.units, 4.4);
+    });
+});

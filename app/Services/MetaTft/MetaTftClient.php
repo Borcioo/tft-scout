@@ -247,6 +247,59 @@ class MetaTftClient
     }
 
     /**
+     * Every unit's placements split by star level, one explorer request.
+     *
+     * `/unit_tier_numitems_unique` rows are keyed `{unit}-{copy}_{star}_{items}`
+     * (`DA_18_Kayle-1_3_3` = the first Kayle on the board, 3★, 3 items).
+     * Only first copies count; 4★ (special mechanics) folds into 3★. Per
+     * star: the placement histogram and how many of those games the unit
+     * held 3 items — the scout's hit chance for a reroll plan is the 3★
+     * share of those carried games.
+     *
+     * @return array<string, array<int, array{places: list<int>, carryGames: int}>>
+     */
+    public function fetchUnitStars(): array
+    {
+        $payload = $this->getWithCache(
+            self::EXPLORER_BASE_URL,
+            'unit_tier_numitems_unique',
+            [
+                'formatnoarray' => 'true',
+                'compact' => 'true',
+                'queue' => $this->queue,
+                ...$this->patchParams(),
+                'days' => self::DAYS,
+                'rank' => self::DEFAULT_RANK,
+                'permit_filter_adjustment' => 'false',
+            ],
+        );
+
+        $out = [];
+
+        foreach ($payload['data'] ?? [] as $row) {
+            $key = (string) ($row['unit_tier_numitems_unique'] ?? '');
+            if (! preg_match('/^(.+)-1_(\d+)_(\d+)$/', $key, $m)) {
+                continue;
+            }
+
+            [, $unit, $star, $items] = $m;
+            $star = min(3, (int) $star);
+            $places = array_map('intval', array_slice($row['placement_count'] ?? [], 0, 8));
+            $games = array_sum($places);
+
+            $out[$unit][$star] ??= ['places' => array_fill(0, 8, 0), 'carryGames' => 0];
+            foreach ($places as $i => $count) {
+                $out[$unit][$star]['places'][$i] += $count;
+            }
+            if ((int) $items >= 3) {
+                $out[$unit][$star]['carryGames'] += $games;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Fetch trait affinity for one champion from the explorer API.
      *
      * Response: `{ data: [ { traits: "TFT17_X_1", placement_count: [...] }, ... ] }`.

@@ -18,7 +18,7 @@
  *   - novelty: share of results that match a meta comp (metaMatch).
  *
  * Usage:
- *   npm run scout -- eval [--snapshot tmp/scout-eval/context-18.4b.json]
+ *   npm run scout -- eval [--snapshot tmp/scout-eval/context-18.4b-stars.json]
  *                         [--levels 8,9] [--seeds 1,2,3] [--json]
  */
 
@@ -40,7 +40,7 @@ import {
 import { loadContext } from '../context';
 import { evalOracle } from './eval-oracle';
 
-const DEFAULT_EVAL_SNAPSHOT = 'tmp/scout-eval/context-18.4b.json';
+const DEFAULT_EVAL_SNAPSHOT = 'tmp/scout-eval/context-18.4b-stars.json';
 const DEFAULT_ORACLE = 'tmp/scout-eval/oracle-18.4b.json';
 
 type EvalArgs = {

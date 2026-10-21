@@ -31,6 +31,7 @@ class ChampionRating extends Model
         'top4_rate',
         'games',
         'score',
+        'star_stats',
     ];
 
     protected $casts = [
@@ -39,6 +40,7 @@ class ChampionRating extends Model
         'top4_rate' => 'float',
         'games' => 'integer',
         'score' => 'float',
+        'star_stats' => 'array',
         'updated_at' => 'datetime',
     ];
 

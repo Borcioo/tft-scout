@@ -45,6 +45,33 @@ już oznaka wygrywania). Podłoga 1.5 = najlepsza realna średnia z tych plansz;
 surowego ~0.8, gdy żadna grana plansza nie zeszła poniżej 1.28, więc szacunek nie ekstrapoluje dalej.
 `scout eval` drukuje bieżące dopasowanie; przy zmianie patcha/danych sprawdzić dryf i przestawić stałe.
 
+## Gwiazdki i plany rerollu (SCORE_MODEL 3)
+
+Średnia jednostki po wszystkich gwiazdkach miesza dwa światy: 1–3 costy grane na 3★ (plan) i na 1–2★, oraz 3★
+4-costów (~1% gier, prawie zawsze 1. miejsce — fart, nie plan). Dane: explorer `unit_tier_numitems_unique`
+(jednostka × gwiazdki × liczba itemów, jedno zapytanie) → `champion_ratings.star_stats` → `unitRatings[api].stars`.
+
+| Koszt | ≤2★ | 3★ | Udział gier na 3★ |
+|---|---|---|---|
+| 1 | 4.96 | 4.22 | 37% |
+| 2 | 5.03 | 3.85 | 33% |
+| 3 | 4.97 | 3.36 | 25% |
+| 4 | 4.39 | 1.23 | 1% |
+
+- **Baza jednostki = średnia z gier na 1–2★** (gdy są dane), więc 3★ 4/5-costów nie podnosi nikomu oceny.
+- **Plan rerollu** planszy: do dwóch 1- albo 2-costów albo jednej 3-cost (jeden koszt — jedno złoto na
+  roll-down), każda liczona jako `p·baza3★ + (1 − p)·baza≤2★`, gdzie `p` = udział gier na 3★ wśród gier, w których
+  jednostka miała 3 itemy (jak często trafiają ci, którzy ją niosą; Kayle 78%, Sejuani 81%). Plan wybierany, gdy
+  daje zysk; wynik i karta pokazują go (`reroll`, ★★★ i "Reroll to 3★: Kayle (78% hit)").
+- **Walidacja**: na 5.8k planszach top 200 (gwiazdki znane) same bazy jednostek przewidują miejsce z ρ 0.53 przy
+  podziale na gwiazdki vs 0.20 bez. Na planszach z explorera (bez informacji o gwiazdkach) bez zmian (0.60 vs 0.61).
+- **Plany przy większości plansz to realizm**: u top 200 plansze z ≥1 jednostką 1–3 cost na 3★ to 97% na lvl 7
+  (3.1 na planszę), 53% na lvl 8, 25% na lvl 9 — limit 2/2/1 jest ostrożniejszy niż praktyka.
+- Pary i lifty traitów pozostają po wszystkich gwiazdkach. Część efektu 3★ to przeżywalność (zwycięzcy częściej
+  trafiają), dlatego plan liczy wartość oczekiwaną z `p`, nie pewne 3★.
+- Kalibracja przeliczona z gwiazdkami (nachylenie 0.52; 1.25 / 1.18 / 0.75). Bez danych o gwiazdkach (stary sync)
+  model wraca do średniej po wszystkich gwiazdkach i bez planów.
+
 ## Wyszukiwanie
 
 Fazy synergy-graph generują kandydatów jak dotąd (quick-score liczy ten sam model). Potem `polishTeam`:

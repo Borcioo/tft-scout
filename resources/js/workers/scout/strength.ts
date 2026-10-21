@@ -25,6 +25,19 @@
  * 0.03. Trait-level lifts cost ~0.05 there but are what makes breakpoints,
  * emblems and Kha'Zix evolutions matter at all, so they stay in.
  *
+ * Stars. A unit's base is its average over boards where it stood at 1–2★:
+ * 3★ is ~1% of a 4-cost's games and wins almost every time — luck, not a
+ * plan, and it shouldn't lift the unit for everyone. For 1–3 costs 3★ is
+ * a plan (reroll): 25–37% of their games, worth 0.7–1.6 places, and what
+ * top players do with units the masses play badly (Camille 5.55 overall,
+ * 3.26 in the top 200's hands, 92% of it at 3★). A board may carry a
+ * reroll plan: up to two 1- or 2-costs, or one 3-cost, each counted at
+ *
+ *   p·base3★ + (1 − p)·base≤2★,  p = share of the unit's 3-item games at 3★
+ *
+ * (how often players who carry it hit), keeping the plan only when it
+ * beats the board at ≤2★. Pair and trait lifts are over all stars.
+ *
  * The result is on the placement scale but is not a placement: the lifts
  * overlap (a pair's lift already holds the rest of its usual board), so
  * weight 5 spreads boards ~2× wider than real averages of played boards,
@@ -62,13 +75,18 @@ export const STRENGTH = {
      * 2.41 real). Floor: the best real average of any of those boards;
      * the search reaches raw places no played board has (level 9 ~0.8 vs
      * 1.28), and the estimate doesn't extrapolate past what was seen.
+     * Fitted with star-split ratings (units at 1–2★, reroll plans).
      * scout-cli eval prints the current fit; refit when it drifts.
      */
     calibration: {
-        slope: 0.51,
-        intercepts: { 7: 1.34, 8: 1.21, 9: 0.77 },
+        slope: 0.52,
+        intercepts: { 7: 1.25, 8: 1.18, 9: 0.75 },
         floor: 1.5,
     },
+    /** Units of one cost a reroll plan takes to 3★ (gold for one roll-down). */
+    reroll: { 1: 2, 2: 2, 3: 1 } as Record<number, number>,
+    /** Pseudo-games pulling a unit's hit chance towards 1/2. */
+    hitPrior: 200,
 } as const;
 
 /**
@@ -83,11 +101,17 @@ export function estimatedAvgPlace(rawPlace: number, size: number): number {
 }
 
 type UnitStat = { avgPlace: number; games: number };
+type StarStat = UnitStat & { carryGames?: number };
 // Nested by unit: scoring runs ~10⁵ times per search, and string keys per
 // pair were most of its cost
 type Index = {
     unitAvg: Map<string, number>;
+    /** At 1–2★ when star data exists, else over all stars. */
     unitBase: Map<string, number>;
+    /** At 3★ (1–3 costs use it in reroll plans). */
+    unitBase3: Map<string, number>;
+    /** Share of the unit's 3-item games played at 3★. */
+    hitChance: Map<string, number>;
     /** unit → companion → lift */
     pairLift: Map<string, Map<string, number>>;
     /** unit → trait → lift by breakpoint position */
@@ -111,13 +135,57 @@ function indexFor(ctx: any): Index {
 
     const unitAvg = new Map<string, number>();
     const unitBase = new Map<string, number>();
+    const unitBase3 = new Map<string, number>();
+    const hitChance = new Map<string, number>();
 
-    for (const [api, r] of Object.entries<UnitStat>(ctx.unitRatings ?? {})) {
+    for (const [api, r] of Object.entries<
+        UnitStat & { stars?: Record<string, StarStat> }
+    >(ctx.unitRatings ?? {})) {
         unitAvg.set(api, r.avgPlace);
-        unitBase.set(
-            api,
-            shrink(r.avgPlace, r.games, STRENGTH.baseline, STRENGTH.unitPrior),
+        const all = shrink(
+            r.avgPlace,
+            r.games,
+            STRENGTH.baseline,
+            STRENGTH.unitPrior,
         );
+        const low = [r.stars?.['1'], r.stars?.['2']].filter(
+            (x): x is StarStat => x !== undefined,
+        );
+        const lowGames = low.reduce((s, x) => s + x.games, 0);
+
+        if (lowGames === 0) {
+            unitBase.set(api, all);
+            continue;
+        }
+
+        const base2 = shrink(
+            low.reduce((s, x) => s + x.avgPlace * x.games, 0) / lowGames,
+            lowGames,
+            all,
+            STRENGTH.unitPrior,
+        );
+        unitBase.set(api, base2);
+
+        const s3 = r.stars?.['3'];
+
+        if (s3?.games) {
+            unitBase3.set(
+                api,
+                shrink(s3.avgPlace, s3.games, base2, STRENGTH.unitPrior),
+            );
+
+            const carry = low.reduce((s, x) => s + (x.carryGames ?? 0), 0);
+            const hit = s3.carryGames ?? 0;
+            hitChance.set(
+                api,
+                shrink(
+                    hit / Math.max(hit + carry, 1),
+                    hit + carry,
+                    0.5,
+                    STRENGTH.hitPrior,
+                ),
+            );
+        }
     }
 
     const lift = (unit: string, stat: UnitStat) =>
@@ -181,7 +249,15 @@ function indexFor(ctx: any): Index {
         }
     }
 
-    const index = { unitAvg, unitBase, pairLift, traitLift, inactiveLift };
+    const index = {
+        unitAvg,
+        unitBase,
+        unitBase3,
+        hitChance,
+        pairLift,
+        traitLift,
+        inactiveLift,
+    };
     indexCache.set(ctx, index);
 
     return index;
@@ -224,6 +300,7 @@ export function activeLevels(
 export type StrengthChampion = {
     apiName: string;
     baseApiName?: string | null;
+    cost?: number;
     traits?: string[];
     unscoredTraits?: string[] | null;
 };
@@ -237,7 +314,63 @@ export type Strength = {
     pairs: number;
     /** Weighted mean trait-level lift. */
     traits: number;
+    /** Units the board rolls to 3★, with the chance it hits (see header). */
+    reroll: { apiName: string; hitChance: number }[];
 };
+
+/**
+ * Best reroll plan: within one cost, the units whose expected 3★ gain is
+ * largest, as many as STRENGTH.reroll allows; the cost whose plan gains
+ * most. Returns the gain (sum, places, negative = better) and the units.
+ */
+function rerollPlan(
+    champions: StrengthChampion[],
+    apis: string[],
+    idx: Index,
+): { gain: number; units: { apiName: string; hitChance: number }[] } {
+    let best = {
+        gain: 0,
+        units: [] as { apiName: string; hitChance: number }[],
+    };
+
+    for (const cost of [1, 2, 3]) {
+        const gains: { i: number; gain: number; p: number }[] = [];
+
+        for (let i = 0; i < apis.length; i++) {
+            if (champions[i].cost !== cost) {
+                continue;
+            }
+
+            const b3 = idx.unitBase3.get(apis[i]);
+            const p = idx.hitChance.get(apis[i]);
+            const b2 = idx.unitBase.get(apis[i]);
+
+            if (b3 !== undefined && p !== undefined && b2 !== undefined) {
+                const gain = p * (b3 - b2);
+
+                if (gain < 0) {
+                    gains.push({ i, gain, p });
+                }
+            }
+        }
+
+        gains.sort((a, b) => a.gain - b.gain);
+        const picked = gains.slice(0, STRENGTH.reroll[cost] ?? 0);
+        const gain = picked.reduce((s, g) => s + g.gain, 0);
+
+        if (gain < best.gain) {
+            best = {
+                gain,
+                units: picked.map((g) => ({
+                    apiName: champions[g.i].apiName,
+                    hitChance: g.p,
+                })),
+            };
+        }
+    }
+
+    return best;
+}
 
 export function boardStrength(
     champions: StrengthChampion[],
@@ -245,7 +378,13 @@ export function boardStrength(
     ctx: any,
 ): Strength {
     if (champions.length === 0) {
-        return { place: STRENGTH.baseline, units: 0, pairs: 0, traits: 0 };
+        return {
+            place: STRENGTH.baseline,
+            units: 0,
+            pairs: 0,
+            traits: 0,
+            reroll: [],
+        };
     }
 
     const idx = indexFor(ctx);
@@ -325,10 +464,17 @@ export function boardStrength(
         }
     }
 
+    const plan = rerollPlan(champions, apis, idx);
     const n = apis.length;
-    units /= n;
+    units = (units + plan.gain) / n;
     pairs = (STRENGTH.pairWeight * pairs) / n;
     traits = (STRENGTH.traitWeight * traits) / n;
 
-    return { place: units + pairs + traits, units, pairs, traits };
+    return {
+        place: units + pairs + traits,
+        units,
+        pairs,
+        traits,
+        reroll: plan.units,
+    };
 }
