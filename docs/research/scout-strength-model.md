@@ -102,6 +102,32 @@ miejsca na jednostkę (scorer i quick-score) to najmniejsza, która sprowadza wy
 (0.05 na planszę; 0.1 zostawiało 0.55): kosztuje 0.02 Spearmana na planszach explorera, nic na regrecie wyboru i
 na planszach top 200.
 
+## Plauzybilność: rzadkie pary i frontline (od SCORE_MODEL 6)
+
+Model zna tylko średnie jednostek, par i traitów, więc wyszukiwanie dochodziło do plansz, których nikt nie gra,
+gdzie jego liczby pochodzą z innych plansz. Przykład zgłoszony przez gracza (lock Azir, Fiddlesticks, Soraka, ban
+Kayle): silnik dobierał Aphelios + Mama Beak; w realnych grach Emerald+ z rdzeniem Azir/Soraka/Yunara/Karma/
+Fiddlesticks/Leona (5.5k gier) gracze dokładają Yorick (1.8k gier, 1.79), Kayle, Sejuani — Aphelios 0 gier.
+Aphelios gra z Azirem, Yunarą i Karmą 5–11% tak często, jak wynikałoby z przypadku.
+
+| Plansza | Top 200 (prawdziwe) | Silnik przed | Silnik teraz |
+|---|---|---|---|
+| Pary grane razem < ¼ tak często jak z przypadku (lvl 8 / 9) | 1.2 / 1.5 | 5.7 / 4.9 | 1.3 |
+| Frontline (tanki + ½ fighterów), lvl 8 / 9 | 4.5 / 5.6 | 2.5 / 3.1 | 3.45 / 3.9 |
+| Traity o 1 od progu / plansza | — (meta compy 1.6) | 2.8 | 2.0 |
+| Zgodność z meta compem (±1 jednostka) | — | 0–7% | 23–30% |
+
+Realne wyniki nie wyceniają takich plansz — nikt ich nie gra — a na granych planszach ani rzadkie pary, ani mały
+frontline nie wypadały gorzej niż model (top 200: frontline ≤3 lepiej o ~0.4). Sprawdzone i odrzucone: lifty par
+ważone tym, jak często para jest grana (Spearman Gold+ 0.588 → 0.49–0.56, regret w górę, silnik prawie bez
+zmian), lifty par bez "siły partnera" (średnia kolumny: Gold+ 0.588 → 0.28–0.47, regret 0.08 → 0.21–0.45 — dodanie
+silnej jednostki naprawdę poprawia planszę). Zostały dwie kary ustawione jak kara za martwe jednostki — najmniejsze,
+które sprowadzają wyszukiwanie do plansz top graczy: 0.15 miejsca za rzadką parę (`RARE_PAIR_PENALTY`, próg
+`RARE_PAIR_RATIO` = ¼) i 0.2 za każdą jednostkę frontline poniżej 4 (`FRONTLINE_PENALTY`, `FRONTLINE_TARGET`).
+Koszt: Spearman Gold+ 0.588 → 0.579, regret wyboru 0.077 → 0.078, Master+ 0.535 → 0.505, top 200 lvl 8 / 9
+0.325 / 0.218 → 0.29 / 0.20 (Gold+ 2 dni: 0.264 / 0.179); meta compy 0.505 → 0.527. Kalibracja: 0.45;
+1.41 / 1.26 / 0.81.
+
 ## Dane: Emerald+ (od SCORE_MODEL 5)
 
 MetaTFT z rangi Emerald+ w oknie 7 dni jednego patcha (`services.metatft.rank` / `days`, env `METATFT_RANK`,

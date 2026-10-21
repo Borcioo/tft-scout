@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    FRONTLINE_PENALTY,
+    frontlinePenalty,
     OVERFLOW_PER_UNIT,
     overflowPenalty,
+    RARE_PAIR_PENALTY,
+    rarePairPenalty,
     teamScore,
     teamScoreBreakdown,
 } from '../scorer';
@@ -161,7 +165,9 @@ describe('teamScore', () => {
         );
         const parts = teamScoreBreakdown(team, ctx);
 
-        close(parts.place, 4.3);
+        // Two tanks: two short of the frontline target
+        close(parts.frontline, 2 * FRONTLINE_PENALTY);
+        close(parts.place, 4.3 + parts.frontline);
         // Calibrated at the player's level, not the unit count (an Elder
         // Dragon board has a unit fewer than its level)
         expect(parts.avgPlace).toBeCloseTo(
@@ -172,7 +178,7 @@ describe('teamScore', () => {
             teamScoreBreakdown({ ...team, level: undefined }, ctx).avgPlace,
         ).toBeCloseTo(estimatedAvgPlace(parts.place, 4), 2);
         expect(parts.beyondData).toBe(0);
-        expect(teamScore(team, ctx)).toBeCloseTo(20, 1);
+        expect(teamScore(team, ctx)).toBeCloseTo(20 - 100 * parts.frontline, 1);
         expect(parts.total).toBe(teamScore(team, ctx));
     });
 
@@ -213,6 +219,44 @@ describe('trait overflow', () => {
         // Lux Sunbeam (Solar ×2) on a board that already has 3 Solar
         close(overflowPenalty({ Solar: 5, Duo: 3 }, of), 2 * OVERFLOW_PER_UNIT);
         expect(overflowPenalty({ Untracked: 9 }, of)).toBe(0);
+    });
+});
+
+describe('plausibility', () => {
+    it('charges unit pairs players rarely combine', () => {
+        // 1M boards; A and B each on half of them would meet on 250k by
+        // chance: 10k is rare, 200k isn't
+        const unitRatings = {
+            A: { avgPlace: 4.5, games: 5e5 },
+            B: { avgPlace: 4.5, games: 5e5 },
+            C: { avgPlace: 4.5, games: 7.3e6 },
+        };
+        const rare = {
+            unitRatings,
+            companions: { A: [{ companion: 'B', avgPlace: 4, games: 1e4 }] },
+        };
+        const common = {
+            unitRatings,
+            companions: { A: [{ companion: 'B', avgPlace: 4, games: 2e5 }] },
+        };
+        const team = [unit('A'), unit('B')];
+
+        close(rarePairPenalty(team, rare), RARE_PAIR_PENALTY);
+        expect(rarePairPenalty(team, common)).toBe(0);
+    });
+
+    it('charges each frontline unit short of the target', () => {
+        const tank = unit('T', { role: 'ADTank' });
+        const fighter = unit('F', { role: 'ADFighter' });
+        const carry = unit('D', { role: 'ADCarry' });
+
+        close(frontlinePenalty([tank, tank, carry]), 2 * FRONTLINE_PENALTY);
+        // A fighter counts half
+        close(
+            frontlinePenalty([tank, tank, tank, fighter]),
+            0.5 * FRONTLINE_PENALTY,
+        );
+        expect(frontlinePenalty([tank, tank, tank, tank, carry])).toBe(0);
     });
 });
 

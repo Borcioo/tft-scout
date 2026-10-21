@@ -8,12 +8,12 @@
 
 /**
  * Score scale version, saved with plans. A score from another model isn't
- * comparable with a live one (5 = Emerald+ MetaTFT sample and the dead
- * unit penalty; 4 = reroll plans of up to five 3★ and the trait overflow
+ * comparable with a live one (6 = rare pair and frontline penalties; 5 =
+ * Emerald+ MetaTFT sample and the dead unit penalty; 4 = reroll plans of up to five 3★ and the trait overflow
  * penalty; 3 = units rated at 1–2★ plus reroll plans of one cost; 2 =
  * board-strength model over all stars; 1 = the old points scorer).
  */
-export const SCORE_MODEL = 5;
+export const SCORE_MODEL = 6;
 
 export const SCORING_CONFIG = {
     // Dedupe threshold for engine topN — team is dropped if it shares

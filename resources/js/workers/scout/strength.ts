@@ -84,13 +84,13 @@ export const STRENGTH = {
      * the search reaches raw places no played board has (level 9 ~0.8 vs
      * 1.28), and the estimate doesn't extrapolate past what was seen.
      * Fitted with Emerald+ star-split ratings (units at 1–2★, reroll
-     * plans under STRENGTH.reroll's caps), the trait overflow and the
-     * dead unit penalties.
+     * plans under STRENGTH.reroll's caps) and the scorer's penalties
+     * (trait overflow, dead units, rare pairs, frontline).
      * scout-cli eval prints the current fit; refit when it drifts.
      */
     calibration: {
-        slope: 0.51,
-        intercepts: { 7: 1.32, 8: 1.1, 9: 0.62 },
+        slope: 0.45,
+        intercepts: { 7: 1.41, 8: 1.26, 9: 0.81 },
         floor: 1.5,
     },
     /**
