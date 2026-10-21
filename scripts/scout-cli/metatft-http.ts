@@ -27,8 +27,12 @@ const DAY_MS = 86_400_000;
 export const METATFT_BUDGET = {
     /** Network requests one run may make. */
     perRun: 300,
-    /** Network requests all runs together may make per UTC day. */
-    perDay: 600,
+    /**
+     * Network requests all runs together may make per UTC day — a safety
+     * cap; the spacing is what keeps the load gentle. METATFT_DAY_BUDGET
+     * raises it for a run on purpose.
+     */
+    perDay: Number(process.env.METATFT_DAY_BUDGET ?? 600),
 };
 
 export class MetaTftBudgetError extends Error {}
