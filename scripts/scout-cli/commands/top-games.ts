@@ -1,6 +1,6 @@
 /**
- * `scout-cli top-games` — full boards from the top of the ladder, from
- * Riot's API, frozen to disk.
+ * `scout-cli top-games` — boards from the top of the ladder, frozen to
+ * disk.
  *
  * The explorer's finest skill filter is a rank tier (Challenger ≈
  * thousands of players across regions). The best players find new comps
@@ -8,12 +8,14 @@
  * with stars and items, level, traits, placement — for the whole lobby.
  * Two sources, same match format (Riot's match-v1):
  *
- *   metatft (default, no key)
+ *   metatft (default, no key; through metatft-http — cached, throttled,
+ *   budgeted)
  *     1. api.metatft.com/tft-leaderboard/v2/global (top 1000 by LP across
  *        regions) or /v2/pro (pro players)
  *     2. /public/profile/lookup_by_puuid/{region}/{puuid} → their last 40
- *        matches, each with a link to the full match
- *     3. the full match JSON → all 8 boards
+ *        matches (~10 days) with their own board: one request per player
+ *     3. --lobbies only: the full match JSON → all 8 boards, one request
+ *        per match (kept forever in the cache)
  *   riot (--source riot, needs RIOT_API_KEY)
  *     1. /tft/league/v1/challenger per platform → the top N by LP
  *     2. /tft/match/v1/matches/by-puuid/{puuid}/ids → their recent matches
@@ -23,15 +25,17 @@
  *
  * Stores boards only: no puuids or names, just whether the board belonged
  * to one of the top players. Resumable — the output file keeps fetched
- * match ids; a rerun only fetches what is missing.
+ * match ids, and MetaTFT answers come from the cache on a rerun; past the
+ * request budget the run saves and stops.
  *
  * Riot: a development key (developer.riotgames.com) lasts 24 h; limits
  * handled for it — 20 requests/s and 100/2 min per routing host,
- * Retry-After on 429. MetaTFT: one request every 250 ms.
+ * Retry-After on 429.
  *
  * Usage:
  *   npm run scout -- top-games [--source metatft|riot] [--pro] [--set 18]
- *       [--top 200] [--days 3] [--out tmp/scout-eval/top-games-18.json]
+ *       [--top 200] [--days 14] [--lobbies] [--budget 300]
+ *       [--out tmp/scout-eval/top-games-18.json]
  *       riot only: [--platforms kr,euw1,na1,…] [--matches 20]
  */
 
@@ -39,6 +43,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import {
+    METATFT_BUDGET,
+    MetaTftBudgetError,
+    metatftGet,
+    metatftRequestsThisRun,
+} from '../metatft-http';
 
 const RANKED_QUEUE = 1100;
 
@@ -72,9 +83,11 @@ type Board = {
     placement: number;
     level: number;
     lastRound: number;
-    goldLeft: number;
+    goldLeft?: number;
+    /** Lobby's average rating (MetaTFT's numeric LP scale), if known. */
+    lobbyRating?: number;
     units: Unit[];
-    /** Active traits: api name → units counted. */
+    /** Active traits: api name → tier reached (1 = first breakpoint). */
     traits: Record<string, number>;
 };
 
@@ -93,10 +106,12 @@ function parseArgs(argv: string[]) {
         top: 200,
         platforms: Object.keys(ROUTING),
         matches: 20,
-        days: 3,
+        days: 14,
         out: '',
         source: 'metatft',
         pro: false,
+        lobbies: false,
+        budget: METATFT_BUDGET.perRun,
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -118,6 +133,10 @@ function parseArgs(argv: string[]) {
             args.source = argv[++i];
         } else if (a === '--pro') {
             args.pro = true;
+        } else if (a === '--lobbies') {
+            args.lobbies = true;
+        } else if (a === '--budget') {
+            args.budget = Number(argv[++i]);
         } else {
             throw new Error(`Unknown flag for top-games: ${a}`);
         }
@@ -251,8 +270,6 @@ async function riot(host: string, path: string, key: string): Promise<any> {
     }
 }
 
-const metatft = (url: string) => getJson(url, [], () => sleep(250));
-
 /** Top players by LP across platforms (puuid + platform). */
 async function topPlayers(platforms: string[], top: number, key: string) {
     const entries: { puuid: string; platform: string; lp: number }[] = [];
@@ -315,7 +332,7 @@ export function boardsOf(match: any, topPuuids: Set<string>, set: number) {
             traits: Object.fromEntries(
                 (p.traits ?? [])
                     .filter((t) => (t.tier_current ?? 0) > 0)
-                    .map((t) => [t.name, t.num_units]),
+                    .map((t) => [t.name, t.tier_current]),
             ),
         }),
     );
@@ -359,34 +376,78 @@ async function matchesFromRiot(
     return { puuids: new Set(players.map((p) => p.puuid)), matches };
 }
 
-async function matchesFromMetaTft(
+/** A top player's own board from a MetaTFT profile match summary. */
+function ownBoard(m: any): Board {
+    const sum = m.summary ?? {};
+
+    return {
+        match: m.riot_match_id,
+        version: `patch ${m.patch}`,
+        top: true,
+        placement: m.placement,
+        level: sum.level,
+        lastRound: sum.last_round,
+        lobbyRating: m.avg_rating_numeric,
+        units: (sum.units ?? []).map((u) => ({
+            character: u.character_id,
+            stars: u.tier,
+            items: u.itemNames ?? [],
+        })),
+        // "DA_18_Inferno_1" → tier 1
+        traits: Object.fromEntries(
+            (sum.traits ?? []).map((t: string) => {
+                const cut = t.lastIndexOf('_');
+
+                return [t.slice(0, cut), Number(t.slice(cut + 1))];
+            }),
+        ),
+    };
+}
+
+/**
+ * Own boards of the top players straight from their profiles; with
+ * --lobbies, the full matches to fetch for everyone else in the lobby.
+ */
+async function collectFromMetaTft(
     args: ReturnType<typeof parseArgs>,
     since: number,
+    file: TopGamesFile,
 ) {
     const board = args.pro ? 'pro' : 'global';
-    const ladder = await metatft(
+    const ladder = await metatftGet(
         `https://api.metatft.com/tft-leaderboard/v2/${board}?offset=0&limit=${args.top}`,
     );
     const players = (ladder?.data ?? []).slice(0, args.top);
     const matches = new Map<string, () => Promise<any>>();
+    const seen = new Set(file.boards.map((b) => `${b.match}:${b.placement}`));
 
     process.stderr.write(
         `top-games: MetaTFT ${board} ladder, ${players.length} players\n`,
     );
 
     for (const [i, p] of players.entries()) {
-        const profile = await metatft(
+        const profile = await metatftGet(
             `https://api.metatft.com/public/profile/lookup_by_puuid/${p.summoner_region}/${p.puuid}`,
         );
 
         for (const m of profile?.matches ?? []) {
             if (
-                m.queue_id === RANKED_QUEUE &&
-                m.tft_set === `TFTSet${args.set}` &&
-                m.match_timestamp / 1000 >= since &&
-                m.match_data_url
+                m.queue_id !== RANKED_QUEUE ||
+                m.tft_set !== `TFTSet${args.set}` ||
+                m.match_timestamp / 1000 < since
             ) {
-                matches.set(m.riot_match_id, () => metatft(m.match_data_url));
+                continue;
+            }
+
+            if (!seen.has(`${m.riot_match_id}:${m.placement}`)) {
+                seen.add(`${m.riot_match_id}:${m.placement}`);
+                file.boards.push(ownBoard(m));
+            }
+
+            if (args.lobbies && m.match_data_url) {
+                matches.set(m.riot_match_id, () =>
+                    metatftGet(m.match_data_url),
+                );
             }
         }
 
@@ -400,6 +461,7 @@ async function matchesFromMetaTft(
 
 export async function runTopGames(argv: string[]): Promise<void> {
     const args = parseArgs(argv);
+    METATFT_BUDGET.perRun = args.budget;
     const file: TopGamesFile = existsSync(args.out)
         ? JSON.parse(readFileSync(args.out, 'utf8'))
         : {
@@ -415,33 +477,50 @@ export async function runTopGames(argv: string[]): Promise<void> {
     }
 
     const since = Math.floor(Date.now() / 1000) - args.days * 86_400;
-    const { puuids, matches } =
-        args.source === 'riot'
-            ? await matchesFromRiot(args, since)
-            : await matchesFromMetaTft(args, since);
-    file.players = puuids.size;
+    let stopped = '';
 
-    const done = new Set(file.done);
-    const todo = [...matches].filter(([id]) => !done.has(id));
+    try {
+        const { puuids, matches } =
+            args.source === 'riot'
+                ? await matchesFromRiot(args, since)
+                : await collectFromMetaTft(args, since, file);
+        file.players = puuids.size;
 
-    process.stderr.write(
-        `top-games: ${puuids.size} players, ${todo.length} matches to fetch (${done.size} done)\n`,
-    );
+        const done = new Set(file.done);
+        const todo = [...matches].filter(([id]) => !done.has(id));
 
-    for (const [i, [id, fetchMatch]] of todo.entries()) {
-        file.boards.push(...boardsOf(await fetchMatch(), puuids, args.set));
-        file.done.push(id);
+        process.stderr.write(
+            `top-games: ${puuids.size} players, ${todo.length} full matches to fetch (${done.size} done)\n`,
+        );
 
-        if (i % 25 === 24 || i === todo.length - 1) {
-            writeFileSync(args.out, JSON.stringify(file));
-            process.stderr.write(`  ${i + 1}/${todo.length}\n`);
+        for (const [i, [id, fetchMatch]] of todo.entries()) {
+            const lobby = boardsOf(await fetchMatch(), puuids, args.set);
+
+            if (lobby.length > 0) {
+                // The full lobby replaces own boards taken from profiles
+                file.boards = file.boards.filter((b) => b.match !== id);
+                file.boards.push(...lobby);
+            }
+
+            file.done.push(id);
+
+            if (i % 25 === 24 || i === todo.length - 1) {
+                writeFileSync(args.out, JSON.stringify(file));
+                process.stderr.write(`  ${i + 1}/${todo.length}\n`);
+            }
         }
+    } catch (e) {
+        if (!(e instanceof MetaTftBudgetError)) {
+            throw e;
+        }
+
+        stopped = e.message;
     }
 
     writeFileSync(args.out, JSON.stringify(file));
 
     const fetched = new Set(file.boards.map((b) => b.match)).size;
     process.stdout.write(
-        `${args.out}: ${fetched} ranked set-${args.set} matches, ${file.boards.length} boards (${file.boards.filter((b) => b.top).length} of the top ${file.players})\n`,
+        `${args.out}: ${fetched} ranked set-${args.set} matches, ${file.boards.length} boards (${file.boards.filter((b) => b.top).length} of the top ${file.players}) | MetaTFT requests this run: ${metatftRequestsThisRun()}${stopped ? `\nstopped: ${stopped}` : ''}\n`,
     );
 }

@@ -56,6 +56,14 @@ Fiddlesticks, Karma — 122 gry w Master+, średnio 1.72; ta sama rodzina co naj
 
 ## Dane
 
+**Zasada:** MetaTFT to nieoficjalne API współdzielone z ich stroną — za dużo zapytań = ban. Wszystkie narzędzia
+CLI idą przez `scripts/scout-cli/metatft-http.ts`: kopia każdej odpowiedzi w `tmp/metatft-cache` (pełne mecze na
+zawsze, zapytania o patch 7 dni, drabinka/profile 1 dzień), jedno zapytanie na 2 s, budżet 300 na uruchomienie i
+600 na dzień; po przekroczeniu narzędzie zapisuje postęp i kończy. Pełny `oracle` (~650 zapytań) rozkłada się więc
+na dwa dni. `top-games` domyślnie bierze tylko własne plansze graczy z profilu (1 zapytanie na gracza); pełne lobby
+(`--lobbies`, 1 zapytanie na mecz) tylko gdy potrzebne. W aplikacji dane mają być naszą kopią w DB odświeżaną
+przyrostowo w syncu (to, co już mamy, nie jest pobierane ponownie); przeglądarka nigdy nie pyta MetaTFT.
+
 - `scout oracle --rank MASTER,GRANDMASTER,CHALLENGER --min-games 10` → `tmp/scout-eval/oracle-18.4b-master.json`
   (5.6k plansz z ≥10 grami, mediana 34). Explorer: `unit_tier_numitems_unique={api}-{kopia}_{gwiazdki}_{itemy}`.
 - MetaTFT trzyma starsze patche: w oknie `days=20` są 18.3b (21.9M gier), 18.4 (3.4M), 18.4b (44M; okno 2-dniowe
